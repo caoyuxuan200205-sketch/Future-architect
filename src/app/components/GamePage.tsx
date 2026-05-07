@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, type CSSProperties } from "react";
 import { RefreshCw, ChevronRight, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { AIAssistant } from "./AIAssistant";
 
 // ================================================================
 // SECTION 1: 数据层（所有数组，方便后续扩展）
@@ -2674,6 +2675,7 @@ export function GamePage() {
           >
             <RefreshCw size={12} /> 重新生成
           </button>
+          <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
         </div>
       </div>
     );
@@ -2732,6 +2734,7 @@ export function GamePage() {
               </div>
             ))}
           </div>
+          <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
         </div>
       </div>
     );
@@ -3339,6 +3342,7 @@ export function GamePage() {
             onClose={() => { }}
           />
         </aside>
+        <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
       </div >
     );
   }
@@ -3472,6 +3476,7 @@ export function GamePage() {
           >
             {(!selectedOfferId && qualified.length > 0) ? "放弃 Offer 并查看结局" : "确认，查看结局 →"}
           </button>
+          <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
         </div>
       </div>
     );
@@ -3651,6 +3656,7 @@ export function GamePage() {
           >
             📝 填写反馈问卷，帮助我们优化游戏
           </a>
+          <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
         </div>
       </div>
     );
