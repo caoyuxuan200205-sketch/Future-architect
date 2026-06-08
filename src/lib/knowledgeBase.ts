@@ -1,10 +1,15 @@
+import { supabase } from "./supabase";
+
 export interface KnowledgeChunk {
   id: string;
   category: string;
   content: string;
   keywords: string[];
+  title?: string;
+  similarity?: number;
 }
 
+// 26个基础本地游戏机制（作为云端连接失败或未配置时的 Graceful Fallback 兜底数据）
 export const KNOWLEDGE_BASE: KnowledgeChunk[] = [
   {
     id: "attr_arch",
@@ -45,7 +50,7 @@ export const KNOWLEDGE_BASE: KnowledgeChunk[] = [
   {
     id: "attr_network",
     category: "属性解析",
-    content: "人脉值 (network): 能触发隐藏的内推和优质兼职。参加校招、线下沙龙等可以提升。",
+    content: "人脉值 (network): 能触发隐藏的内推 and 优质兼职。参加校招、线下沙龙等可以提升。",
     keywords: ["人脉", "内推", "认识", "学长", "关系"]
   },
   {
@@ -147,7 +152,7 @@ export const KNOWLEDGE_BASE: KnowledgeChunk[] = [
   {
     id: "early_game",
     category: "游戏技巧",
-    content: "前期玩法建议(研一): 优先弄清楚自己的路线。如果要转行，尽早开始'学产品'；如果英语基础差且不打算去外企，千万别点'准备雅思'浪费钱和精力。时刻关注导师好感度，低于30就要开始'送礼'或'改图'了。",
+    content: "前期玩法建议(研一): 优先弄清楚自己的路线。如果要转行，尽早开始'学产品'；如果英语基础差且不打算去外企，千万别点'准备雅思'浪费钱 and 精力。时刻关注导师好感度，低于30就要开始'送礼'或'改图'了。",
     keywords: ["前期", "研一", "开局", "怎么玩", "攻略"]
   },
   {
@@ -164,8 +169,43 @@ export const KNOWLEDGE_BASE: KnowledgeChunk[] = [
   }
 ];
 
-export function searchKnowledge(query: string, topK: number = 3): KnowledgeChunk[] {
-  // 极简关键词匹配评分
+// 获取 ModelScope Qwen3-Embedding 向量 (4096维)
+async function getQueryEmbedding(query: string): Promise<number[]> {
+  const customKey = localStorage.getItem("qwen_api_key");
+  const customBaseUrl = localStorage.getItem("qwen_base_url");
+
+  const apiKey = customKey || import.meta.env.VITE_QWEN_API_KEY || "";
+  const baseUrl = customBaseUrl || import.meta.env.VITE_QWEN_BASE_URL || "https://api-inference.modelscope.cn/v1";
+  const model = "Qwen/Qwen3-Embedding-8B";
+
+  if (!apiKey) {
+    throw new Error("Missing ModelScope API Key");
+  }
+
+  const response = await fetch(`${baseUrl}/embeddings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: model,
+      input: query,
+      encoding_format: "float" // 强制要求 float
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Embedding API failed: ${response.status} - ${errText}`);
+  }
+
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+
+// 本地全文/关键词匹配搜索（兜底方案）
+export function localSearch(query: string, topK: number = 3): KnowledgeChunk[] {
   const queryWords = query.toLowerCase().split(/[ \t\n,?.!，。？！]+/).filter(w => w.length > 0);
   if (queryWords.length === 0) return [];
 
@@ -174,11 +214,9 @@ export function searchKnowledge(query: string, topK: number = 3): KnowledgeChunk
     const content = chunk.content.toLowerCase();
     
     queryWords.forEach(word => {
-      // 匹配关键字
       if (chunk.keywords.some(k => k.toLowerCase().includes(word))) {
         score += 3;
       }
-      // 匹配内容
       if (content.includes(word)) {
         score += 1;
       }
@@ -187,11 +225,48 @@ export function searchKnowledge(query: string, topK: number = 3): KnowledgeChunk
     return { chunk, score };
   });
 
-  // 按分数排序并过滤掉0分的
-  const results = scored
+  return scored
     .filter(s => s.score > 0)
     .sort((a, b) => b.score - a.score)
-    .map(s => s.chunk);
+    .map(s => s.chunk)
+    .slice(0, topK);
+}
 
-  return results.slice(0, topK);
+// 异步 RAG 检索入口
+export async function searchKnowledge(query: string, topK: number = 4): Promise<KnowledgeChunk[]> {
+  try {
+    console.log(`[RAG Search] Starting ModelScope Qwen3 semantic search for: "${query}"`);
+    
+    const queryEmbedding = await getQueryEmbedding(query);
+    
+    const { data, error } = await supabase.rpc("match_knowledge_chunks", {
+      query_embedding: queryEmbedding,
+      match_threshold: 0.3,
+      match_count: topK
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || data.length === 0) {
+      console.log(`[RAG Search] Cloud returned 0 matches. Falling back to local search.`);
+      return localSearch(query, topK);
+    }
+
+    console.log(`[RAG Search] Cloud semantic search success. Found ${data.length} matches.`);
+    
+    return data.map((row: any) => ({
+      id: row.id.toString(),
+      category: row.category,
+      content: `【${row.title}】\n${row.content}`,
+      keywords: [],
+      title: row.title,
+      similarity: row.similarity
+    }));
+
+  } catch (error: any) {
+    console.warn(`[RAG Search] Cloud search failed: ${error.message || error}. Falling back to local keyword matching.`);
+    return localSearch(query, topK);
+  }
 }

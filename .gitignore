@@ -121,3 +121,8 @@ dist
 Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
+
+# Large SQL data files (Database seed/import data)
+insert_knowledge_chunks.sql
+public/insert_knowledge_chunks.sql
+
