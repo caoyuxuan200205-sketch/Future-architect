@@ -33,6 +33,68 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
   const [doubaoEmbeddingEpInput, setDoubaoEmbeddingEpInput] = useState(() => localStorage.getItem("doubao_embedding_ep") || "");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // 电脑端拉伸大小逻辑
+  const [width, setWidth] = useState(460); // 默认电脑端宽度 460px
+  const [height, setHeight] = useState(660); // 默认电脑端高度 660px
+  const [isMobile, setIsMobile] = useState(true);
+  const resizeRef = useRef<{ active: boolean; dir: "w" | "h" | "both"; startX: number; startY: number; startW: number; startH: number } | null>(null);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  const handleMouseDown = (e: React.MouseEvent, dir: "w" | "h" | "both") => {
+    e.preventDefault();
+    resizeRef.current = {
+      active: true,
+      dir,
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: width,
+      startH: height,
+    };
+    document.body.style.cursor = dir === "w" ? "ew-resize" : dir === "h" ? "ns-resize" : "nwse-resize";
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!resizeRef.current || !resizeRef.current.active) return;
+    const { dir, startX, startY, startW, startH } = resizeRef.current;
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+
+    if (dir === "w" || dir === "both") {
+      const newWidth = Math.max(340, Math.min(window.innerWidth * 0.9, startW - deltaX));
+      setWidth(newWidth);
+    }
+    if (dir === "h" || dir === "both") {
+      const newHeight = Math.max(450, Math.min(window.innerHeight * 0.9, startH - deltaY));
+      setHeight(newHeight);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (resizeRef.current) {
+      resizeRef.current.active = false;
+    }
+    document.body.style.cursor = "";
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  };
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
   // 自动滚动到最新消息
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -161,7 +223,30 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
 
       {/* 聊天窗口 */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-80 md:w-96 h-[500px] max-h-[80vh] bg-[#1a1c23] border border-gray-700 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden font-sans">
+        <div 
+          className="fixed bottom-6 right-6 w-80 h-[500px] max-h-[80vh] md:w-auto md:h-auto md:max-h-[90vh] bg-[#1a1c23] border border-gray-700 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden font-sans"
+          style={isMobile ? undefined : { width: `${width}px`, height: `${height}px`, maxWidth: "90vw" }}
+        >
+          {/* 电脑端拉伸大小手柄 */}
+          {!isMobile && (
+            <>
+              {/* 左边缘拉伸 */}
+              <div 
+                className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-blue-500/20 z-50 transition-colors" 
+                onMouseDown={e => handleMouseDown(e, "w")}
+              />
+              {/* 上边缘拉伸 */}
+              <div 
+                className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-blue-500/20 z-50 transition-colors" 
+                onMouseDown={e => handleMouseDown(e, "h")}
+              />
+              {/* 左上角对角线拉伸 */}
+              <div 
+                className="absolute top-0 left-0 w-3 h-3 cursor-nwse-resize hover:bg-blue-500/30 z-50 transition-colors" 
+                onMouseDown={e => handleMouseDown(e, "both")}
+              />
+            </>
+          )}
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-blue-900 to-indigo-900 border-b border-gray-700">
             <div className="flex items-center gap-2">
