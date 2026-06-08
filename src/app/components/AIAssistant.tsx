@@ -160,10 +160,10 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
       let retrievedChunks = [];
       if (activeTab === "game") {
         setLoadingText("建哥正在整理加点攻略...");
-        retrievedChunks = localSearch(userQuery, 4);
+        retrievedChunks = localSearch(userQuery, 6);
       } else {
         setLoadingText("正在云端向量库检索避坑经验...");
-        retrievedChunks = await searchKnowledge(userQuery, 4);
+        retrievedChunks = await searchKnowledge(userQuery, 6);
         setLoadingText("建哥正在梳理真实的转行案例...");
       }
       
