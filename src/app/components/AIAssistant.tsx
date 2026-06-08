@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { MessageSquare, X, Send, Bot, User, Loader2, Settings, Key } from "lucide-react";
 import { searchKnowledge, localSearch } from "../../lib/knowledgeBase";
 import { askAssistant, ChatMessage } from "../../lib/llm";
-import { supabase } from "../../lib/supabase";
 
 interface LocalChatMessage {
   role: "system" | "user" | "assistant";
@@ -32,8 +31,6 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
   const [qwenBaseUrlInput, setQwenBaseUrlInput] = useState(() => localStorage.getItem("qwen_base_url") || "");
   const [doubaoApiKeyInput, setDoubaoApiKeyInput] = useState(() => localStorage.getItem("doubao_api_key") || "");
   const [doubaoEmbeddingEpInput, setDoubaoEmbeddingEpInput] = useState(() => localStorage.getItem("doubao_embedding_ep") || "");
-  const [isImporting, setIsImporting] = useState(false);
-  const [importStatus, setImportStatus] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 自动滚动到最新消息
@@ -46,114 +43,6 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
       scrollToBottom();
     }
   }, [gameMessages, realMessages, activeTab, isOpen]);
-
-  const handleImportData = async () => {
-    if (isImporting) return;
-    setIsImporting(true);
-    setImportStatus("正在从开发服务器读取 SQL 向量文件...");
-    
-    try {
-      const response = await fetch("/insert_knowledge_chunks.sql");
-      if (!response.ok) {
-        throw new Error(`无法获取 SQL 文件: ${response.status} ${response.statusText}`);
-      }
-      
-      const sql = await response.text();
-      setImportStatus("文件读取完成，正在解析数据...");
-      
-      // 解析 SQL 记录
-      const records: any[] = [];
-      let pos = 0;
-      const len = sql.length;
-      const prefix = "INSERT INTO knowledge_chunks (category, title, content, metadata, embedding) VALUES (";
-      
-      while (pos < len) {
-        const startIdx = sql.indexOf(prefix, pos);
-        if (startIdx === -1) break;
-        
-        pos = startIdx + prefix.length;
-        
-        const values: string[] = [];
-        for (let i = 0; i < 5; i++) {
-          if (sql[pos] !== "'") {
-            throw new Error(`解析失败: 应该在位置 ${pos} 处是单引号，但读取到: ${sql[pos]}`);
-          }
-          pos++; // 跳过开头的单引号
-          
-          let str = "";
-          while (pos < len) {
-            if (sql[pos] === "'") {
-              if (sql[pos + 1] === "'") {
-                str += "'";
-                pos += 2;
-              } else {
-                pos++; // 跳过结尾的单引号
-                break;
-              }
-            } else {
-              str += sql[pos];
-              pos++;
-            }
-          }
-          values.push(str);
-          
-          if (i < 4) {
-            if (sql[pos] === ",") {
-              pos++;
-              while (sql[pos] === " " || sql[pos] === "\r" || sql[pos] === "\n") pos++;
-            } else {
-              throw new Error(`解析失败: 应该在位置 ${pos} 处是逗号，但读取到: ${sql[pos]}`);
-            }
-          }
-        }
-        
-        while (pos < len && (sql[pos] === " " || sql[pos] === "\r" || sql[pos] === "\n")) pos++;
-        if (sql[pos] !== ")" || sql[pos + 1] !== ";") {
-          throw new Error(`解析失败: 应该在位置 ${pos} 处是 ');'，但读取到: ${sql[pos]}${sql[pos+1]}`);
-        }
-        pos += 2;
-        
-        records.push({
-          category: values[0],
-          title: values[1],
-          content: values[2],
-          metadata: JSON.parse(values[3]),
-          embedding: JSON.parse(values[4])
-        });
-      }
-      
-      setImportStatus(`解析完成，共 ${records.length} 条记录。正在上传至 Supabase...`);
-      
-      // 批量上传
-      const BATCH_SIZE = 50;
-      const total = records.length;
-      
-      for (let start = 0; start < total; start += BATCH_SIZE) {
-        const end = Math.min(start + BATCH_SIZE, total);
-        const batch = records.slice(start, end);
-        const batchIndex = Math.floor(start / BATCH_SIZE) + 1;
-        const totalBatches = Math.ceil(total / BATCH_SIZE);
-        
-        setImportStatus(`正在上传: 批次 ${batchIndex}/${totalBatches} (${start} ~ ${end} 条)...`);
-        
-        const { error } = await supabase.from("knowledge_chunks").insert(batch);
-        
-        if (error) {
-          throw new Error(`Supabase 写入失败: ${error.message}`);
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 150));
-      }
-      
-      setImportStatus("🎉 823 条向量数据成功导入到 Supabase！");
-      alert("🎉 向量数据导入成功！可以开始检索了。");
-    } catch (err: any) {
-      console.error(err);
-      setImportStatus(`❌ 导入失败: ${err.message || err}`);
-    } finally {
-      setIsImporting(false);
-    }
-  };
 
   const renderMarkdown = (text: string) => {
     // 1. 转义 HTML 字符，防止 XSS
@@ -394,26 +283,6 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
                     placeholder="输入 ep-2026xxx 向量推理端点"
                     className="w-full bg-[#13141a] text-gray-200 text-xs rounded-lg py-2 px-3 border border-gray-700 focus:outline-none focus:border-blue-500 transition-colors"
                   />
-                </div>
-                
-                <hr className="border-gray-700 my-2" />
-                
-                {/* Importer tool */}
-                <div className="bg-blue-950/20 border border-blue-900/40 rounded-lg p-3">
-                  <span className="block text-[10px] font-semibold text-blue-400 mb-1">⚙️ 开发者工具 (向量库导入)</span>
-                  <p className="text-[9px] text-gray-400 mb-2 leading-relaxed">
-                    若本地终端因代理问题无法连接 Supabase，可在此处通过浏览器（借用浏览器系统代理环境）一键导入本地 SQL 向量文件。
-                  </p>
-                  <button
-                    onClick={handleImportData}
-                    disabled={isImporting}
-                    className="w-full py-1.5 rounded bg-blue-700 hover:bg-blue-600 disabled:bg-gray-700 text-white text-xs font-medium transition-colors"
-                  >
-                    {isImporting ? "正在导入中..." : "一键导入本地 823 条向量"}
-                  </button>
-                  {importStatus && (
-                    <p className="text-[9px] text-blue-300 mt-2 text-center break-all whitespace-pre-wrap">{importStatus}</p>
-                  )}
                 </div>
               </div>
               
