@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Send, Bot, User, Loader2, Settings, Key } from "lucide-react";
+import { MessageSquare, X, Send, Bot, User, Loader2, Settings, Key, Monitor, MapPinned } from "lucide-react";
 import { searchKnowledge, localSearch } from "../../lib/knowledgeBase";
 import { askAssistant, ChatMessage } from "../../lib/llm";
+import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
 
 interface LocalChatMessage {
   role: "system" | "user" | "assistant";
@@ -26,6 +27,7 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [utilityNotice, setUtilityNotice] = useState<"computer" | "map" | null>(null);
   const [qwenKeyInput, setQwenKeyInput] = useState(() => localStorage.getItem("qwen_api_key") || "");
   const [qwenModelInput, setQwenModelInput] = useState(() => localStorage.getItem("qwen_model") || "");
   const [qwenBaseUrlInput, setQwenBaseUrlInput] = useState(() => localStorage.getItem("qwen_base_url") || "");
@@ -48,6 +50,11 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  useEffect(() => {
+    if (!utilityNotice) return;
+    const timer = window.setTimeout(() => setUtilityNotice(null), 2200);
+    return () => window.clearTimeout(timer);
+  }, [utilityNotice]);
   const handleMouseDown = (e: React.MouseEvent, dir: "w" | "h" | "both") => {
     e.preventDefault();
     resizeRef.current = {
@@ -205,20 +212,54 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
   };
 
   const currentMessages = activeTab === "game" ? gameMessages : realMessages;
+  const showUtilityEntrances = ["event_view", "action_choice", "action_result"].includes(gameContext?.phase);
 
   return (
     <>
-      {/* 悬浮按钮 */}
+      {/* 悬浮入口 */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-blue-700 transition-transform hover:scale-105 z-50 group"
-          title="召唤建哥 (AI攻略助手)"
-        >
-          <MessageSquare size={24} />
-          {/* 未读提示小红点 */}
-          <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
-        </button>
+        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex items-end gap-2.5">
+          {utilityNotice && (
+            <div className="absolute bottom-[calc(100%+12px)] right-0 whitespace-nowrap rounded-lg border border-white/10 bg-[#0b1020]/95 px-3 py-2 text-xs text-slate-200 shadow-xl backdrop-blur-md">
+              {utilityNotice === "computer" ? "电脑功能正在规划中" : "地图功能正在规划中"}
+            </div>
+          )}
+
+          {showUtilityEntrances && (
+            <>
+              <button
+                type="button"
+                onClick={() => setUtilityNotice("computer")}
+                className={`${ENABLE_DESKTOP_GAME_SIDEBAR ? "flex lg:hidden" : "flex"} group relative h-12 w-12 items-center justify-center rounded-full border border-[#c9a84c]/45 bg-[#0b1020]/90 text-[#d8bd69] shadow-lg backdrop-blur-md transition-all hover:-translate-y-1 hover:border-[#c9a84c]/80 hover:bg-[#171a22]`}
+                aria-label="电脑（功能开发中）"
+                title="电脑（功能开发中）"
+              >
+                <Monitor size={21} strokeWidth={1.8} />
+                <span className="pointer-events-none absolute bottom-full mb-2 rounded bg-black/80 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">电脑</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setUtilityNotice("map")}
+                className={`${ENABLE_DESKTOP_GAME_SIDEBAR ? "flex lg:hidden" : "flex"} group relative h-12 w-12 items-center justify-center rounded-full border border-blue-400/40 bg-[#0b1020]/90 text-blue-300 shadow-lg backdrop-blur-md transition-all hover:-translate-y-1 hover:border-blue-300/75 hover:bg-[#111a2b]`}
+                aria-label="地图（功能开发中）"
+                title="地图（功能开发中）"
+              >
+                <MapPinned size={21} strokeWidth={1.8} />
+                <span className="pointer-events-none absolute bottom-full mb-2 rounded bg-black/80 px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">地图</span>
+              </button>
+            </>
+          )}
+
+          <button
+            onClick={() => setIsOpen(true)}
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl transition-transform hover:scale-105 hover:bg-blue-700"
+            title="召唤建哥 (AI攻略助手)"
+          >
+            <MessageSquare size={24} />
+            {/* 未读提示小红点 */}
+            <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+          </button>
+        </div>
       )}
 
       {/* 聊天窗口 */}

@@ -1,7 +1,14 @@
-import { useState, useCallback, useEffect, type CSSProperties } from "react";
-import { RefreshCw, ChevronRight, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert } from "lucide-react";
+import { useState, useCallback, useEffect, useRef, type CSSProperties } from "react";
+import { RefreshCw, ChevronRight, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert, BriefcaseBusiness, CheckCircle2, Pencil, Check, X, Share2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { AIAssistant } from "./AIAssistant";
+import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
+import {
+  DesktopGameSidebar,
+  DesktopMapPreview,
+  DesktopComputerPreview,
+  type DesktopGameSection,
+} from "./DesktopGameSidebar";
 
 // ================================================================
 // SECTION 1: 数据层（所有数组，方便后续扩展）
@@ -79,6 +86,7 @@ const STAT_META: Record<StatKey, { label: string; positive: boolean; color: stri
 };
 
 interface CharacterInfo {
+  name: string;
   undergradTier: number;
   undergradSchool: string;
   masterTier: number;
@@ -894,7 +902,7 @@ function applyEffects(stats: Stats, effects: Record<string, number | [number, nu
   return { newStats, delta };
 }
 
-function generateCharacter(): { character: CharacterInfo; stats: Stats } {
+function generateCharacter(name: string): { character: CharacterInfo; stats: Stats } {
   // 本科院校层次
   const r1 = Math.random();
   const undergradTier = r1 < 0.05 ? 4 : r1 < 0.25 ? 3 : r1 < 0.60 ? 2 : 1;
@@ -932,7 +940,7 @@ function generateCharacter(): { character: CharacterInfo; stats: Stats } {
     mentorFavorability: Math.floor(Math.random() * (60 - 10 + 1)) + 10,
   };
 
-  return { character: { undergradTier, undergradSchool, masterTier, masterSchool, isOverseas }, stats };
+  return { character: { name, undergradTier, undergradSchool, masterTier, masterSchool, isOverseas }, stats };
 }
 
 function calculateEnding(stats: Stats): Ending {
@@ -1175,6 +1183,100 @@ const COMPANY_OFFER_META: Record<
   zuoyebang: { salary: "17k·14（月）", perks: "教育赛道 · 技术成长 · 远程灵活", level: "小厂" },
   yuanfudao: { salary: "17k·14（月）", perks: "在线教育 · 学习氛围 · 成长空间", level: "小厂" },
 };
+
+const COMPANY_LOGOS: Record<string, string> = {
+  tencent: "/assets/visuals/companies/tencent.png",
+  bytedance: "/assets/visuals/companies/bytedance.jpeg",
+  alibaba: "/assets/visuals/companies/alibaba.webp",
+  jd: "/assets/visuals/companies/jd.png",
+  baidu: "/assets/visuals/companies/baidu.jpg",
+  kuaishou: "/assets/visuals/companies/kuaishou.webp",
+  google: "/assets/visuals/companies/google.webp",
+  microsoft: "/assets/visuals/companies/microsoft.webp",
+  meta: "/assets/visuals/companies/meta.png",
+  mckinsey: "/assets/visuals/companies/mckinsey.webp",
+  bcg: "/assets/visuals/companies/bcg.webp",
+  bain: "/assets/visuals/companies/bain.png",
+  tesla: "/assets/visuals/companies/tesla.webp",
+  li: "/assets/visuals/companies/li.webp",
+  xpeng: "/assets/visuals/companies/xpeng.png",
+  byd: "/assets/visuals/companies/byd.jpg",
+  netease: "/assets/visuals/companies/netease.jpg",
+  xiaohongshu: "/assets/visuals/companies/xiaohongshu.webp",
+  bilibili: "/assets/visuals/companies/bilibili.jpg",
+  dewu: "/assets/visuals/companies/dewu.webp",
+  ctrip: "/assets/visuals/companies/ctrip.webp",
+  didi: "/assets/visuals/companies/didi.jpg",
+  iqiyi: "/assets/visuals/companies/iqiyi.jpg",
+  keep: "/assets/visuals/companies/keep.jpg",
+  soul: "/assets/visuals/companies/soul.webp",
+  boss: "/assets/visuals/companies/boss.webp",
+  fanka: "/assets/visuals/companies/fanka.jpg",
+  mixue: "/assets/visuals/companies/mixue.jpeg",
+  chayan: "/assets/visuals/companies/chayan.png",
+  zuoyebang: "/assets/visuals/companies/zuoyebang.jpg",
+  yuanfudao: "/assets/visuals/companies/yuanfudao.png",
+  cadg: "/assets/visuals/companies/cadg.jpg",
+  vanke: "/assets/visuals/companies/vanke.jpg",
+  longfor: "/assets/visuals/companies/longfor.jpg",
+  cushman: "/assets/visuals/companies/cushman.jpg",
+  meituan: "/assets/visuals/companies/meituan.png",
+};
+const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
+  tencent: "/assets/visuals/endings/tencent.png",
+  bytedance: "/assets/visuals/endings/bytedance.png",
+  alibaba: "/assets/visuals/endings/alibaba.png",
+  jd: "/assets/visuals/endings/jd.png",
+  baidu: "/assets/visuals/endings/baidu.png",
+  kuaishou: "/assets/visuals/endings/kuaishou.png",
+  google: "/assets/visuals/endings/google.png",
+  microsoft: "/assets/visuals/endings/microsoft.png",
+  amazon: "/assets/visuals/endings/amazon.png",
+  meta: "/assets/visuals/endings/meta.png",
+  apple: "/assets/visuals/endings/apple.png",
+  mckinsey: "/assets/visuals/endings/mckinsey.png",
+  bcg: "/assets/visuals/endings/bcg.png",
+  bain: "/assets/visuals/endings/bain.png",
+  tesla: "/assets/visuals/endings/tesla.png",
+  nio: "/assets/visuals/endings/nio.png",
+  li: "/assets/visuals/endings/li.png",
+  xpeng: "/assets/visuals/endings/xpeng.png",
+  byd: "/assets/visuals/endings/byd.png",
+  citic: "/assets/visuals/endings/citic.png",
+  morgan: "/assets/visuals/endings/morgan.png",
+  netease: "/assets/visuals/endings/netease.png",
+  xiaohongshu: "/assets/visuals/endings/xiaohongshu.png",
+  bilibili: "/assets/visuals/endings/bilibili.png",
+  dewu: "/assets/visuals/endings/dewu.png",
+  ctrip: "/assets/visuals/endings/ctrip.png",
+  didi: "/assets/visuals/endings/didi.png",
+  iqiyi: "/assets/visuals/endings/iqiyi.png",
+  boss: "/assets/visuals/endings/boss.png",
+  fanka: "/assets/visuals/endings/fanka.png",
+  chayan: "/assets/visuals/endings/chayan.png",
+  zuoyebang: "/assets/visuals/endings/zuoyebang.png",
+  vanke: "/assets/visuals/endings/vanke.png",
+  meituan: "/assets/visuals/endings/meituan.png",
+  pdd: "/assets/visuals/endings/pdd.png",
+};
+const OFFER_CATEGORY_ACCENTS: Record<string, string> = {
+  "互联网大厂": "#5b8cff",
+  "外企科技": "#72c7d8",
+  "咨询公司": "#c9a84c",
+  "车企": "#70c998",
+  "投行": "#d8bd69",
+  "中厂": "#a78bfa",
+  "小厂": "#f59e5b",
+  "传统路径": "#94a3b8",
+};
+
+function getOfferRole(category: string): string {
+  if (category === "咨询公司") return "战略咨询顾问";
+  if (category === "投行") return "投资银行分析师";
+  if (category === "传统路径") return "建筑与项目管理岗";
+  if (category === "车企") return "智能产品经理";
+  return "产品经理（校招）";
+}
 
 // 简化的实习机会（根据当前能力值筛选）
 interface InternshipOption {
@@ -1911,15 +2013,137 @@ function DeltaBadge({ statKey, value }: { statKey: StatKey; value: EffectValue }
 // SECTION 9: 个人简历组件 (ResumeView)
 // ================================================================
 
+type InternshipEditableDetails = Pick<InternshipOption, "stipend" | "description" | "detailedAchievements">;
+
+function EditableInternshipDetails({
+  internship,
+  onSave,
+}: {
+  internship: InternshipOption;
+  onSave: (internshipId: string, updates: InternshipEditableDetails) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [stipendDraft, setStipendDraft] = useState(internship.stipend);
+  const [descriptionDraft, setDescriptionDraft] = useState(internship.description);
+  const [achievementsDraft, setAchievementsDraft] = useState((internship.detailedAchievements ?? []).join("\n"));
+
+  const resetDrafts = useCallback(() => {
+    setStipendDraft(internship.stipend);
+    setDescriptionDraft(internship.description);
+    setAchievementsDraft((internship.detailedAchievements ?? []).join("\n"));
+  }, [internship.stipend, internship.description, internship.detailedAchievements]);
+
+  useEffect(() => {
+    if (!isEditing) resetDrafts();
+  }, [isEditing, resetDrafts]);
+
+  const saveDetails = () => {
+    if (!stipendDraft.trim()) return;
+    onSave(internship.id, {
+      stipend: stipendDraft.trim(),
+      description: descriptionDraft.trim(),
+      detailedAchievements: achievementsDraft
+        .split(/\r?\n/)
+        .map((achievement) => achievement.trim())
+        .filter(Boolean),
+    });
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <div className="mt-2 space-y-3 rounded-xl p-4" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(201,168,76,0.35)" }}>
+        <label className="block">
+          <span className="mb-1.5 block text-[11px] tracking-wider" style={{ color: "rgba(198,207,234,0.62)" }}>薪资 / 补贴</span>
+          <input
+            value={stipendDraft}
+            onChange={(event) => setStipendDraft(event.target.value)}
+            maxLength={80}
+            autoFocus
+            className="w-full rounded-lg px-3 py-2 text-[13px] outline-none transition-colors focus:border-[#c9a84c]"
+            style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.09)", color: "#f1f3fb" }}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-[11px] tracking-wider" style={{ color: "rgba(198,207,234,0.62)" }}>经历描述</span>
+          <textarea
+            value={descriptionDraft}
+            onChange={(event) => setDescriptionDraft(event.target.value)}
+            maxLength={400}
+            rows={4}
+            className="w-full resize-y rounded-lg px-3 py-2.5 text-[13px] leading-relaxed outline-none transition-colors focus:border-[#c9a84c]"
+            style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.09)", color: "#f1f3fb" }}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1.5 block text-[11px] tracking-wider" style={{ color: "rgba(198,207,234,0.62)" }}>项目成果（每行一条）</span>
+          <textarea
+            value={achievementsDraft}
+            onChange={(event) => setAchievementsDraft(event.target.value)}
+            maxLength={800}
+            rows={5}
+            placeholder="例如：优化关键流程，核心指标提升 20%"
+            className="w-full resize-y rounded-lg px-3 py-2.5 text-[13px] leading-relaxed outline-none transition-colors focus:border-[#c9a84c]"
+            style={{ background: "rgba(255,255,255,0.035)", border: "1px solid rgba(255,255,255,0.09)", color: "#f1f3fb" }}
+          />
+        </label>
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            type="button"
+            data-cancel-internship-edit="true"
+            onClick={() => { resetDrafts(); setIsEditing(false); }}
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[11px] transition-colors hover:bg-white/5"
+            style={{ color: "rgba(198,207,234,0.75)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <X size={12} /> 取消
+          </button>
+          <button
+            type="button"
+            onClick={saveDetails}
+            disabled={!stipendDraft.trim()}
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-[11px] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: "#c9a84c", color: "#07101d" }}
+          >
+            <Check size={12} /> 保存全部修改
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-lg px-3 py-2.5" style={{ background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.045)" }}>
+      <p className="text-[13px] leading-relaxed" style={{ color: "rgba(198,207,234,0.68)" }}>
+        {internship.description || "暂无经历描述"}
+      </p>
+      {internship.detailedAchievements && internship.detailedAchievements.length > 0 && (
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-[13px]" style={{ color: "rgba(200,220,255,0.6)" }}>
+          {internship.detailedAchievements.map((achievement, index) => <li key={index}>{achievement}</li>)}
+        </ul>
+      )}
+      <button
+        type="button"
+        data-export-hidden="true"
+        onClick={() => setIsEditing(true)}
+        className="mt-3 inline-flex items-center gap-1 text-[11px] opacity-70 transition-opacity hover:opacity-100"
+        style={{ color: "#c9a84c" }}
+      >
+        <Pencil size={11} /> 编辑薪资、描述与项目成果
+      </button>
+    </div>
+  );
+}
 function ResumeView({
   character,
   stats,
   pastInternships,
+  onUpdateInternshipDetails,
   onClose,
 }: {
   character: CharacterInfo;
   stats: Stats;
   pastInternships: InternshipOption[];
+  onUpdateInternshipDetails: (internshipId: string, updates: InternshipEditableDetails) => void;
   onClose: () => void;
 }) {
   const bg = "#050814";
@@ -1938,6 +2162,13 @@ function ResumeView({
         <p className="text-[13px] tracking-[0.3em] uppercase mb-6 text-center" style={{ color: accent }}>
           个人简历 · CONFIDENTIAL
         </p>
+
+        <div className="rounded-2xl p-6 mb-4" style={{ background: card, border: "1px solid " + border }}>
+          <p className="text-[11px] tracking-[0.22em] uppercase mb-2" style={{ color: textSecondary }}>姓名 / NAME</p>
+          <p className="text-[28px] leading-tight" style={{ color: textPrimary, fontFamily: "'Noto Serif SC', serif" }}>
+            {character.name || "未命名同学"}
+          </p>
+        </div>
 
         {/* 基础信息 */}
         <div className="rounded-2xl p-6 mb-6" style={{ background: card, border: `1px solid ${border}` }}>
@@ -1982,7 +2213,7 @@ function ResumeView({
           ) : (
             <div className="space-y-4">
               {[...pastInternships].reverse().map((internship, idx) => (
-                <div key={idx} className="pb-4 border-b last:border-0 last:pb-0" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                <div key={`${internship.id}-${idx}`} className="pb-4 border-b last:border-0 last:pb-0" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                   <div className="flex justify-between items-start mb-1">
                     <h4 className="text-[18px] text-white" style={{ fontFamily: "'Noto Serif SC', serif" }}>{internship.companyName}</h4>
                     <span className="text-[13px]" style={{ color: accent }}>{internship.stipend.split(' · ')[0]}</span>
@@ -1990,9 +2221,7 @@ function ResumeView({
                   <p className="text-[14px] mb-2" style={{ color: "rgba(180,200,240,0.85)" }}>
                     {internship.title}
                   </p>
-                  <p className="text-[13px] leading-relaxed" style={{ color: textSecondary }}>
-                    {internship.description}
-                  </p>
+                  <EditableInternshipDetails internship={internship} onSave={onUpdateInternshipDetails} />
                 </div>
               ))}
             </div>
@@ -2014,11 +2243,13 @@ interface Mentor {
   description: string;
   bonuses: Partial<Record<StatKey, EffectValue>>;
   emoji: string;
+  image: string;
 }
 
 const MENTORS: Mentor[] = [
   {
     id: "academic",
+    image: "./assets/visuals/mentors/academic.webp",
     name: "学术大牛",
     title: "国家级重点课题负责人",
     description: "专注学术深度与专业度，对图纸质量要求极高。能显著提升你的建筑底蕴，但由于其严苛性格，初始好感度较低且学术压力巨大。",
@@ -2027,6 +2258,7 @@ const MENTORS: Mentor[] = [
   },
   {
     id: "hands_off",
+    image: "./assets/visuals/mentors/hands-off.webp",
     name: "放养型导师",
     title: "自由主义学术推崇者",
     description: "很少管学生，给了你极大的自我探索空间。适合发展人脉与逻辑思维，环境宽松，压力极小，但也需要你更自律地维持专业输出。",
@@ -2035,6 +2267,7 @@ const MENTORS: Mentor[] = [
   },
   {
     id: "practice",
+    image: "./assets/visuals/mentors/practice.webp",
     name: "实践工程型",
     title: "大型院总建筑师/合伙人",
     description: "手头有大量落地的公建项目，极其关注就业与实务能力。能帮你积累丰厚的行业资源与执行力，有效缓解转行的不确定感。",
@@ -2043,6 +2276,7 @@ const MENTORS: Mentor[] = [
   },
   {
     id: "overseas",
+    image: "./assets/visuals/mentors/global-scholar.webp",
     name: "海龟青年学者",
     title: "普林斯顿/AA 优秀归国博士",
     description: "带有鲜明的国际视野，关注叙事表达与跨学科研究。能极大提升你的英语水平与表达逻辑，并利用其海外背景缓解你的年龄焦虑。",
@@ -2051,6 +2285,76 @@ const MENTORS: Mentor[] = [
   },
 ];
 
+function DecisionStatusRail({
+  stats,
+  mentor,
+  semester,
+  round,
+  totalRound,
+  progressPct,
+  phase,
+  actionDelta,
+  eventDelta,
+}: {
+  stats: Stats;
+  mentor: Mentor | null;
+  semester: number;
+  round: number;
+  totalRound: number;
+  progressPct: number;
+  phase: GamePhase;
+  actionDelta: Partial<Stats>;
+  eventDelta: Partial<Stats>;
+}) {
+  const border = "rgba(201,168,76,0.2)";
+  const textPrimary = "#f1f3fb";
+  const textSecondary = "rgba(198,207,234,0.68)";
+  const accent = "#c9a84c";
+  const deltaFor = (key: StatKey) =>
+    phase === "action_result" ? (actionDelta[key] ?? eventDelta[key]) : eventDelta[key];
+
+  return (
+    <aside
+      className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-l p-5 lg:flex xl:w-72"
+      style={{ borderColor: border, background: "rgba(4,8,18,0.72)", backdropFilter: "blur(12px)" }}
+    >
+      {mentor && (
+        <div className="mb-5 border-b pb-5" style={{ borderColor: border }}>
+          <p className="mb-3 text-[10px] tracking-[0.22em]" style={{ color: textSecondary }}>CURRENT MENTOR</p>
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full border text-xl" style={{ borderColor: border, background: "rgba(255,255,255,0.04)" }}>{mentor.emoji}</div>
+            <div className="min-w-0"><p className="text-[11px]" style={{ color: textSecondary }}>当前导师</p><p className="truncate text-[15px] font-semibold" style={{ color: textPrimary }}>{mentor.name}</p></div>
+          </div>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs" style={{ color: textSecondary }}>好感度</span>
+            <div className="flex items-center gap-1.5"><span className="font-mono text-sm font-bold" style={{ color: stats.mentorFavorability < 15 ? "#f87171" : accent }}>{stats.mentorFavorability}</span><DeltaBadge statKey="mentorFavorability" value={deltaFor("mentorFavorability") ?? 0} /></div>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.max(0, Math.min(100, stats.mentorFavorability))}%`, background: stats.mentorFavorability < 20 ? "#ef5350" : accent }} /></div>
+        </div>
+      )}
+
+      <div className="mb-5 border-b pb-5" style={{ borderColor: border }}>
+        <div className="mb-2 flex items-center justify-between"><span className="text-[10px] tracking-[0.2em]" style={{ color: textSecondary }}>PROGRESS</span><span className="font-mono text-xs" style={{ color: textSecondary }}>{totalRound}/24</span></div>
+        <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-white/[0.07]"><div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: accent }} /></div>
+        <p className="text-sm font-medium" style={{ color: textPrimary }}>{SEMESTER_LABELS[semester]}</p><p className="mt-0.5 text-xs" style={{ color: textSecondary }}>第 {round} 回合</p>
+      </div>
+
+      <div className="mb-4">
+        <p className="mb-3 text-[10px] tracking-[0.2em]" style={{ color: textSecondary }}>SKILLS</p>
+        {(["arch", "logic", "expression", "english", "structured", "stress", "network", "money"] as StatKey[]).map((key) => (
+          <StatBar key={key} statKey={key} value={stats[key]} delta={deltaFor(key)} />
+        ))}
+      </div>
+
+      <div className="mt-auto border-t pt-4" style={{ borderColor: border }}>
+        <p className="mb-3 text-[10px] tracking-[0.2em] text-red-400/70">MENTAL STATE</p>
+        {(["selfDoubt", "ageAnxiety"] as StatKey[]).map((key) => (
+          <StatBar key={key} statKey={key} value={stats[key]} delta={deltaFor(key)} />
+        ))}
+      </div>
+    </aside>
+  );
+}
 type GamePhase =
   | "intro"
   | "chargen"
@@ -2082,6 +2386,9 @@ export function GamePage() {
   const [selectedInternshipId, setSelectedInternshipId] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [desktopGameSection, setDesktopGameSection] = useState<DesktopGameSection>("round");
+  const [playerNameInput, setPlayerNameInput] = useState("");
+  const [playerNameError, setPlayerNameError] = useState("");
 
   // 新增状态
   const [pastInternships, setPastInternships] = useState<InternshipOption[]>([]);
@@ -2089,6 +2396,9 @@ export function GamePage() {
   const [offerBuffs, setOfferBuffs] = useState<Record<string, number>>({});
   const [isResumeOpen, setIsResumeOpen] = useState(false);
   const [receivedOffers, setReceivedOffers] = useState<Company[] | null>(null);
+  const [shareFeedback, setShareFeedback] = useState("");
+  const [isExportingEnding, setIsExportingEnding] = useState(false);
+  const endingExportRef = useRef<HTMLDivElement>(null);
 
   // Supabase 统计状态
   const [globalEndingStats, setGlobalEndingStats] = useState<{ total: number; sameEndingCount: number } | null>(null);
@@ -2133,7 +2443,16 @@ export function GamePage() {
         const data = JSON.parse(saved);
         if (data.phase && data.phase !== "intro") {
           setPhase(data.phase);
-          if (data.character) setCharacter(data.character);
+          if (data.character) {
+            const savedCharacter = {
+              ...data.character,
+              name: typeof data.character.name === "string" && data.character.name.trim()
+                ? data.character.name.trim()
+                : "未命名同学",
+            };
+            setCharacter(savedCharacter);
+            setPlayerNameInput(savedCharacter.name);
+          }
           if (data.stats) setStats(data.stats);
           if (data.mentor) setMentor(data.mentor);
           if (data.semester) setSemester(data.semester);
@@ -2255,9 +2574,16 @@ export function GamePage() {
     }
   }, [phase, ending, hasSubmittedResult, selectedOfferId, receivedOffers, character, mentor, stats, pastInternships]);
 
-  // 开始游戏：生成角色
+  // 开始游戏：姓名固定，学校与属性仍可重新生成
   const startGame = useCallback(() => {
-    const { character: c, stats: s } = generateCharacter();
+    const normalizedName = playerNameInput.trim().replace(/\s+/g, " ");
+    if (!normalizedName) {
+      setPlayerNameError("请先输入你的名字");
+      return;
+    }
+    const { character: c, stats: s } = generateCharacter(normalizedName);
+    setPlayerNameInput(normalizedName);
+    setPlayerNameError("");
     setCharacter(c);
     setStats(s);
     setSemester(1);
@@ -2265,10 +2591,16 @@ export function GamePage() {
     setSeenEventIds(new Set());
     setSeenCampusIds(new Set());
     setPhase("chargen");
-  }, []);
+  }, [playerNameInput]);
 
   const confirmCharacter = useCallback(() => {
     setPhase("mentor_choice");
+  }, []);
+
+  const updateInternshipDetails = useCallback((internshipId: string, updates: InternshipEditableDetails) => {
+    setPastInternships((previous) => previous.map((internship) => (
+      internship.id === internshipId ? { ...internship, ...updates } : internship
+    )));
   }, []);
 
   const maybeShowEvent = useCallback(
@@ -2493,6 +2825,10 @@ export function GamePage() {
     setGlobalEndingStats(null);
     setHasSubmittedResult(false);
     setTutorialStep(0);
+    setPlayerNameInput("");
+    setPlayerNameError("");
+    setShareFeedback("");
+    setIsExportingEnding(false);
   }, []);
 
   // ── 渲染：进度显示
@@ -2512,7 +2848,7 @@ export function GamePage() {
 
   // 样式变量（偏建筑学术风·玻璃质感）
   const bg =
-    "radial-gradient(circle at top left, rgba(201,168,76,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(63,131,248,0.12), transparent 55%), #050814";
+    "radial-gradient(circle at top left, rgba(201,168,76,0.16), transparent 55%), radial-gradient(circle at bottom right, rgba(63,131,248,0.12), transparent 55%), repeating-linear-gradient(0deg, transparent 0, transparent 63px, rgba(201,168,76,0.035) 64px), repeating-linear-gradient(90deg, transparent 0, transparent 63px, rgba(201,168,76,0.035) 64px), #050814";
   const card = "rgba(7, 12, 28, 0.9)";
   const border = "rgba(201,168,76,0.24)";
   const textPrimary = "#f1f3fb";
@@ -2531,24 +2867,32 @@ export function GamePage() {
   // ── 介绍页
   if (phase === "intro") {
     return (
-      <div style={pageStyle} className="flex flex-col items-center justify-center min-h-screen px-6 py-16">
-        <div className="max-w-lg w-full text-center">
-          <p className="text-[13px] tracking-[0.3em] uppercase mb-6" style={{ color: accent }}>
+      <div
+        style={{
+          ...pageStyle,
+          backgroundImage: `linear-gradient(90deg, rgba(5,8,20,0.98) 0%, rgba(5,8,20,0.9) 34%, rgba(5,8,20,0.42) 65%, rgba(5,8,20,0.16) 100%), url("./assets/visuals/hero/architecture-career-hero.webp")`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-6 lg:py-8"
+      >
+        <div className="relative z-10 max-w-lg w-full text-center lg:text-left lg:mr-[42vw]">
+          <p className="mb-4 text-[12px] uppercase tracking-[0.3em]" style={{ color: accent }}>
             ARCH·HISTORIA · 互动叙事
           </p>
           <h1
-            className="text-5xl mb-4"
+            className="mb-3 text-5xl lg:text-[52px]"
             style={{ color: textPrimary, fontFamily: "'Playfair Display', 'Noto Serif SC', serif", letterSpacing: "0.05em" }}
           >
             我是一个"建"人
           </h1>
-          <p className="text-[16px] mb-10 leading-relaxed" style={{ color: textSecondary }}>
+          <p className="mb-6 text-[15px] leading-relaxed" style={{ color: textSecondary }}>
             你是一名建筑学硕士研究生。<br />
             行业下行，你决定转行互联网或外企。<br />
             三年，六学期，二十四个回合。<br />
             你的选择决定你的结局。
           </p>
-          <div className="flex flex-col gap-3 mb-10 text-left">
+          <div className="mb-6 flex flex-col gap-2 text-left">
             {[
               ["纯文字交互", "数值驱动叙事，类养成 + 随机事件"],
               ["11项属性值", "建筑专业力、逻辑力、导师好感度……"],
@@ -2557,7 +2901,7 @@ export function GamePage() {
             ].map(([title, desc]) => (
               <div
                 key={title}
-                className="flex items-start gap-3 px-4 py-3 rounded-xl"
+                className="flex items-start gap-3 rounded-xl px-4 py-2.5 backdrop-blur-md transition-transform duration-300 hover:translate-x-1"
                 style={{ background: card, border: `1px solid ${border}` }}
               >
                 <Zap size={13} style={{ color: accent, marginTop: 2, flexShrink: 0 }} />
@@ -2568,14 +2912,43 @@ export function GamePage() {
               </div>
             ))}
           </div>
+
+          <div className="mb-4 text-left">
+            <label htmlFor="player-name" className="mb-2 block text-[12px] tracking-[0.16em]" style={{ color: accent }}>
+              你的姓名 / PLAYER NAME
+            </label>
+            <input
+              id="player-name"
+              type="text"
+              value={playerNameInput}
+              maxLength={16}
+              autoComplete="name"
+              placeholder="输入姓名，开始这段故事"
+              onChange={(event) => {
+                setPlayerNameInput(event.target.value);
+                if (playerNameError) setPlayerNameError("");
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") startGame();
+              }}
+              aria-invalid={Boolean(playerNameError)}
+              aria-describedby={playerNameError ? "player-name-error" : undefined}
+              className="w-full rounded-xl px-4 py-3 text-[15px] outline-none transition-all placeholder:text-slate-500 focus:ring-2 focus:ring-[#c9a84c]/45"
+              style={{ background: "rgba(5,8,20,0.76)", color: textPrimary, border: playerNameError ? "1px solid rgba(239,83,80,0.7)" : "1px solid rgba(201,168,76,0.3)" }}
+            />
+            {playerNameError && (
+              <p id="player-name-error" className="mt-2 text-[12px] text-red-400">{playerNameError}</p>
+            )}
+          </div>
+
           <button
             onClick={startGame}
-            className="w-full py-4 rounded-xl text-[16px] transition-all duration-200 hover:opacity-90 active:scale-95"
+            className="w-full rounded-xl py-3.5 text-[16px] transition-all duration-200 hover:opacity-90 active:scale-95"
             style={{ background: accent, color: "#070d1c" }}
           >
-            开始游戏 →
+            以 {playerNameInput.trim() || "我的名字"} 开始游戏 →
           </button>
-          <div className="flex flex-col items-center gap-1.5 mt-4 text-[12px]" style={{ color: "rgba(180,200,240,0.3)" }}>
+          <div className="mt-3 flex flex-col items-center gap-1 text-[11px]" style={{ color: "rgba(180,200,240,0.3)" }}>
              <p>建议使用电脑端浏览器体验以获得最佳效果</p>
              <p>本游戏纯属虚构，如有雷同，那可真是太巧了。</p>
           </div>
@@ -2587,53 +2960,46 @@ export function GamePage() {
   // ── 角色生成页
   if (phase === "chargen" && character && stats) {
     return (
-      <div style={pageStyle} className="flex flex-col items-center justify-center min-h-screen px-6 py-12">
-        <div className="max-w-lg w-full">
-          <p className="text-[13px] tracking-[0.3em] uppercase mb-6" style={{ color: accent }}>
+      <div
+        style={{
+          ...pageStyle,
+          backgroundImage: 'linear-gradient(90deg, rgba(5,8,20,0.98) 0%, rgba(5,8,20,0.92) 38%, rgba(5,8,20,0.46) 66%, rgba(5,8,20,0.16) 100%), url("./assets/visuals/hero/architecture-career-hero.webp")',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+        className="relative flex min-h-screen flex-col items-center justify-center overflow-y-auto px-6 py-6 lg:py-8"
+      >
+        <div className="relative z-10 w-full max-w-xl lg:mr-[42vw]">
+          <p className="mb-3 text-[12px] uppercase tracking-[0.3em]" style={{ color: accent }}>
             角色档案已生成
           </p>
-          <h2
-            className="text-3xl mb-2"
-            style={{ fontFamily: "'Playfair Display', 'Noto Serif SC', serif" }}
-          >
+          <h2 className="mb-1 text-4xl" style={{ fontFamily: "'Playfair Display', 'Noto Serif SC', serif" }}>
             你的起点
           </h2>
-          <p className="text-[15px] mb-8" style={{ color: textSecondary }}>
-            系统已为你随机生成背景与初始属性。
+          <p className="mb-5 text-[14px]" style={{ color: textSecondary }}>
+            {character.name}，这是属于你的第一份人生底稿。
           </p>
 
-          {/* 学校背景 */}
-          <div className="rounded-2xl p-6 mb-6" style={{ background: card, border: `1px solid ${border}` }}>
-            <p className="text-[12px] tracking-widest uppercase mb-4" style={{ color: textSecondary }}>
-              教育背景
-            </p>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-[14px]" style={{ color: textSecondary }}>本科院校</span>
-                <div className="text-right">
+          <div className="mb-4 rounded-2xl p-5 backdrop-blur-md" style={{ background: card, border: "1px solid " + border }}>
+            <p className="mb-3 text-[11px] uppercase tracking-widest" style={{ color: textSecondary }}>教育背景</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-white/5 bg-white/[0.018] p-3">
+                <p className="mb-1.5 text-[12px]" style={{ color: textSecondary }}>本科院校</p>
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[15px]" style={{ color: textPrimary }}>{character.undergradSchool}</span>
-                  <span
-                    className="ml-2 text-[12px] px-2 py-0.5 rounded"
-                    style={{ background: `${TIER_COLORS[character.undergradTier]}20`, color: TIER_COLORS[character.undergradTier] }}
-                  >
+                  <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: TIER_COLORS[character.undergradTier] + "20", color: TIER_COLORS[character.undergradTier] }}>
                     {TIER_LABELS[character.undergradTier]}
                   </span>
                 </div>
               </div>
-              <div className="h-px" style={{ background: border }} />
-              <div className="flex justify-between items-center">
-                <span className="text-[14px]" style={{ color: textSecondary }}>硕士院校</span>
-                <div className="text-right">
+              <div className="rounded-xl border border-white/5 bg-white/[0.018] p-3">
+                <p className="mb-1.5 text-[12px]" style={{ color: textSecondary }}>硕士院校</p>
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[15px]" style={{ color: textPrimary }}>{character.masterSchool}</span>
                   {character.isOverseas ? (
-                    <span className="ml-2 text-[12px] px-2 py-0.5 rounded" style={{ background: "#4a9eff20", color: "#4a9eff" }}>
-                      海外留学
-                    </span>
+                    <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: "#4a9eff20", color: "#4a9eff" }}>海外留学</span>
                   ) : (
-                    <span
-                      className="ml-2 text-[12px] px-2 py-0.5 rounded"
-                      style={{ background: `${TIER_COLORS[character.masterTier]}20`, color: TIER_COLORS[character.masterTier] }}
-                    >
+                    <span className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: TIER_COLORS[character.masterTier] + "20", color: TIER_COLORS[character.masterTier] }}>
                       {TIER_LABELS[character.masterTier]}
                     </span>
                   )}
@@ -2642,11 +3008,8 @@ export function GamePage() {
             </div>
           </div>
 
-          {/* 初始属性 */}
-          <div className="rounded-2xl p-6 mb-6" style={{ background: card, border: `1px solid ${border}` }}>
-            <p className="text-[12px] tracking-widest uppercase mb-4" style={{ color: textSecondary }}>
-              初始属性
-            </p>
+          <div className="mb-4 rounded-2xl p-5 backdrop-blur-md" style={{ background: card, border: "1px solid " + border }}>
+            <p className="mb-3 text-[11px] uppercase tracking-widest" style={{ color: textSecondary }}>初始属性</p>
             <div className="grid grid-cols-2 gap-x-6">
               <div>
                 {(["arch", "logic", "expression", "english", "structured"] as StatKey[]).map((k) => (
@@ -2661,20 +3024,22 @@ export function GamePage() {
             </div>
           </div>
 
-          <button
-            onClick={confirmCharacter}
-            className="w-full py-3.5 rounded-xl text-[15px] transition-all hover:opacity-90"
-            style={{ background: accent, color: "#070d1c" }}
-          >
-            就是这个背景，继续 →
-          </button>
-          <button
-            onClick={startGame}
-            className="w-full mt-2 py-3 rounded-xl text-[14px] transition-all hover:opacity-70 flex items-center justify-center gap-2"
-            style={{ background: "transparent", color: textSecondary, border: `1px solid ${border}` }}
-          >
-            <RefreshCw size={12} /> 重新生成
-          </button>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <button
+              onClick={confirmCharacter}
+              className="rounded-xl py-3.5 text-[15px] transition-all hover:opacity-90"
+              style={{ background: accent, color: "#070d1c" }}
+            >
+              就是这个背景，继续 →
+            </button>
+            <button
+              onClick={startGame}
+              className="flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-[13px] transition-all hover:bg-white/[0.04]"
+              style={{ background: "rgba(5,8,20,0.68)", color: textSecondary, border: "1px solid " + border }}
+            >
+              <RefreshCw size={12} /> 重新生成
+            </button>
+          </div>
           <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
         </div>
       </div>
@@ -2684,54 +3049,64 @@ export function GamePage() {
   // ── 导师选择页
   if (phase === "mentor_choice" && character && stats) {
     return (
-      <div style={pageStyle} className="flex flex-col items-center justify-center min-h-screen px-6 py-12">
-        <div className="max-w-4xl w-full">
-          <p className="text-[13px] tracking-[0.3em] uppercase mb-6 text-center" style={{ color: accent }}>
-            选择你的导师
-          </p>
-          <h2
-            className="text-3xl mb-8 text-center"
-            style={{ fontFamily: "'Playfair Display', 'Noto Serif SC', serif" }}
-          >
-            学术道路上的引路人
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div
+        style={{
+          ...pageStyle,
+          backgroundImage: 'linear-gradient(90deg, rgba(5,8,20,0.99) 0%, rgba(5,8,20,0.94) 42%, rgba(5,8,20,0.48) 69%, rgba(5,8,20,0.16) 100%), url("./assets/visuals/hero/architecture-career-hero.webp")',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+        className="relative flex min-h-screen flex-col items-center justify-center overflow-y-auto px-5 py-5 lg:py-7"
+      >
+        <div className="relative z-10 w-full max-w-[680px] lg:mr-[42vw]">
+          <div className="mb-4">
+            <p className="mb-2 text-[12px] uppercase tracking-[0.3em]" style={{ color: accent }}>选择你的导师</p>
+            <h2 className="text-4xl" style={{ fontFamily: "'Playfair Display', 'Noto Serif SC', serif" }}>学术道路上的引路人</h2>
+            <p className="mt-2 text-[13px]" style={{ color: textSecondary }}>不同导师会改变你的初始能力，也会影响未来三年的生存方式。</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {MENTORS.map((m) => (
-              <div
+              <button
                 key={m.id}
+                type="button"
                 onClick={() => selectMentor(m)}
-                className="group cursor-pointer rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02]"
+                className="group cursor-pointer overflow-hidden rounded-2xl p-0 text-left outline-none transition-all duration-300 hover:-translate-y-1 hover:border-[#c9a84c]/55 focus-visible:ring-2 focus-visible:ring-[#c9a84c]/55"
                 style={{
-                  background: card,
-                  border: `1px solid ${border}`,
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+                  backgroundColor: card,
+                  border: "1px solid " + border,
+                  boxShadow: "0 18px 45px rgba(0,0,0,0.28)",
                 }}
               >
-                <div className="flex items-center gap-4 mb-4">
-                  <span className="text-3xl">{m.emoji}</span>
+                <div className="relative h-28 overflow-hidden">
+                  <img src={m.image} alt="" className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.025]" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#070c1c]/25 to-[#070c1c]" />
+                </div>
+                <div className="p-4">
+                  <div className="mb-2.5 flex items-center gap-3">
+                  <span className="text-2xl">{m.emoji}</span>
                   <div>
-                    <h3 className="text-[18px] font-bold" style={{ color: textPrimary }}>{m.name}</h3>
-                    <p className="text-[12px]" style={{ color: accent }}>{m.title}</p>
+                    <h3 className="text-[17px] font-bold" style={{ color: textPrimary }}>{m.name}</h3>
+                    <p className="text-[11px]" style={{ color: accent }}>{m.title}</p>
                   </div>
                 </div>
-                <p className="text-[14px] leading-relaxed mb-6" style={{ color: textSecondary }}>
-                  {m.description}
-                </p>
-                <div className="grid grid-cols-2 gap-2 mt-auto">
+                <p className="mb-3 min-h-[58px] text-[12px] leading-relaxed" style={{ color: textSecondary }}>{m.description}</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 border-t border-white/5 pt-2.5">
                   {Object.entries(m.bonuses).map(([k, v]) => {
                     const key = k as StatKey;
                     const val = Array.isArray(v) ? v[0] : v;
                     return (
-                      <div key={k} className="flex items-center gap-2">
-                        <span className="text-[11px]" style={{ color: textSecondary }}>{STAT_META[key]?.label}</span>
-                        <span className={`text-[12px] font-mono ${val > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {val > 0 ? `+${val}` : val}
+                      <div key={k} className="flex items-center justify-between gap-2">
+                        <span className="text-[10px]" style={{ color: textSecondary }}>{STAT_META[key]?.label}</span>
+                        <span className={"font-mono text-[11px] " + (val > 0 ? "text-green-400" : "text-red-400")}>
+                          {val > 0 ? "+" + val : val}
                         </span>
                       </div>
                     );
                   })}
+                  </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
           <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
@@ -2739,11 +3114,30 @@ export function GamePage() {
       </div>
     );
   }
-
   // ── 游戏主界面（event_view / action_choice / action_result）
   if ((phase === "event_view" || phase === "action_choice" || phase === "action_result") && character && stats) {
     return (
-      <div style={pageStyle} className="flex flex-col lg:flex-row min-h-screen">
+      <div
+        style={{
+          ...pageStyle,
+          backgroundImage:
+            'linear-gradient(rgba(5, 8, 20, 0.74), rgba(5, 8, 20, 0.82)), url("./assets/visuals/backgrounds/game-dashboard-background.png")',
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+        className="flex flex-col lg:flex-row min-h-screen"
+      >
+        {ENABLE_DESKTOP_GAME_SIDEBAR && (
+          <DesktopGameSidebar
+            active={desktopGameSection}
+            onChange={setDesktopGameSection}
+            statusAlert={stats.mentorFavorability < 15 || stats.stress < 20 || stats.selfDoubt > 75 || stats.ageAnxiety > 75}
+            resumeUpdated={pastInternships.length > 0}
+            schoolName={character.masterSchool}
+            schoolTier={character.isOverseas ? "海外留学" : TIER_LABELS[character.masterTier]}
+          />
+        )}
         {/* ── 新手引导弹窗 ── */}
         {showTutorial && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center px-6" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}>
@@ -2889,7 +3283,7 @@ export function GamePage() {
 
         {/* ─── 左侧：属性面板 ─── */}
         <aside
-          className="lg:w-64 shrink-0 lg:self-start border-b lg:border-b-0 lg:border-r p-5 flex flex-col"
+          className={`flex shrink-0 flex-col border-b p-5 lg:self-start lg:border-b-0 lg:border-r ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "status" ? "lg:mx-auto lg:flex lg:w-full lg:max-w-3xl" : "lg:hidden") : "lg:flex lg:w-64"}`}
           style={{ borderColor: border, background: "rgba(255,255,255,0.01)" }}
         >
           {/* 角色信息 */}
@@ -2982,7 +3376,7 @@ export function GamePage() {
           </div>
         </aside>
 
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto relative">
+        <main className={`flex-1 p-6 lg:p-8 overflow-y-auto relative ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "round" ? "lg:mx-auto lg:block lg:w-full lg:max-w-5xl" : "lg:hidden") : "lg:block"}`}>
           {/* 简历弹窗 */}
           {isResumeOpen && (
             <div className="fixed inset-0 z-[100] p-6 flex flex-col" style={{ background: bg }}>
@@ -2997,6 +3391,7 @@ export function GamePage() {
                 character={character}
                 stats={stats}
                 pastInternships={pastInternships}
+                onUpdateInternshipDetails={updateInternshipDetails}
                 onClose={() => setIsResumeOpen(false)}
               />
             </div>
@@ -3330,19 +3725,49 @@ export function GamePage() {
           )}
         </main>
 
+        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "map" && (
+          <DesktopMapPreview
+            semesterLabel={SEMESTER_LABELS[semester]}
+            semester={semester}
+            round={round}
+            canChooseAction={phase === "action_choice"}
+            actions={ACTIONS}
+            onChooseAction={(actionId) => {
+              const action = ACTIONS.find((candidate) => candidate.id === actionId);
+              if (!action || phase !== "action_choice") return;
+              chooseAction(action);
+              setDesktopGameSection("round");
+            }}
+          />
+        )}
+
+        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "computer" && <DesktopComputerPreview />}
         {/* ─── 右侧：常驻简历 ─── */}
         <aside
-          className="hidden lg:flex lg:w-80 shrink-0 flex-col p-5 overflow-y-auto"
+          className={`hidden shrink-0 flex-col p-5 overflow-y-auto ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "lg:mx-auto lg:flex lg:w-full lg:max-w-3xl lg:flex-1" : "lg:hidden") : "lg:flex lg:w-80"}`}
           style={{ background: "rgba(0,0,0,0.2)" }}
         >
           <ResumeView
             character={character}
             stats={stats}
             pastInternships={pastInternships}
+            onUpdateInternshipDetails={updateInternshipDetails}
             onClose={() => { }}
           />
         </aside>
-        <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
+        {ENABLE_DESKTOP_GAME_SIDEBAR && (
+          <DecisionStatusRail
+            stats={stats}
+            mentor={mentor}
+            semester={semester}
+            round={round}
+            totalRound={totalRound}
+            progressPct={progressPct}
+            phase={phase}
+            actionDelta={actionDelta}
+            eventDelta={eventDelta}
+          />
+        )}        <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
       </div >
     );
   }
@@ -3356,11 +3781,7 @@ export function GamePage() {
     }
 
     const qualified = receivedOffers;
-    const catMap: Record<string, Company[]> = {};
-    qualified.forEach((c) => {
-      if (!catMap[c.category]) catMap[c.category] = [];
-      catMap[c.category].push(c);
-    });
+
 
     const handleConfirmOffer = () => {
       // 增加提示逻辑：如果用户有 offer 但未选择，弹窗或阻止
@@ -3376,141 +3797,309 @@ export function GamePage() {
       setPhase("ending");
     };
 
+    const offerPageStyle: CSSProperties = {
+      ...pageStyle,
+      backgroundImage:
+        'linear-gradient(rgba(5, 8, 20, 0.74), rgba(5, 8, 20, 0.82)), url("/assets/visuals/backgrounds/game-dashboard-background.png")',
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    };
+
     return (
-      <div style={pageStyle} className="flex flex-col items-center min-h-screen px-6 py-16">
-        <div className="max-w-2xl w-full">
-          <p className="text-[13px] tracking-[0.3em] uppercase mb-4" style={{ color: textSecondary }}>
-            三年结束 · 选择你的 offer
-          </p>
-
-          <div className="rounded-2xl p-6 mb-6" style={{ background: card, border: `1px solid ${border}` }}>
-            <p className="text-[15px] mb-2" style={{ color: textPrimary }}>
-              秋招开奖结果揭晓。
-            </p>
-            <p className="text-[14px] mb-4" style={{ color: textSecondary }}>
-              由于当前就业环境及运气因素，你综合表现达标并最终收到了以下公司的正式意向书：
-            </p>
-
-            {qualified.length === 0 && (
-              <div className="py-6 text-center rounded-lg" style={{ background: "rgba(255,255,255,0.02)" }}>
-                <p className="text-[14px] opacity-70">
-                  很遗憾，由于激烈的竞争，你没有收到任何公司的 Offer（已进入人才库）。<br /><br />
-                  不用灰心，接下来的结局依然有属于你的故事。
-                </p>
+      <div style={offerPageStyle} className="min-h-screen px-5 py-10 sm:px-8 lg:py-14">
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="mb-3 text-[12px] uppercase tracking-[0.34em]" style={{ color: accent }}>三年结束 · OFFER SELECTION</p>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl" style={{ color: textPrimary }}>选择你的下一站</h1>
+              <p className="mt-3 max-w-2xl text-[14px] leading-relaxed" style={{ color: textSecondary }}>
+                秋招结果已经揭晓。薪资之外，公司赛道、成长方式和工作节奏同样会改变你的结局。
+              </p>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl px-4 py-3" style={{ background: "rgba(201,168,76,0.07)", border: `1px solid ${border}` }}>
+              <BriefcaseBusiness size={20} style={{ color: accent }} />
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: textSecondary }}>正式意向书</p>
+                <p className="mt-0.5 text-[17px] font-semibold" style={{ color: textPrimary }}>{qualified.length} 份 Offer</p>
               </div>
-            )}
-
-            {qualified.length > 0 &&
-              Object.entries(catMap).map(([cat, coms]) => (
-                <div key={cat} className="mb-4">
-                  <p className="text-[12px] mb-2" style={{ color: textSecondary }}>
-                    {cat}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {coms.map((c) => {
-                      const meta = COMPANY_OFFER_META[c.id] ?? {
-                        salary: "面议",
-                        perks: c.description,
-                        level: "中厂" as const,
-                      };
-                      const selected = selectedOfferId === c.id;
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedOfferId(selected ? null : c.id)
-                          }
-                          className="px-3 py-2 rounded-xl text-left transition-all duration-200"
-                          style={{
-                            background: selected
-                              ? "rgba(201,168,76,0.16)"
-                              : "rgba(9,14,30,0.9)",
-                            border: selected
-                              ? `1px solid ${accent}`
-                              : `1px solid ${border}`,
-                            boxShadow: selected
-                              ? "0 0 0 1px rgba(201,168,76,0.22)"
-                              : "none",
-                          }}
-                        >
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="text-[14px]" style={{ color: textPrimary }}>
-                              {c.name}
-                            </span>
-                            <span className="text-[12px]" style={{ color: accent }}>
-                              {meta.salary}
-                            </span>
-                          </div>
-                          <p className="text-[13px] mb-0.5" style={{ color: textSecondary }}>
-                            {meta.perks}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-
-            {selectedOfferId && qualified.length > 0 && (
-              <p className="text-[13px] mt-2" style={{ color: accent }}>
-                已选择：
-                <span className="ml-1">
-                  {qualified.find((c) => c.id === selectedOfferId)?.name}
-                </span>
-                。
-              </p>
-            )}
-            
-            {!selectedOfferId && qualified.length > 0 && (
-              <p className="text-[13px] mt-2 text-red-400">
-                ⚠ 请点击上方卡片选择一个 Offer，否则将默认为放弃所有机会。
-              </p>
-            )}
+            </div>
           </div>
 
-          <button
-            onClick={handleConfirmOffer}
-            className="w-full py-3.5 rounded-xl text-[15px] transition-all hover:opacity-90 flex items-center justify-center gap-2"
-            style={{ background: (!selectedOfferId && qualified.length > 0) ? "rgba(255,255,255,0.1)" : accent, color: (!selectedOfferId && qualified.length > 0) ? textSecondary : "#070d1c" }}
-          >
-            {(!selectedOfferId && qualified.length > 0) ? "放弃 Offer 并查看结局" : "确认，查看结局 →"}
-          </button>
+          {qualified.length === 0 ? (
+            <div className="rounded-3xl px-8 py-14 text-center" style={{ background: card, border: `1px solid ${border}` }}>
+              <BriefcaseBusiness size={34} className="mx-auto mb-4 opacity-40" />
+              <p className="text-lg" style={{ color: textPrimary }}>本轮没有收到正式 Offer</p>
+              <p className="mx-auto mt-3 max-w-xl text-[14px] leading-relaxed" style={{ color: textSecondary }}>
+                激烈的竞争让你暂时进入了人才库，但这并不代表故事结束。继续查看属于你的结局。
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {qualified.map((c) => {
+                const meta = COMPANY_OFFER_META[c.id] ?? { salary: "面议", perks: c.description, level: "中厂" as const };
+                const selected = selectedOfferId === c.id;
+                const companyAccent = OFFER_CATEGORY_ACCENTS[c.category] ?? accent;
+                const logo = COMPANY_LOGOS[c.id];
+                const perkItems = meta.perks.split("·").map((item) => item.trim()).filter(Boolean);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setSelectedOfferId(selected ? null : c.id)}
+                    aria-pressed={selected}
+                    className="group relative overflow-hidden rounded-xl text-left transition-all duration-200 hover:-translate-y-1"
+                    style={{
+                      background: selected ? "rgba(201,168,76,0.12)" : "rgba(9,14,30,0.96)",
+                      border: selected ? `1px solid ${accent}` : `1px solid ${border}`,
+                      boxShadow: selected ? "0 14px 38px rgba(0,0,0,0.34), 0 0 0 1px rgba(201,168,76,0.2)" : "0 9px 24px rgba(0,0,0,0.18)",
+                    }}
+                  >
+                    <span className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-white p-5">
+                      <span className="absolute left-3 top-3 z-10 max-w-[70%] truncate rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm" style={{ background: "rgba(7,12,27,0.82)", color: companyAccent }}>{c.category}</span>
+                      {selected && <span className="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-[#c9a84c] px-2.5 py-1 text-[10px] font-semibold text-[#07101d] shadow-md"><CheckCircle2 size={12} />已选择</span>}
+                      {logo ? (
+                        <img src={logo} alt={c.name + "公司图标"} className="h-full w-full scale-105 object-contain transition-transform duration-200 group-hover:scale-110" />
+                      ) : (
+                        <span className="flex h-24 w-24 items-center justify-center rounded-3xl text-4xl font-bold" style={{ background: `${companyAccent}18`, color: companyAccent }}>{c.name.slice(0, 1)}</span>
+                      )}
+                    </span>
+
+                    <span className="block p-4">
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block truncate text-[17px] font-semibold" style={{ color: textPrimary }}>{c.name}</span>
+                          <span className="mt-1 block truncate text-[11px]" style={{ color: textSecondary }}>{getOfferRole(c.category)}</span>
+                        </span>
+                        <span className="shrink-0 text-right text-[15px] font-semibold" style={{ color: accent }}>{meta.salary}</span>
+                      </span>
+                      <span className="mt-3 block truncate text-[11px]" style={{ color: textSecondary }}>{c.description}</span>
+                      <span className="mt-3 flex gap-1.5 overflow-hidden">
+                        {perkItems.slice(0, 2).map((perk) => <span key={perk} className="shrink-0 rounded-md border border-white/[0.07] bg-white/[0.035] px-2 py-1 text-[9px]" style={{ color: textSecondary }}>{perk}</span>)}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-8 rounded-2xl p-4 sm:flex sm:items-center sm:justify-between sm:gap-6" style={{ background: "rgba(9,14,30,0.9)", border: `1px solid ${selectedOfferId ? "rgba(201,168,76,0.45)" : border}` }}>
+            <div className="mb-4 sm:mb-0">
+              {selectedOfferId && qualified.length > 0 ? (
+                <><p className="text-[11px] uppercase tracking-[0.18em]" style={{ color: textSecondary }}>当前选择</p><p className="mt-1 text-[16px] font-semibold" style={{ color: accent }}>{qualified.find((c) => c.id === selectedOfferId)?.name} · {getOfferRole(qualified.find((c) => c.id === selectedOfferId)?.category ?? "")}</p></>
+              ) : qualified.length > 0 ? (
+                <><p className="flex items-center gap-2 text-[14px] text-red-400"><TriangleAlert size={16} />尚未选择 Offer</p><p className="mt-1 text-[12px]" style={{ color: textSecondary }}>直接继续将视为放弃全部机会。</p></>
+              ) : (
+                <p className="text-[14px]" style={{ color: textSecondary }}>准备查看最终结局。</p>
+              )}
+            </div>
+            <button
+              onClick={handleConfirmOffer}
+              className="w-full shrink-0 rounded-xl px-7 py-3.5 text-[14px] font-semibold transition-all hover:opacity-90 sm:w-auto"
+              style={{ background: (!selectedOfferId && qualified.length > 0) ? "rgba(255,255,255,0.1)" : accent, color: (!selectedOfferId && qualified.length > 0) ? textSecondary : "#070d1c" }}
+            >
+              {(!selectedOfferId && qualified.length > 0) ? "放弃 Offer 并查看结局" : "确认选择，查看结局 →"}
+            </button>
+          </div>
+
           <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
         </div>
       </div>
     );
   }
-
   // ── 结局页
   if (phase === "ending" && stats) {
     const finalEnding = ending || ENDINGS[0]; // 回退到第一个结局以防万一
     const qualified = receivedOffers || [];
-    const catMap: Record<string, Company[]> = {};
-    qualified.forEach((c) => {
-      if (!catMap[c.category]) catMap[c.category] = [];
-      catMap[c.category].push(c);
-    });
+    const selectedCompany = qualified.find((company) => company.id === selectedOfferId);
+    const endingBackground = selectedCompany ? COMPANY_ENDING_BACKGROUNDS[selectedCompany.id] : undefined;
+    const endingPageStyle: CSSProperties = endingBackground ? {
+      ...pageStyle,
+      backgroundImage: `linear-gradient(180deg, rgba(3,6,16,0.20) 0%, rgba(3,6,16,0.42) 48%, rgba(3,6,16,0.78) 100%), url("${endingBackground}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center top",
+      backgroundRepeat: "no-repeat",
+      backgroundAttachment: "fixed",
+    } : pageStyle;
+    const shareName = character?.name?.trim() || "未命名同学";
+    const shareNameSlotWidth = Math.min(280, Math.max(90, Array.from(shareName).length * 9 + 20));
+    const shareText = `${shareName}在《我是一个“建”人》中达成结局「${finalEnding.title}」${selectedCompany ? `，即将入职${selectedCompany.name}` : ""}。`;
+
+    const handleShareEnding = async () => {
+      const exportNode = endingExportRef.current;
+      if (!exportNode || isExportingEnding) return;
+
+      setIsExportingEnding(true);
+      setShareFeedback("正在生成结局长图…");
+
+      try {
+        exportNode.querySelectorAll<HTMLButtonElement>("[data-cancel-internship-edit]").forEach((button) => button.click());
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        await document.fonts.ready;
+
+        const { toPng } = await import("html-to-image");
+        const currentExportNode = endingExportRef.current;
+        if (!currentExportNode) throw new Error("结局内容暂时不可用");
+
+        const exportStyle: Partial<CSSStyleDeclaration> = endingBackground ? {
+          backgroundColor: "#050814",
+          backgroundImage: `linear-gradient(180deg, rgba(3,6,16,0.20) 0%, rgba(3,6,16,0.42) 48%, rgba(3,6,16,0.78) 100%), url("${endingBackground}")`,
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+          backgroundRepeat: "no-repeat",
+        } : {
+          background: bg,
+        };
+
+        const exportImages = Array.from(currentExportNode.querySelectorAll("img"));
+        await Promise.all(exportImages.map((image) => (
+          image.complete
+            ? Promise.resolve()
+            : new Promise<void>((resolve) => {
+                image.addEventListener("load", () => resolve(), { once: true });
+                image.addEventListener("error", () => resolve(), { once: true });
+              })
+        )));
+
+        const exportPadding = 32;
+        const exportWidth = currentExportNode.scrollWidth + exportPadding * 2;
+        const exportHeight = currentExportNode.scrollHeight + exportPadding * 2;
+        const exportNodeBounds = currentExportNode.getBoundingClientRect();
+        const exportNameSlots = Array.from(
+          currentExportNode.querySelectorAll<HTMLElement>("[data-export-name-slot]"),
+        ).map((slot) => {
+          const bounds = slot.getBoundingClientRect();
+          return {
+            kind: slot.dataset.exportNameSlot === "header" ? "header" : "record",
+            left: bounds.left - exportNodeBounds.left + exportPadding,
+            top: bounds.top - exportNodeBounds.top + exportPadding,
+            width: bounds.width,
+            height: bounds.height,
+          };
+        });
+        const capturedDataUrl = await toPng(currentExportNode, {
+          cacheBust: true,
+          pixelRatio: 2,
+          width: exportWidth,
+          height: exportHeight,
+          backgroundColor: "#050814",
+          skipFonts: true,
+          filter: (node) => !(node instanceof HTMLElement && node.dataset.exportHidden === "true"),
+          style: {
+            ...exportStyle,
+            boxSizing: "border-box",
+            width: `${exportWidth}px`,
+            height: `${exportHeight}px`,
+            maxWidth: "none",
+            margin: "0",
+            padding: `${exportPadding}px`,
+          },
+        });
+
+        // 姓名不进入 DOM 截图，避免浏览器隐私层对用户输入区域打码；
+        // 截图完成后再直接绘制到最终 PNG 像素上。
+        const capturedImage = new Image();
+        await new Promise<void>((resolve, reject) => {
+          capturedImage.addEventListener("load", () => resolve(), { once: true });
+          capturedImage.addEventListener("error", () => reject(new Error("结局底图加载失败")), { once: true });
+          capturedImage.src = capturedDataUrl;
+        });
+        const exportCanvas = document.createElement("canvas");
+        exportCanvas.width = capturedImage.naturalWidth;
+        exportCanvas.height = capturedImage.naturalHeight;
+        const exportContext = exportCanvas.getContext("2d");
+        if (!exportContext) throw new Error("无法创建结局图片画布");
+        exportContext.drawImage(capturedImage, 0, 0);
+        const exportScale = capturedImage.naturalWidth / exportWidth;
+        exportContext.fillStyle = textPrimary;
+        exportContext.textAlign = "center";
+        exportContext.textBaseline = "middle";
+        exportNameSlots.forEach((slot) => {
+          const fontSize = slot.kind === "header" ? 14 : 24;
+          const fontWeight = slot.kind === "header" ? 600 : 700;
+          exportContext.font = `${fontWeight} ${fontSize * exportScale}px Arial, "Microsoft YaHei", sans-serif`;
+          exportContext.fillText(
+            shareName,
+            (slot.left + slot.width / 2) * exportScale,
+            (slot.top + slot.height / 2) * exportScale,
+            slot.width * exportScale,
+          );
+        });
+        const dataUrl = exportCanvas.toDataURL("image/png");
+        const imageBlob = await (await fetch(dataUrl)).blob();
+        const fileName = `${finalEnding.title}-结局长图.png`;
+        const imageFile = new File([imageBlob], fileName, { type: "image/png" });
+
+        const shouldUseNativeShare = window.matchMedia("(pointer: coarse)").matches;
+        if (
+          shouldUseNativeShare &&
+          typeof navigator.share === "function" &&
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [imageFile] })
+        ) {
+          await navigator.share({
+            title: "我是一个“建”人｜我的结局",
+            text: shareText,
+            files: [imageFile],
+          });
+          setShareFeedback("结局长图已分享");
+          return;
+        }
+
+        const downloadLink = document.createElement("a");
+        downloadLink.href = dataUrl;
+        downloadLink.download = fileName;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+        setShareFeedback("结局长图已下载，可以直接发送给朋友");
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          setShareFeedback("已取消分享，长图未发送");
+          return;
+        }
+        console.error("生成结局长图失败", error);
+        setShareFeedback("长图生成失败，请稍后重试");
+      } finally {
+        setIsExportingEnding(false);
+      }
+    };
+
 
     return (
-      <div style={pageStyle} className="flex flex-col items-center min-h-screen px-6 py-16">
+      <div style={endingPageStyle} className="flex flex-col items-center min-h-screen px-6 py-16">
         <div className="max-w-2xl w-full">
           {isResumeOpen && character && (
             <ResumeView
               character={character}
               stats={stats}
               pastInternships={pastInternships}
+              onUpdateInternshipDetails={updateInternshipDetails}
               onClose={() => setIsResumeOpen(false)}
             />
           )}
-          <p className="text-[13px] tracking-[0.3em] uppercase mb-4" style={{ color: textSecondary }}>
-            三年结束 · 最终结局
-          </p>
+          <div ref={endingExportRef} data-ending-export="true">
+          <div
+            className="mb-4 text-[13px] uppercase tracking-[0.3em]"
+            style={{ color: textSecondary, fontFamily: "Arial, 'Microsoft YaHei', sans-serif" }}
+          >
+            三年结束 · {isExportingEnding ? (
+              <span
+                data-export-name-slot="header"
+                aria-hidden="true"
+                className="mx-1 inline-block h-5 align-middle"
+                style={{ width: `${shareNameSlotWidth}px` }}
+              />
+            ) : (
+              <span style={{ color: textPrimary, fontWeight: 600 }}>{shareName}</span>
+            )} 的最终结局
+          </div>
 
           {/* 结局卡 */}
           <div
             className="rounded-2xl p-8 mb-8"
-            style={{ background: `${finalEnding.color}08`, border: `1px solid ${finalEnding.color}30` }}
+            style={{ background: `linear-gradient(145deg, ${finalEnding.color}12, rgba(5,8,20,0.86))`, border: `1px solid ${finalEnding.color}38`, backdropFilter: "blur(16px)", boxShadow: "0 22px 70px rgba(0,0,0,0.28)" }}
           >
             <div
               className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg mb-4 text-[12px] tracking-widest uppercase"
@@ -3558,11 +4147,27 @@ export function GamePage() {
             )}
           </div>
 
+
           {/* ── 生涯履历（整合了属性、教育、实习） ── */}
           <div className="rounded-2xl p-6 mb-8" style={{ background: card, border: `1px solid ${border}` }}>
-            <p className="text-[13px] tracking-[0.2em] uppercase mb-6 text-center" style={{ color: accent }}>
+            <p className="text-[13px] tracking-[0.2em] uppercase mb-2 text-center" style={{ color: accent }}>
               GRADUATE RECORD · 生涯履历
             </p>
+            <div
+              className="mb-6 flex min-h-9 items-center justify-center text-center text-[24px] font-semibold"
+              style={{ color: textPrimary, fontFamily: "Arial, 'Microsoft YaHei', sans-serif" }}
+            >
+              {isExportingEnding ? (
+                <span
+                  data-export-name-slot="record"
+                  aria-hidden="true"
+                  className="inline-block h-9"
+                  style={{ width: `${shareNameSlotWidth * 2}px`, maxWidth: "100%" }}
+                />
+              ) : (
+                shareName
+              )}
+            </div>
 
             {/* 1. 教育背景 */}
             <div className="mb-8 pb-8 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
@@ -3613,7 +4218,7 @@ export function GamePage() {
               ) : (
                 <div className="space-y-4">
                   {[...pastInternships].reverse().map((internship, idx) => (
-                    <div key={idx} className="flex flex-col gap-2">
+                    <div key={`${internship.id}-${idx}`} className="flex flex-col gap-2">
                       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1">
                         <div>
                           <h4 className="text-[15px] text-white font-medium">{internship.companyName}</h4>
@@ -3623,18 +4228,44 @@ export function GamePage() {
                           {internship.stipend.split(' · ')[0]}
                         </span>
                       </div>
-                      {internship.detailedAchievements && (
-                        <ul className="list-disc list-inside text-[13px] space-y-0.5" style={{ color: "rgba(200,220,255,0.6)" }}>
-                          {internship.detailedAchievements.map((ach, i) => (
-                            <li key={i}>{ach}</li>
-                          ))}
-                        </ul>
-                      )}
+                      <EditableInternshipDetails internship={internship} onSave={updateInternshipDetails} />
+
                     </div>
                   ))}
                 </div>
               )}
             </div>
+          </div>
+
+          {isExportingEnding && (
+            <div
+              className="mt-8 flex items-center justify-between gap-6 rounded-2xl p-6"
+              style={{ background: "rgba(5,8,20,0.9)", border: "1px solid rgba(201,168,76,0.32)" }}
+            >
+              <div className="min-w-0">
+                <p className="text-[11px] tracking-[0.24em]" style={{ color: accent }}>ARCH CAREER SIMULATOR</p>
+                <p className="mt-2 text-[22px] font-semibold" style={{ color: textPrimary, fontFamily: "'Noto Serif SC', serif" }}>扫码开启你的建筑转行人生</p>
+                <p className="mt-2 text-[13px] leading-relaxed" style={{ color: textSecondary }}>进入《我是一个“建”人》，看看三年后的你会走向哪一种结局。</p>
+              </div>
+              <div className="shrink-0 rounded-xl bg-white p-2">
+                <img src="/assets/visuals/share/game-qr.png" alt="游戏二维码" className="h-28 w-28" />
+              </div>
+            </div>
+          )}
+          </div>
+
+          <div className="mb-8">
+            <button
+              type="button"
+              onClick={handleShareEnding}
+              disabled={isExportingEnding}
+              className="flex w-full items-center justify-center gap-2 rounded-xl py-4 text-[15px] font-semibold transition-all hover:-translate-y-0.5 hover:opacity-95 disabled:cursor-wait disabled:opacity-70"
+              style={{ background: finalEnding.color, color: "#07101d", boxShadow: `0 12px 30px ${finalEnding.color}20` }}
+            >
+              {isExportingEnding ? <RefreshCw size={17} className="animate-spin" /> : <Share2 size={17} />}
+              {isExportingEnding ? "正在生成结局长图…" : "导出并分享结局长图"}
+            </button>
+            {shareFeedback && <p className="mt-2 text-center text-[12px]" style={{ color: textSecondary }} aria-live="polite">{shareFeedback}</p>}
           </div>
 
           {/* 删除了最终选 offer 的环节，因为在之前已经选过了 */}
