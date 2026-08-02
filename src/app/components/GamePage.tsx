@@ -5046,11 +5046,11 @@ export function GamePage() {
           {/* 删除了最终选 offer 的环节，因为在之前已经选过了 */}
 
           <button
-            onClick={() => { setLocalSaveFeedback(""); setIsSettingsOpen(true); }}
+            onClick={resetGame}
             className="w-full py-4 rounded-xl text-[15px] transition-all hover:opacity-90 flex items-center justify-center gap-2"
             style={{ background: "rgba(74,158,255,0.12)", color: accent, border: `1px solid rgba(74,158,255,0.25)` }}
           >
-            <Settings size={15} /> 设置与存档
+            <RefreshCw size={15} /> 重新开始
           </button>
 
           <a
