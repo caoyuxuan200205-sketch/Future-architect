@@ -82,6 +82,17 @@ const SCHOOL_LOGOS: Record<string, string> = {
   "郑州大学": "/assets/visuals/schools/zhengzhou-university.jpeg",
   "中央美术学院": "/assets/visuals/schools/central-academy-of-fine-arts.png",
   "重庆大学": "/assets/visuals/schools/chongqing-university.png",
+  "安徽建筑大学": "/assets/visuals/schools/anhui-jianzhu-university.png",
+  "代尔夫特理工大学": "/assets/visuals/schools/delft-university-of-technology.webp",
+  "河北工业大学": "/assets/visuals/schools/hebei-university-of-technology.jpg",
+  "华侨大学": "/assets/visuals/schools/huaqiao-university.png",
+  "墨尔本大学": "/assets/visuals/schools/university-of-melbourne.jpeg",
+  "沈阳建筑大学": "/assets/visuals/schools/shenyang-jianzhu-university.jpg",
+  "同济大学": "/assets/visuals/schools/tongji-university.jpg",
+  "UCL Bartlett": "/assets/visuals/schools/ucl-bartlett.webp",
+  "西南交通大学": "/assets/visuals/schools/southwest-jiaotong-university.jpg",
+  "新加坡国立大学": "/assets/visuals/schools/national-university-of-singapore.png",
+  "烟台大学": "/assets/visuals/schools/yantai-university.png",
 };
 
 export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdated, schoolName, schoolTier }: DesktopGameSidebarProps) {

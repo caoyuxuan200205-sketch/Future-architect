@@ -1220,6 +1220,17 @@ const COMPANY_LOGOS: Record<string, string> = {
   vanke: "/assets/visuals/companies/vanke.jpg",
   longfor: "/assets/visuals/companies/longfor.jpg",
   cushman: "/assets/visuals/companies/cushman.jpg",
+  amazon: "/assets/visuals/companies/amazon.webp",
+  apple: "/assets/visuals/companies/apple.png",
+  nio: "/assets/visuals/companies/nio.png",
+  cicc: "/assets/visuals/companies/cicc.jpg",
+  citic: "/assets/visuals/companies/citic.png",
+  goldman: "/assets/visuals/companies/goldman-sachs.png",
+  morgan: "/assets/visuals/companies/morgan-stanley.webp",
+  moji: "/assets/visuals/companies/moji.webp",
+  ecadi: "/assets/visuals/companies/ecadi.png",
+  seu_design: "/assets/visuals/companies/seu-design.png",
+  gad: "/assets/visuals/companies/gad.png",
   meituan: "/assets/visuals/companies/meituan.png",
 };
 const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
@@ -1243,6 +1254,8 @@ const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
   xpeng: "/assets/visuals/endings/xpeng.png",
   byd: "/assets/visuals/endings/byd.png",
   citic: "/assets/visuals/endings/citic.png",
+  cicc: "/assets/visuals/endings/cicc.png",
+  goldman: "/assets/visuals/endings/goldman.png",
   morgan: "/assets/visuals/endings/morgan.png",
   netease: "/assets/visuals/endings/netease.png",
   xiaohongshu: "/assets/visuals/endings/xiaohongshu.png",
@@ -1251,13 +1264,32 @@ const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
   ctrip: "/assets/visuals/endings/ctrip.png",
   didi: "/assets/visuals/endings/didi.png",
   iqiyi: "/assets/visuals/endings/iqiyi.png",
+  keep: "/assets/visuals/endings/keep.png",
+  soul: "/assets/visuals/endings/soul.png",
   boss: "/assets/visuals/endings/boss.png",
+  moji: "/assets/visuals/endings/moji.png",
   fanka: "/assets/visuals/endings/fanka.png",
+  mixue: "/assets/visuals/endings/mixue.png",
   chayan: "/assets/visuals/endings/chayan.png",
   zuoyebang: "/assets/visuals/endings/zuoyebang.png",
+  yuanfudao: "/assets/visuals/endings/yuanfudao.png",
+  cadg: "/assets/visuals/endings/cadg.png",
+  ecadi: "/assets/visuals/endings/ecadi.png",
   vanke: "/assets/visuals/endings/vanke.png",
+  longfor: "/assets/visuals/endings/longfor.png",
+  seu_design: "/assets/visuals/endings/seu-design.png",
+  gad: "/assets/visuals/endings/gad.png",
+  cushman: "/assets/visuals/endings/cushman.png",
   meituan: "/assets/visuals/endings/meituan.png",
   pdd: "/assets/visuals/endings/pdd.png",
+};
+const ENDING_BACKGROUNDS: Record<string, string> = {
+  expelled: "/assets/visuals/endings/expelled.png",
+  self_doubt_quit: "/assets/visuals/endings/self-doubt-quit.png",
+  age_anxiety_pivot: "/assets/visuals/endings/age-anxiety-pivot.png",
+  stress_breakdown: "/assets/visuals/endings/stress-breakdown.png",
+  delayed_graduation: "/assets/visuals/endings/delayed-graduation.png",
+  failed: "/assets/visuals/endings/failed.png",
 };
 const OFFER_CATEGORY_ACCENTS: Record<string, string> = {
   "互联网大厂": "#5b8cff",
@@ -3913,7 +3945,9 @@ export function GamePage() {
     const finalEnding = ending || ENDINGS[0]; // 回退到第一个结局以防万一
     const qualified = receivedOffers || [];
     const selectedCompany = qualified.find((company) => company.id === selectedOfferId);
-    const endingBackground = selectedCompany ? COMPANY_ENDING_BACKGROUNDS[selectedCompany.id] : undefined;
+    const endingBackground = selectedCompany
+      ? COMPANY_ENDING_BACKGROUNDS[selectedCompany.id] ?? ENDING_BACKGROUNDS[finalEnding.id]
+      : ENDING_BACKGROUNDS[finalEnding.id];
     const endingPageStyle: CSSProperties = endingBackground ? {
       ...pageStyle,
       backgroundImage: `linear-gradient(180deg, rgba(3,6,16,0.20) 0%, rgba(3,6,16,0.42) 48%, rgba(3,6,16,0.78) 100%), url("${endingBackground}")`,
