@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, type CSSProperties } from "react";
-import { RefreshCw, ChevronRight, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert, BriefcaseBusiness, CheckCircle2, Pencil, Check, X, Share2 } from "lucide-react";
+import { RefreshCw, ChevronRight, ChevronDown, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert, BriefcaseBusiness, CheckCircle2, Pencil, Check, X, Share2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { AIAssistant } from "./AIAssistant";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
@@ -2338,6 +2338,8 @@ function DecisionStatusRail({
   actionDelta: Partial<Stats>;
   eventDelta: Partial<Stats>;
 }) {
+  const [skillsExpanded, setSkillsExpanded] = useState(true);
+  const [mentalStateExpanded, setMentalStateExpanded] = useState(true);
   const border = "rgba(201,168,76,0.2)";
   const textPrimary = "#f1f3fb";
   const textSecondary = "rgba(198,207,234,0.68)";
@@ -2372,17 +2374,53 @@ function DecisionStatusRail({
       </div>
 
       <div className="mb-4">
-        <p className="mb-3 text-[10px] tracking-[0.2em]" style={{ color: textSecondary }}>SKILLS</p>
-        {(["arch", "logic", "expression", "english", "structured", "stress", "network", "money"] as StatKey[]).map((key) => (
-          <StatBar key={key} statKey={key} value={stats[key]} delta={deltaFor(key)} />
-        ))}
+        <button
+          type="button"
+          onClick={() => setSkillsExpanded((expanded) => !expanded)}
+          aria-expanded={skillsExpanded}
+          aria-controls="decision-rail-skills"
+          className="group mb-3 flex w-full items-center justify-between rounded-md py-1 text-left outline-none transition-colors hover:bg-white/[0.035] focus-visible:ring-1 focus-visible:ring-[#c9a84c]/60"
+        >
+          <span className="text-[10px] tracking-[0.2em]" style={{ color: textSecondary }}>SKILLS</span>
+          <ChevronDown
+            size={15}
+            strokeWidth={1.7}
+            aria-hidden="true"
+            className={`text-slate-500 transition-transform duration-200 group-hover:text-slate-300 ${skillsExpanded ? "rotate-0" : "-rotate-90"}`}
+          />
+        </button>
+        {skillsExpanded && (
+          <div id="decision-rail-skills">
+            {(["arch", "logic", "expression", "english", "structured", "stress", "network", "money"] as StatKey[]).map((key) => (
+              <StatBar key={key} statKey={key} value={stats[key]} delta={deltaFor(key)} />
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="mt-auto border-t pt-4" style={{ borderColor: border }}>
-        <p className="mb-3 text-[10px] tracking-[0.2em] text-red-400/70">MENTAL STATE</p>
-        {(["selfDoubt", "ageAnxiety"] as StatKey[]).map((key) => (
-          <StatBar key={key} statKey={key} value={stats[key]} delta={deltaFor(key)} />
-        ))}
+      <div className="border-t pt-4" style={{ borderColor: border }}>
+        <button
+          type="button"
+          onClick={() => setMentalStateExpanded((expanded) => !expanded)}
+          aria-expanded={mentalStateExpanded}
+          aria-controls="decision-rail-mental-state"
+          className="group mb-3 flex w-full items-center justify-between rounded-md py-1 text-left outline-none transition-colors hover:bg-white/[0.035] focus-visible:ring-1 focus-visible:ring-red-400/50"
+        >
+          <span className="text-[10px] tracking-[0.2em] text-red-400/70">MENTAL STATE</span>
+          <ChevronDown
+            size={15}
+            strokeWidth={1.7}
+            aria-hidden="true"
+            className={`text-red-400/40 transition-transform duration-200 group-hover:text-red-300/70 ${mentalStateExpanded ? "rotate-0" : "-rotate-90"}`}
+          />
+        </button>
+        {mentalStateExpanded && (
+          <div id="decision-rail-mental-state">
+            {(["selfDoubt", "ageAnxiety"] as StatKey[]).map((key) => (
+              <StatBar key={key} statKey={key} value={stats[key]} delta={deltaFor(key)} />
+            ))}
+          </div>
+        )}
       </div>
     </aside>
   );
