@@ -145,6 +145,17 @@ interface Ending {
   condition: (stats: Stats) => boolean;
 }
 
+interface GameResultDistribution {
+  total: number;
+  endings: Array<{ title: string; count: number }>;
+  offers: Array<{ name: string; count: number }>;
+}
+
+interface GameResultDistributionRow {
+  ending_title: string | null;
+  offer_name: string | null;
+}
+
 // ================================================================
 // SECTION 3: 行动数据
 // ================================================================
@@ -697,6 +708,9 @@ const COMPANIES: Company[] = [
   { id: "jd", name: "京东", category: "互联网大厂", thresholds: { logic: 73, expression: 67, structured: 67 }, description: "正品低价，用户至上" },
   { id: "baidu", name: "百度", category: "互联网大厂", thresholds: { logic: 73, expression: 67, structured: 65 }, description: "AI时代的搜索引擎" },
   { id: "kuaishou", name: "快手", category: "互联网大厂", thresholds: { logic: 70, expression: 65, structured: 65 }, description: "记录世界，记录你" },
+  { id: "meituan", name: "美团", category: "互联网大厂", thresholds: { logic: 75, expression: 68, structured: 72 }, description: "帮大家吃得更好，生活更好" },
+  { id: "pdd", name: "拼多多", category: "互联网大厂", thresholds: { logic: 76, expression: 68, structured: 73 }, description: "多实惠，多乐趣" },
+  { id: "antgroup", name: "蚂蚁集团", category: "互联网大厂", thresholds: { logic: 78, expression: 72, structured: 75 }, description: "让信用等于财富" },
   // 外企科技
   { id: "google", name: "Google", category: "外企科技", thresholds: { english: 83, logic: 80, structured: 75, expression: 73 }, description: "Don't be evil" },
   { id: "microsoft", name: "Microsoft", category: "外企科技", thresholds: { english: 80, logic: 77, structured: 75, expression: 70 }, description: "Empowering every person" },
@@ -707,6 +721,7 @@ const COMPANIES: Company[] = [
   { id: "mckinsey", name: "McKinsey", category: "咨询公司", thresholds: { logic: 83, structured: 83, expression: 77, english: 73 }, description: "顶级战略咨询，建筑生的另一条路" },
   { id: "bcg", name: "BCG", category: "咨询公司", thresholds: { logic: 81, structured: 81, expression: 77, english: 70 }, description: "波士顿矩阵的发明者" },
   { id: "bain", name: "Bain", category: "咨询公司", thresholds: { logic: 80, structured: 80, expression: 75, english: 67 }, description: "Results, not reports" },
+  { id: "deloitte", name: "Deloitte", category: "咨询公司", thresholds: { logic: 78, structured: 77, expression: 72, english: 68 }, description: "以卓越成就不凡" },
   // 车企
   { id: "tesla", name: "Tesla", category: "车企", thresholds: { logic: 78, english: 75, structured: 70 }, description: "加速世界向可持续能源的转变" },
   { id: "nio", name: "蔚来", category: "车企", thresholds: { logic: 75, expression: 70, structured: 70 }, description: "Blue Sky Coming" },
@@ -720,6 +735,8 @@ const COMPANIES: Company[] = [
   { id: "morgan", name: "Morgan Stanley", category: "投行", thresholds: { logic: 86, structured: 83, english: 82 }, description: "Doing first-class business" },
   // 中厂
   { id: "netease", name: "网易", category: "中厂", thresholds: { logic: 63, expression: 57, structured: 57 }, description: "有态度的互联网公司" },
+  { id: "beike", name: "贝壳找房", category: "中厂", thresholds: { logic: 62, expression: 58, structured: 60 }, description: "有尊严的服务者，更美好的居住" },
+  { id: "iflytek", name: "科大讯飞", category: "中厂", thresholds: { logic: 66, expression: 60, structured: 63 }, description: "让机器能听会说，能理解会思考" },
   { id: "xiaohongshu", name: "小红书", category: "中厂", thresholds: { logic: 65, expression: 63, structured: 60 }, description: "你的生活指南" },
   { id: "bilibili", name: "哔哩哔哩", category: "中厂", thresholds: { logic: 63, expression: 60, structured: 57 }, description: "你感兴趣的视频都在B站" },
   { id: "dewu", name: "得物", category: "中厂", thresholds: { logic: 60, expression: 57, structured: 55 }, description: "年轻人的潮流社区" },
@@ -744,6 +761,8 @@ const COMPANIES: Company[] = [
   { id: "seu_design", name: "东南大学建筑设计研究院", category: "传统路径", thresholds: { arch: 65 }, description: "学院派建筑高地" },
   { id: "gad", name: "gad", category: "传统路径", thresholds: { arch: 63 }, description: "高品质商业建筑设计" },
   { id: "cushman", name: "戴德梁行", category: "传统路径", thresholds: { arch: 55, english: 60, network: 45 }, description: "全球领先的房地产服务商" },
+  { id: "cbre", name: "世邦魏理仕", category: "传统路径", thresholds: { arch: 57, english: 62, network: 47 }, description: "全球商业地产服务与投资管理平台" },
+  { id: "jll", name: "仲量联行", category: "传统路径", thresholds: { arch: 56, english: 63, network: 47 }, description: "塑造房地产的美好未来" },
 ];
 
 // ================================================================
@@ -1130,6 +1149,9 @@ const COMPANY_OFFER_META: Record<
   jd: { salary: "23k·14（月）", perks: "住房补贴 · 专项奖金 · 年度旅游", level: "大厂" },
   baidu: { salary: "22k·14（月）", perks: "技术氛围浓 · 研究项目 · 午餐补贴", level: "大厂" },
   kuaishou: { salary: "24k·15（月）", perks: "绩效奖金 · 下午茶 · 团建活动", level: "大厂" },
+  meituan: { salary: "25k·15（月）", perks: "餐补福利 · 业务复杂度高 · 晋升通道清晰", level: "大厂" },
+  pdd: { salary: "30k·16（月）", perks: "高绩效奖金 · 快速晋升 · 高强度成长", level: "大厂" },
+  antgroup: { salary: "28k·16（月）", perks: "技术金融场景 · 股票激励 · 专业成长", level: "大厂" },
 
   google: { salary: "50k+·14（月）", perks: "全球团队 · 丰厚股票 · 无限零食", level: "外企" },
   microsoft: { salary: "45k·14（月）", perks: "混合办公 · 学习预算 · 购股计划", level: "外企" },
@@ -1140,8 +1162,11 @@ const COMPANY_OFFER_META: Record<
   mckinsey: { salary: "45k·16（月）", perks: "全球项目 · 海外出差 · 高强度培养", level: "咨询" },
   bcg: { salary: "43k·16（月）", perks: "快速晋升 · 行业视野 · 项目奖金", level: "咨询" },
   bain: { salary: "42k·16（月）", perks: "导师一对一 · 体系化培训 · 团队文化", level: "咨询" },
+  deloitte: { salary: "24k·14（月）", perks: "专业培训 · 多行业项目 · 国际化平台", level: "咨询" },
 
   netease: { salary: "21k·14（月）", perks: "下午茶 · 音乐氛围 · 相对稳定", level: "中厂" },
+  beike: { salary: "20k·14（月）", perks: "居住产业数字化 · 业务培训 · 成长通道", level: "中厂" },
+  iflytek: { salary: "21k·14（月）", perks: "人工智能场景 · 技术培训 · 研发氛围", level: "中厂" },
   xiaohongshu: { salary: "22k·15（月）", perks: "内容氛围好 · 产品节奏快", level: "中厂" },
   bilibili: { salary: "20k·14（月）", perks: "兴趣社区 · 弹性上下班", level: "中厂" },
   dewu: { salary: "19k·14（月）", perks: "年轻团队 · 潮流福利", level: "中厂" },
@@ -1158,6 +1183,8 @@ const COMPANY_OFFER_META: Record<
   seu_design: { salary: "16k·14（月）", perks: "学院氛围 · 科研项目 · 校园环境", level: "传统" },
   gad: { salary: "17k·14（月）", perks: "商业项目 · 设计氛围浓 · 成长快", level: "传统" },
   cushman: { salary: "20k·14（月）", perks: "全球资源 · 英文环境 · 地产人脉", level: "传统" },
+  cbre: { salary: "21k·14（月）", perks: "全球项目 · 商业地产资源 · 专业培训", level: "传统" },
+  jll: { salary: "21k·14（月）", perks: "国际平台 · 多元业务线 · 地产咨询经验", level: "传统" },
 
   // 车企
   tesla: { salary: "35k·14（月）", perks: "马斯克文化 · 股票期权 · 国际团队", level: "车企" },
@@ -1198,15 +1225,18 @@ const COMPANY_LOGOS: Record<string, string> = {
   mckinsey: "/assets/visuals/companies/mckinsey.webp",
   bcg: "/assets/visuals/companies/bcg.webp",
   bain: "/assets/visuals/companies/bain.png",
+  deloitte: "/assets/visuals/companies/deloitte.jpg",
   tesla: "/assets/visuals/companies/tesla.webp",
   li: "/assets/visuals/companies/li.webp",
   xpeng: "/assets/visuals/companies/xpeng.png",
   byd: "/assets/visuals/companies/byd.jpg",
   netease: "/assets/visuals/companies/netease.jpg",
+  beike: "/assets/visuals/companies/beike.png",
+  iflytek: "/assets/visuals/companies/iflytek.jpg",
   xiaohongshu: "/assets/visuals/companies/xiaohongshu.webp",
   bilibili: "/assets/visuals/companies/bilibili.jpg",
   dewu: "/assets/visuals/companies/dewu.webp",
-  ctrip: "/assets/visuals/companies/ctrip.webp",
+  ctrip: "/assets/visuals/companies/ctrip.jpg",
   didi: "/assets/visuals/companies/didi.jpg",
   iqiyi: "/assets/visuals/companies/iqiyi.jpg",
   keep: "/assets/visuals/companies/keep.jpg",
@@ -1221,6 +1251,8 @@ const COMPANY_LOGOS: Record<string, string> = {
   vanke: "/assets/visuals/companies/vanke.jpg",
   longfor: "/assets/visuals/companies/longfor.jpg",
   cushman: "/assets/visuals/companies/cushman.jpg",
+  cbre: "/assets/visuals/companies/cbre.jpeg",
+  jll: "/assets/visuals/companies/jll.jpg",
   amazon: "/assets/visuals/companies/amazon.webp",
   apple: "/assets/visuals/companies/apple.png",
   nio: "/assets/visuals/companies/nio.png",
@@ -1233,6 +1265,8 @@ const COMPANY_LOGOS: Record<string, string> = {
   seu_design: "/assets/visuals/companies/seu-design.png",
   gad: "/assets/visuals/companies/gad.png",
   meituan: "/assets/visuals/companies/meituan.png",
+  pdd: "/assets/visuals/companies/pdd.jpg",
+  antgroup: "/assets/visuals/companies/antgroup.png",
 };
 const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
   tencent: "/assets/visuals/endings/tencent.png",
@@ -1249,6 +1283,7 @@ const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
   mckinsey: "/assets/visuals/endings/mckinsey.png",
   bcg: "/assets/visuals/endings/bcg.png",
   bain: "/assets/visuals/endings/bain.png",
+  deloitte: "/assets/visuals/endings/deloitte.png",
   tesla: "/assets/visuals/endings/tesla.png",
   nio: "/assets/visuals/endings/nio.png",
   li: "/assets/visuals/endings/li.png",
@@ -1259,6 +1294,8 @@ const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
   goldman: "/assets/visuals/endings/goldman.png",
   morgan: "/assets/visuals/endings/morgan.png",
   netease: "/assets/visuals/endings/netease.png",
+  beike: "/assets/visuals/endings/beike.png",
+  iflytek: "/assets/visuals/endings/iflytek.png",
   xiaohongshu: "/assets/visuals/endings/xiaohongshu.png",
   bilibili: "/assets/visuals/endings/bilibili.png",
   dewu: "/assets/visuals/endings/dewu.png",
@@ -1281,8 +1318,11 @@ const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
   seu_design: "/assets/visuals/endings/seu-design.png",
   gad: "/assets/visuals/endings/gad.png",
   cushman: "/assets/visuals/endings/cushman.png",
+  cbre: "/assets/visuals/endings/cbre.png",
+  jll: "/assets/visuals/endings/jll.png",
   meituan: "/assets/visuals/endings/meituan.png",
   pdd: "/assets/visuals/endings/pdd.png",
+  antgroup: "/assets/visuals/endings/antgroup.png",
 };
 const ENDING_BACKGROUNDS: Record<string, string> = {
   expelled: "/assets/visuals/endings/expelled.png",
@@ -1309,6 +1349,44 @@ function getOfferRole(category: string): string {
   if (category === "传统路径") return "建筑与项目管理岗";
   if (category === "车企") return "智能产品经理";
   return "产品经理（校招）";
+}
+
+function normalizeDistributionCount(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function normalizeGameResultDistribution(value: unknown): GameResultDistribution {
+  const raw = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const endings = Array.isArray(raw.endings) ? raw.endings : [];
+  const offers = Array.isArray(raw.offers) ? raw.offers : [];
+  return {
+    total: normalizeDistributionCount(raw.total),
+    endings: endings.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const row = item as Record<string, unknown>;
+      return typeof row.title === "string" ? [{ title: row.title, count: normalizeDistributionCount(row.count) }] : [];
+    }),
+    offers: offers.flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const row = item as Record<string, unknown>;
+      return typeof row.name === "string" ? [{ name: row.name, count: normalizeDistributionCount(row.count) }] : [];
+    }),
+  };
+}
+
+function aggregateGameResultRows(rows: GameResultDistributionRow[]): GameResultDistribution {
+  const endingCounts = new Map<string, number>();
+  const offerCounts = new Map<string, number>();
+  rows.forEach((row) => {
+    if (row.ending_title) endingCounts.set(row.ending_title, (endingCounts.get(row.ending_title) ?? 0) + 1);
+    if (row.offer_name) offerCounts.set(row.offer_name, (offerCounts.get(row.offer_name) ?? 0) + 1);
+  });
+  return {
+    total: rows.length,
+    endings: Array.from(endingCounts, ([title, count]) => ({ title, count })).sort((a, b) => b.count - a.count),
+    offers: Array.from(offerCounts, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
+  };
 }
 
 // 简化的实习机会（根据当前能力值筛选）
@@ -2474,6 +2552,11 @@ export function GamePage() {
 
   // Supabase 统计状态
   const [globalEndingStats, setGlobalEndingStats] = useState<{ total: number; sameEndingCount: number } | null>(null);
+  const [globalDistribution, setGlobalDistribution] = useState<GameResultDistribution | null>(null);
+  const [isDistributionOpen, setIsDistributionOpen] = useState(false);
+  const [distributionLoading, setDistributionLoading] = useState(false);
+  const [distributionError, setDistributionError] = useState("");
+  const [expandedOfferLevels, setExpandedOfferLevels] = useState<Set<string>>(new Set(["大厂"]));
   const [hasSubmittedResult, setHasSubmittedResult] = useState(false);
 
   // ── 存档/读档逻辑 ──
@@ -2646,6 +2729,43 @@ export function GamePage() {
       submitAndFetch();
     }
   }, [phase, ending, hasSubmittedResult, selectedOfferId, receivedOffers, character, mentor, stats, pastInternships]);
+
+  const loadGlobalDistribution = useCallback(async () => {
+    if (distributionLoading || globalDistribution) return;
+    setDistributionLoading(true);
+    setDistributionError("");
+
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc("get_game_result_distribution");
+      let distribution: GameResultDistribution | null = null;
+
+      if (!rpcError && rpcData) {
+        distribution = normalizeGameResultDistribution(rpcData);
+      } else {
+        // Compatibility fallback for projects that have not installed the aggregate RPC yet.
+        const pageSize = 1000;
+        const rows: GameResultDistributionRow[] = [];
+        for (let from = 0; from < 100000; from += pageSize) {
+          const { data, error } = await supabase
+            .from("game_results")
+            .select("ending_title, offer_name")
+            .range(from, from + pageSize - 1);
+          if (error) throw rpcError ?? error;
+          const page = (data ?? []) as GameResultDistributionRow[];
+          rows.push(...page);
+          if (page.length < pageSize) break;
+        }
+        distribution = aggregateGameResultRows(rows);
+      }
+
+      setGlobalDistribution(distribution);
+    } catch (error) {
+      console.error("Supabase: 全服分布获取失败", error);
+      setDistributionError("暂时无法读取全服分布，请稍后重试");
+    } finally {
+      setDistributionLoading(false);
+    }
+  }, [distributionLoading, globalDistribution]);
 
   // 开始游戏：姓名固定，学校与属性仍可重新生成
   const startGame = useCallback(() => {
@@ -2918,6 +3038,11 @@ export function GamePage() {
     setActiveCampusEvent(null);
     setCampusEventResult(null);
     setGlobalEndingStats(null);
+    setGlobalDistribution(null);
+    setIsDistributionOpen(false);
+    setDistributionLoading(false);
+    setDistributionError("");
+    setExpandedOfferLevels(new Set(["大厂"]));
     setHasSubmittedResult(false);
     setTutorialStep(0);
     setPlayerNameInput("");
@@ -4086,6 +4211,53 @@ export function GamePage() {
     const shareName = character?.name?.trim() || "未命名同学";
     const shareNameSlotWidth = Math.min(280, Math.max(90, Array.from(shareName).length * 9 + 20));
     const shareText = `${shareName}在《我是一个“建”人》中达成结局「${finalEnding.title}」${selectedCompany ? `，即将入职${selectedCompany.name}` : ""}。`;
+    const endingCountMap = new Map(globalDistribution?.endings.map((item) => [item.title, item.count]) ?? []);
+    const knownEndingTitles = new Set(ENDINGS.map((item) => item.title));
+    const endingDistributionRows = [
+      ...ENDINGS.map((item) => ({ title: item.title, count: endingCountMap.get(item.title) ?? 0, color: item.color })),
+      ...(globalDistribution?.endings ?? [])
+        .filter((item) => !knownEndingTitles.has(item.title))
+        .map((item) => ({ title: item.title, count: item.count, color: "#94a3b8" })),
+    ].sort((a, b) => b.count - a.count || a.title.localeCompare(b.title));
+    const offerCountMap = new Map(globalDistribution?.offers.map((item) => [item.name, item.count]) ?? []);
+    const knownOfferNames = new Set(COMPANIES.map((company) => company.name));
+    const offerLevelOrder = ["大厂", "中厂", "咨询", "投行", "车企", "外企", "小厂", "传统", "其他"];
+    const offerLevelAccents: Record<string, string> = {
+      大厂: "#5b8cff", 外企: "#72c7d8", 咨询: "#c9a84c", 投行: "#d8bd69", 车企: "#70c998",
+      中厂: "#a78bfa", 小厂: "#f59e5b", 传统: "#94a3b8", 其他: "#64748b",
+    };
+    const totalOfferCount = (globalDistribution?.offers ?? []).reduce((sum, item) => sum + item.count, 0);
+    const offerLevelRows = offerLevelOrder.map((level) => {
+      const knownCompanies = COMPANIES
+        .filter((company) => (COMPANY_OFFER_META[company.id]?.level ?? "其他") === level)
+        .map((company) => ({ name: company.name, count: offerCountMap.get(company.name) ?? 0 }));
+      const unknownCompanies = level === "其他"
+        ? (globalDistribution?.offers ?? []).filter((item) => !knownOfferNames.has(item.name))
+        : [];
+      const companies = [...knownCompanies, ...unknownCompanies]
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+      return {
+        level,
+        color: offerLevelAccents[level],
+        count: companies.reduce((sum, company) => sum + company.count, 0),
+        companies,
+      };
+    }).filter((item) => item.count > 0);
+
+    const toggleGlobalDistribution = () => {
+      const nextOpen = !isDistributionOpen;
+      setIsDistributionOpen(nextOpen);
+      if (nextOpen && !globalDistribution && !distributionLoading) void loadGlobalDistribution();
+    };
+
+    const toggleOfferLevel = (level: string) => {
+      setExpandedOfferLevels((previous) => {
+        const next = new Set(previous);
+        if (next.has(level)) next.delete(level);
+        else next.add(level);
+        return next;
+      });
+    };
 
     const handleShareEnding = async () => {
       const exportNode = endingExportRef.current;
@@ -4414,6 +4586,126 @@ export function GamePage() {
             </div>
           )}
           </div>
+
+          <section
+            data-export-hidden="true"
+            className="mb-8 overflow-hidden rounded-2xl"
+            style={{ background: "rgba(5,10,24,0.92)", border: `1px solid ${border}`, backdropFilter: "blur(14px)" }}
+          >
+            <button
+              type="button"
+              onClick={toggleGlobalDistribution}
+              aria-expanded={isDistributionOpen}
+              aria-controls="global-ending-distribution"
+              className="flex w-full items-center gap-4 p-5 text-left outline-none transition-colors hover:bg-white/[0.035] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#c9a84c]/50"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/10 text-[#dec678]">
+                <TrendingUp size={18} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-semibold text-slate-100">查看全部结局与 Offer 分布</span>
+                <span className="mt-1 block text-[11px] text-slate-500">基于全服已提交的通关记录 · 不会进入分享图</span>
+              </span>
+              <ChevronDown className={`shrink-0 text-slate-500 transition-transform duration-200 ${isDistributionOpen ? "rotate-180" : ""}`} size={18} />
+            </button>
+
+            {isDistributionOpen && (
+              <div id="global-ending-distribution" className="border-t border-white/10 p-5">
+                {distributionLoading && (
+                  <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-slate-400">
+                    <RefreshCw size={15} className="animate-spin" />正在读取全服统计…
+                  </div>
+                )}
+                {distributionError && !distributionLoading && (
+                  <div className="rounded-xl border border-red-400/15 bg-red-400/[0.06] p-4 text-center">
+                    <p className="text-[13px] text-red-300">{distributionError}</p>
+                    <button type="button" onClick={() => { setGlobalDistribution(null); void loadGlobalDistribution(); }} className="mt-3 rounded-lg border border-red-300/20 px-3 py-1.5 text-[12px] text-red-200 hover:bg-red-300/10">重新加载</button>
+                  </div>
+                )}
+                {globalDistribution && !distributionLoading && (
+                  <div className="space-y-8">
+                    <div>
+                      <div className="mb-4 flex items-end justify-between gap-4">
+                        <div><p className="text-[11px] uppercase tracking-[0.2em] text-[#c9a84c]">ENDING ATLAS</p><h3 className="mt-1 text-[17px] font-semibold text-slate-100">全部结局达成占比</h3></div>
+                        <span className="text-[11px] tabular-nums text-slate-500">{globalDistribution.total} 次通关</span>
+                      </div>
+                      <div className="space-y-3">
+                        {endingDistributionRows.map((item) => {
+                          const percentage = globalDistribution.total > 0 ? item.count / globalDistribution.total * 100 : 0;
+                          const current = item.title === finalEnding.title;
+                          return (
+                            <div key={item.title} className={`rounded-lg px-3 py-2.5 ${current ? "bg-white/[0.055] ring-1 ring-inset ring-white/10" : ""}`}>
+                              <div className="mb-1.5 flex items-center gap-2 text-[12px]">
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: item.color }} />
+                                <span className={current ? "font-semibold text-slate-100" : "text-slate-300"}>{item.title}</span>
+                                {current && <span className="rounded bg-[#c9a84c]/10 px-1.5 py-0.5 text-[9px] text-[#dec678]">你的结局</span>}
+                                <span className="ml-auto tabular-nums text-slate-500">{item.count} 次 · {percentage.toFixed(1)}%</span>
+                              </div>
+                              <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.max(percentage > 0 ? 0.8 : 0, percentage)}%`, background: item.color }} /></div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-white/10 pt-7">
+                      <div className="mb-4 flex items-end justify-between gap-4">
+                        <div><p className="text-[11px] uppercase tracking-[0.2em] text-[#c9a84c]">OFFER DESTINATIONS</p><h3 className="mt-1 text-[17px] font-semibold text-slate-100">Offer 类别与公司占比</h3></div>
+                        <span className="text-[11px] tabular-nums text-slate-500">{totalOfferCount} 份 Offer</span>
+                      </div>
+                      {totalOfferCount > 0 ? (
+                        <div className="grid items-start gap-3 xl:grid-cols-2">
+                          {offerLevelRows.map((group) => {
+                            const levelOpen = expandedOfferLevels.has(group.level);
+                            const categoryPercentage = group.count / totalOfferCount * 100;
+                            return (
+                              <div key={group.level} className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.02]">
+                                <button type="button" onClick={() => toggleOfferLevel(group.level)} aria-expanded={levelOpen} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.035]">
+                                  <span className="h-2 w-2 rounded-full" style={{ background: group.color }} />
+                                  <span className="text-[13px] font-medium text-slate-200">{group.level}</span>
+                                  <span className="ml-auto text-[11px] tabular-nums text-slate-500">{group.count} 份 · {categoryPercentage.toFixed(1)}% 的 Offer</span>
+                                  <ChevronDown size={14} className={`text-slate-600 transition-transform ${levelOpen ? "rotate-180" : ""}`} />
+                                </button>
+                                {levelOpen && (
+                                  <div className="space-y-2 border-t border-white/[0.07] px-4 py-3">
+                                    {group.companies.map((company) => {
+                                      const withinCategory = group.count > 0 ? company.count / group.count * 100 : 0;
+                                      const overall = globalDistribution.total > 0 ? company.count / globalDistribution.total * 100 : 0;
+                                      return (
+                                        <div key={company.name} className="border-b border-white/[0.045] pb-2.5 text-[11px] last:border-0 last:pb-0">
+                                          <div className="mb-1.5 flex min-w-0 items-center gap-3">
+                                            <span className={`min-w-0 flex-1 truncate ${company.name === selectedCompany?.name ? "font-semibold text-[#dec678]" : "text-slate-400"}`} title={company.name}>
+                                              {company.name}
+                                            </span>
+                                            <span className="shrink-0 tabular-nums text-slate-500">{company.count} 份</span>
+                                          </div>
+                                          <div className="flex min-w-0 items-center gap-3">
+                                            <div className="h-1.5 min-w-12 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+                                              <div className="h-full rounded-full" style={{ width: `${withinCategory}%`, background: group.color }} />
+                                            </div>
+                                            <span className="shrink-0 whitespace-nowrap tabular-nums text-slate-500">
+                                              类内 {withinCategory.toFixed(1)}% · 全服 {overall.toFixed(1)}%
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 text-center text-[13px] text-slate-500">尚无 Offer 去向数据</p>
+                      )}
+                    </div>
+                    <p className="text-[10px] leading-relaxed text-slate-600">占比按已提交的通关记录计算；公司“类内占比”以该类别全部 Offer 为分母，“全服占比”以全部通关次数为分母。</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
 
           <div className="mb-8">
             <button

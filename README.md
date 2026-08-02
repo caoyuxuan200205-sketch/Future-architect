@@ -12,6 +12,7 @@
 - **40+真实实习**：从MCN小编到高盛IBD，还原真实职场生态
 - **12种结局**：从大厂PM到被退学，由你的选择决定
 - **可折叠状态栏**：桌面端右侧的 Skills 与 Mental State 可独立展开或收起，收起后下方内容会自动上移
+- **全服结局图鉴**：结局页可展开查看所有结局、Offer 类别及公司达成占比，且不会进入分享长图
 
 ## 🚀 快速开始
 
@@ -32,6 +33,11 @@ npm run dev
 ```bash
 npm run build
 ```
+
+### 4. 启用全服聚合统计（推荐）
+
+在 Supabase SQL Editor 中运行 [`scripts/supabase-ending-distribution.sql`](scripts/supabase-ending-distribution.sql) 的内容。
+
 
 ## 📦 部署指南 (GitHub Pages)
 
