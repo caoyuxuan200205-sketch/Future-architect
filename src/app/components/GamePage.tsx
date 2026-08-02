@@ -3,6 +3,7 @@ import { RefreshCw, ChevronRight, ChevronDown, Zap, TrendingUp, TrendingDown, Bo
 import { supabase } from "../../lib/supabase";
 import { AIAssistant } from "./AIAssistant";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
+import { EVENT_BRANCHES, type EventBranchOption } from "../eventBranches";
 import {
   DesktopGameSidebar,
   DesktopMapPreview,
@@ -1780,15 +1781,15 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   },
   {
     id: "intern_edu_tutor",
-    title: "助教实习生",
-    companyName: "大轩保研机构",
-    stipend: "130 元/天 · 课时费",
-    description: "协助老师批改作业，解答学生疑问，需要基础学科知识。",
+    title: "游戏产品与开发实习生",
+    companyName: "大轩科技有限公司",
+    stipend: "200 元/天 · 弹性远程",
+    description: "参与《我是一个“建”人》建筑转行模拟器的产品设计与开发，把建筑生的真实经历做成可玩的分支叙事。",
     minLogic: 40,
     minExpression: 45,
     detailedAchievements: [
-      "负责《建筑历史》课程作业批改与答疑，学员满意度95%。",
-      "整理考研真题资料库，编写历年真题解析讲义。",
+      "参与随机事件、属性系统与分支叙事设计，将建筑生转行经历转化为可交互玩法。",
+      "协助迭代 React + TypeScript 游戏界面，并根据玩家反馈优化选择与结局体验。",
     ],
   },
   {
@@ -2459,6 +2460,7 @@ export function GamePage() {
   const [desktopGameSection, setDesktopGameSection] = useState<DesktopGameSection>("round");
   const [playerNameInput, setPlayerNameInput] = useState("");
   const [playerNameError, setPlayerNameError] = useState("");
+  const [selectedEventBranch, setSelectedEventBranch] = useState<EventBranchOption | null>(null);
 
   // 新增状态
   const [pastInternships, setPastInternships] = useState<InternshipOption[]>([]);
@@ -2487,7 +2489,7 @@ export function GamePage() {
       currentEvent, activeCampusEvent, campusEventResult,
       seenEventIds: Array.from(seenEventIds),
       seenCampusIds: Array.from(seenCampusIds),
-      chosenAction, actionDelta, eventDelta, ending,
+      chosenAction, actionDelta, eventDelta, selectedEventBranch, ending,
       actionNarrative, selectedOfferId, selectedInternshipId,
       showTutorial, tutorialStep,
       pastInternships, currentOfferedInternships, offerBuffs,
@@ -2498,7 +2500,7 @@ export function GamePage() {
     phase, character, stats, mentor, semester, round,
     currentEvent, activeCampusEvent, campusEventResult,
     seenEventIds, seenCampusIds,
-    chosenAction, actionDelta, eventDelta, ending,
+    chosenAction, actionDelta, eventDelta, selectedEventBranch, ending,
     actionNarrative, selectedOfferId, selectedInternshipId,
     showTutorial, tutorialStep,
     pastInternships, currentOfferedInternships, offerBuffs,
@@ -2535,6 +2537,7 @@ export function GamePage() {
           if (data.chosenAction) setChosenAction(data.chosenAction);
           if (data.actionDelta) setActionDelta(data.actionDelta);
           if (data.eventDelta) setEventDelta(data.eventDelta);
+          if (data.selectedEventBranch) setSelectedEventBranch(data.selectedEventBranch);
           if (data.ending) setEnding(data.ending);
           if (data.actionNarrative) setActionNarrative(data.actionNarrative);
           if (data.selectedOfferId) setSelectedOfferId(data.selectedOfferId);
@@ -2675,6 +2678,7 @@ export function GamePage() {
 
   const maybeShowEvent = useCallback(
     (currentStats: Stats, sem: number, seen: Set<string>) => {
+      setSelectedEventBranch(null);
       const hasEvent = Math.random() < 0.45;
       if (!hasEvent) {
         setPhase("action_choice");
@@ -2712,28 +2716,47 @@ export function GamePage() {
     maybeShowEvent(stats, 1, new Set());
   }, [character, stats, maybeShowEvent]);
 
-  // 玩家确认事件后
-  const acknowledgeEvent = useCallback(() => {
-    if (!currentEvent || !stats) return;
+  // 玩家选择事件分支：此时结算属性，但先停留在结果叙事页。
+  const chooseEventBranch = useCallback((branch: EventBranchOption) => {
+    if (!currentEvent || !stats || selectedEventBranch) return;
+
     const newSeen = new Set(seenEventIds);
     newSeen.add(currentEvent.id);
     setSeenEventIds(newSeen);
 
+    const { newStats, delta } = applyEffects(stats, branch.effects);
+    setStats(newStats);
+    setEventDelta(delta);
+    setSelectedEventBranch(branch);
+
+    // 特殊事件仍保留原有的名牌厂加成。
+    if (currentEvent.id === "e45") {
+      setOfferBuffs((previous) => ({ ...previous, tencent: (previous.tencent || 0) + 15, bytedance: (previous.bytedance || 0) + 15 }));
+    } else if (currentEvent.id === "e46") {
+      setOfferBuffs((previous) => ({ ...previous, xiaohongshu: (previous.xiaohongshu || 0) + 20, bilibili: (previous.bilibili || 0) + 20 }));
+    } else if (currentEvent.id === "e47") {
+      setOfferBuffs((previous) => ({ ...previous, google: (previous.google || 0) + 20, microsoft: (previous.microsoft || 0) + 20 }));
+    }
+  }, [currentEvent, stats, seenEventIds, selectedEventBranch]);
+
+  // 看完分支结果后进入本回合行动；没有分支数据的旧事件沿用原结算方式。
+  const acknowledgeEvent = useCallback(() => {
+    if (!currentEvent || !stats) return;
+    const branches = EVENT_BRANCHES[currentEvent.id] ?? [];
+    if (branches.length > 0) {
+      if (!selectedEventBranch) return;
+      setPhase("action_choice");
+      return;
+    }
+
+    const newSeen = new Set(seenEventIds);
+    newSeen.add(currentEvent.id);
+    setSeenEventIds(newSeen);
     const { newStats, delta } = applyEffects(stats, currentEvent.effects);
     setStats(newStats);
     setEventDelta(delta);
-
-    // 处理特殊事件带来的名牌厂buff
-    if (currentEvent.id === "e45") {
-      setOfferBuffs(prev => ({ ...prev, tencent: (prev.tencent || 0) + 15, bytedance: (prev.bytedance || 0) + 15 }));
-    } else if (currentEvent.id === "e46") {
-      setOfferBuffs(prev => ({ ...prev, xiaohongshu: (prev.xiaohongshu || 0) + 20, bilibili: (prev.bilibili || 0) + 20 }));
-    } else if (currentEvent.id === "e47") {
-      setOfferBuffs(prev => ({ ...prev, google: (prev.google || 0) + 20, microsoft: (prev.microsoft || 0) + 20 }));
-    }
-
     setPhase("action_choice");
-  }, [currentEvent, stats, seenEventIds]);
+  }, [currentEvent, stats, seenEventIds, selectedEventBranch]);
 
   // 玩家选择行动
   const chooseAction = useCallback(
@@ -2770,6 +2793,7 @@ export function GamePage() {
     }
 
     setEventDelta({});
+    setSelectedEventBranch(null);
     setActionDelta({});
     setChosenAction(null);
     setCurrentEvent(null);
@@ -2881,6 +2905,7 @@ export function GamePage() {
     setSelectedOfferId(null);
     setSelectedInternshipId(null);
     setEventDelta({});
+    setSelectedEventBranch(null);
     setActionDelta({});
     setChosenAction(null);
     setCurrentEvent(null);
@@ -2915,6 +2940,7 @@ export function GamePage() {
   // 确保从最新的 EVENTS 数组中获取当前事件对象（包含 type 属性）
   // 解决 React 状态中可能存储了旧版事件对象导致 type 丢失的问题
   const displayEvent = currentEvent ? EVENTS.find(e => e.id === currentEvent.id) || currentEvent : null;
+  const displayEventBranches = displayEvent ? EVENT_BRANCHES[displayEvent.id] ?? [] : [];
 
   // 样式变量（偏建筑学术风·玻璃质感）
   const bg =
@@ -3543,60 +3569,123 @@ export function GamePage() {
           {/* ── 事件卡片 ── */}
           {(phase === "event_view" || (phase === "action_choice" && displayEvent)) && displayEvent && phase === "event_view" && (
             <div
-              className="rounded-2xl p-6 mb-6"
+              className="mb-6 rounded-2xl p-6"
               style={{
                 background: displayEvent.type === "positive" ? "rgba(74,222,128,0.05)" : "rgba(239,83,80,0.05)",
-                border: displayEvent.type === "positive" ? "1px solid rgba(74,222,128,0.2)" : "1px solid rgba(239,83,80,0.2)"
+                border: displayEvent.type === "positive" ? "1px solid rgba(74,222,128,0.2)" : "1px solid rgba(239,83,80,0.2)",
               }}
             >
-              <div className="flex items-center gap-2 mb-3">
+              <div className="mb-3 flex items-center gap-2">
                 <span
-                  className="text-[12px] tracking-widest uppercase px-2 py-1 rounded"
+                  className="rounded px-2 py-1 text-[12px] uppercase tracking-widest"
                   style={{
                     color: displayEvent.type === "positive" ? "#4ade80" : "#ef5350",
-                    background: displayEvent.type === "positive" ? "rgba(74,222,128,0.1)" : "rgba(239,83,80,0.1)"
+                    background: displayEvent.type === "positive" ? "rgba(74,222,128,0.1)" : "rgba(239,83,80,0.1)",
                   }}
                 >
-                  随机事件
+                  随机事件 · 分支叙事
                 </span>
               </div>
-              <h3 className="text-[18px] mb-3" style={{ color: textPrimary, fontFamily: "'Noto Serif SC', serif" }}>
+              <h3 className="mb-3 text-[18px]" style={{ color: textPrimary, fontFamily: "'Noto Serif SC', serif" }}>
                 {displayEvent.title}
               </h3>
-              <p className="text-[15px] leading-relaxed mb-5" style={{ color: "rgba(200,220,255,0.7)" }}>
+              <p className="mb-5 text-[15px] leading-relaxed" style={{ color: "rgba(200,220,255,0.7)" }}>
                 {displayEvent.description}
               </p>
-              {/* 效果预览 */}
-              <div className="flex flex-wrap gap-1.5 mb-5">
-                {(Object.keys(displayEvent.effects) as StatKey[]).map((k) => (
-                  <DeltaBadge key={k} statKey={k} value={displayEvent.effects[k]!} />
-                ))}
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={acknowledgeEvent}
-                  className="flex-1 px-5 py-2.5 rounded-xl text-[14px] transition-all hover:opacity-90"
-                  style={{
-                    background: displayEvent.type === "positive" ? "rgba(74,222,128,0.15)" : "rgba(239,83,80,0.15)",
-                    color: displayEvent.type === "positive" ? "#4ade80" : "#ef5350",
-                    border: displayEvent.type === "positive" ? "1px solid rgba(74,222,128,0.25)" : "1px solid rgba(239,83,80,0.25)"
-                  }}
-                >
-                  继续
-                </button>
-                <a
-                  href="https://v.wjx.cn/vm/YDzWe08.aspx#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2.5 rounded-xl text-[13px] transition-all hover:bg-white/5 flex items-center whitespace-nowrap"
-                  style={{ color: textSecondary, border: `1px dashed ${textSecondary}` }}
-                >
-                  ✍️ 投稿故事
-                </a>
-              </div>
+
+              {selectedEventBranch ? (
+                <div className="border-t pt-5" style={{ borderColor: border }}>
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] uppercase tracking-[0.18em]" style={{ color: textSecondary }}>你的选择</span>
+                    <span className="rounded-full border border-[#c9a84c]/25 bg-[#c9a84c]/10 px-2 py-0.5 text-[11px] text-[#dec678]">
+                      {selectedEventBranch.tag}
+                    </span>
+                  </div>
+                  <h4 className="mb-3 text-[17px] font-semibold" style={{ color: textPrimary }}>
+                    {selectedEventBranch.label}
+                  </h4>
+                  <p className="mb-5 text-[15px] leading-[1.8]" style={{ color: "rgba(220,235,255,0.84)", fontFamily: "'Noto Serif SC', serif" }}>
+                    {selectedEventBranch.resultText}
+                  </p>
+                  <p className="mb-2 text-[11px] uppercase tracking-[0.18em]" style={{ color: textSecondary }}>实际属性变化</p>
+                  <div className="mb-5 flex flex-wrap gap-1.5">
+                    {Object.keys(eventDelta).length > 0 ? (
+                      (Object.keys(eventDelta) as StatKey[]).map((key) => (
+                        <DeltaBadge key={key} statKey={key} value={eventDelta[key]!} />
+                      ))
+                    ) : (
+                      <span className="text-[13px]" style={{ color: textSecondary }}>属性已处于边界，本次没有产生实际数值变化</span>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={acknowledgeEvent}
+                      className="flex-1 rounded-xl px-5 py-2.5 text-[14px] transition-all hover:opacity-90"
+                      style={{
+                        background: displayEvent.type === "positive" ? "rgba(74,222,128,0.15)" : "rgba(239,83,80,0.15)",
+                        color: displayEvent.type === "positive" ? "#4ade80" : "#ef5350",
+                        border: displayEvent.type === "positive" ? "1px solid rgba(74,222,128,0.25)" : "1px solid rgba(239,83,80,0.25)",
+                      }}
+                    >
+                      继续本回合
+                    </button>
+                    <a
+                      href="https://v.wjx.cn/vm/YDzWe08.aspx#"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center whitespace-nowrap rounded-xl px-4 py-2.5 text-[13px] transition-all hover:bg-white/5"
+                      style={{ color: textSecondary, border: `1px dashed ${textSecondary}` }}
+                    >
+                      ✍️ 投稿故事
+                    </a>
+                  </div>
+                </div>
+              ) : displayEventBranches.length > 0 ? (
+                <div>
+                  <p className="mb-3 text-[12px] uppercase tracking-[0.18em]" style={{ color: textSecondary }}>
+                    你会怎么做？
+                  </p>
+                  <div className="space-y-3">
+                    {displayEventBranches.map((branch) => (
+                      <button
+                        key={branch.id}
+                        type="button"
+                        onClick={() => chooseEventBranch(branch)}
+                        className="group w-full rounded-xl border border-white/10 bg-white/[0.025] p-4 text-left outline-none transition-all hover:border-[#c9a84c]/40 hover:bg-[#c9a84c]/[0.06] focus-visible:ring-2 focus-visible:ring-[#c9a84c]/50"
+                      >
+                        <span className="mb-3 flex items-center gap-3">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#c9a84c]/25 bg-[#c9a84c]/10 font-mono text-[12px] text-[#dec678]">
+                            {branch.id}
+                          </span>
+                          <span className="text-[15px] font-medium text-slate-100">{branch.label}</span>
+                          <span className="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-400 transition-colors group-hover:text-slate-200">
+                            {branch.tag}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="mb-5 flex flex-wrap gap-1.5">
+                    {(Object.keys(displayEvent.effects) as StatKey[]).map((key) => (
+                      <DeltaBadge key={key} statKey={key} value={displayEvent.effects[key]!} />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={acknowledgeEvent}
+                    className="w-full rounded-xl px-5 py-2.5 text-[14px] transition-all hover:opacity-90"
+                    style={{ color: textSecondary, border: `1px solid ${border}` }}
+                  >
+                    继续
+                  </button>
+                </div>
+              )}
             </div>
           )}
-
           {/* ── 已发生事件提醒（action_choice阶段显示） ── */}
           {phase === "action_choice" && displayEvent && (
             <div
