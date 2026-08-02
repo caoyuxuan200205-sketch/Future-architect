@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect, useRef, type CSSProperties } from "react";
-import { RefreshCw, ChevronRight, ChevronDown, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert, BriefcaseBusiness, CheckCircle2, Pencil, Check, X, Share2 } from "lucide-react";
+import { RefreshCw, ChevronRight, ChevronDown, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert, BriefcaseBusiness, CheckCircle2, Pencil, Check, X, Share2, Save, FolderOpen, Trash2, Settings, CircleHelp } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { AIAssistant } from "./AIAssistant";
+import { StatusAnalysisPanel } from "./StatusAnalysisPanel";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
 import { EVENT_BRANCHES, type EventBranchOption } from "../eventBranches";
 import {
@@ -2406,6 +2407,7 @@ function DecisionStatusRail({
   phase,
   actionDelta,
   eventDelta,
+  tutorialActive = false,
 }: {
   stats: Stats;
   mentor: Mentor | null;
@@ -2416,6 +2418,7 @@ function DecisionStatusRail({
   phase: GamePhase;
   actionDelta: Partial<Stats>;
   eventDelta: Partial<Stats>;
+  tutorialActive?: boolean;
 }) {
   const [skillsExpanded, setSkillsExpanded] = useState(true);
   const [mentalStateExpanded, setMentalStateExpanded] = useState(true);
@@ -2428,7 +2431,7 @@ function DecisionStatusRail({
 
   return (
     <aside
-      className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-l p-5 lg:flex xl:w-72"
+      className={`sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-l p-5 lg:flex xl:w-72 ${tutorialActive ? "z-[221] ring-2 ring-inset ring-[#dec678]/80" : ""}`}
       style={{ borderColor: border, background: "rgba(4,8,18,0.72)", backdropFilter: "blur(12px)" }}
     >
       {mentor && (
@@ -2514,6 +2517,324 @@ type GamePhase =
   | "offer_choice"
   | "ending";
 
+type LocalSaveSlotSummary = {
+  slotIndex: number;
+  savedAt: string;
+  playerName: string;
+  schoolName: string;
+  semester: number;
+  round: number;
+  phase: GamePhase;
+};
+
+const LOCAL_SAVE_SLOT_KEYS = [
+  "archGameSave_slot_1",
+  "archGameSave_slot_2",
+  "archGameSave_slot_3",
+] as const;
+
+function readLocalSaveSlotSummaries(): Array<LocalSaveSlotSummary | null> {
+  if (typeof window === "undefined") return [null, null, null];
+  return LOCAL_SAVE_SLOT_KEYS.map((storageKey, slotIndex) => {
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) return null;
+    try {
+      const data = JSON.parse(saved) as Record<string, any>;
+      if (!data.phase || data.phase === "intro") return null;
+      return {
+        slotIndex,
+        savedAt: typeof data.savedAt === "string" ? data.savedAt : new Date(0).toISOString(),
+        playerName: typeof data.character?.name === "string" ? data.character.name : "未命名同学",
+        schoolName: typeof data.character?.masterSchool === "string" ? data.character.masterSchool : "未知学校",
+        semester: typeof data.semester === "number" ? data.semester : 1,
+        round: typeof data.round === "number" ? data.round : 1,
+        phase: data.phase as GamePhase,
+      };
+    } catch (error) {
+      console.error(`Failed to read save slot ${slotIndex + 1}`, error);
+      localStorage.removeItem(storageKey);
+      return null;
+    }
+  });
+}
+
+function LocalSaveSettings({
+  isOpen,
+  onClose,
+  slots,
+  feedback,
+  canSave,
+  onSave,
+  onLoad,
+  onDelete,
+  onRestart,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  slots: Array<LocalSaveSlotSummary | null>;
+  feedback: string;
+  canSave: boolean;
+  onSave: (slotIndex: number) => void;
+  onLoad: (slotIndex: number) => void;
+  onDelete: (slotIndex: number) => void;
+  onRestart: () => void;
+}) {
+  const [confirmAction, setConfirmAction] = useState<
+    { type: "overwrite" | "delete"; slotIndex: number } | { type: "restart" } | null
+  >(null);
+
+  useEffect(() => {
+    if (!isOpen) setConfirmAction(null);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const confirmCopy = confirmAction?.type === "overwrite"
+    ? `覆盖存档 ${confirmAction.slotIndex + 1}？原进度将被替换。`
+    : confirmAction?.type === "delete"
+      ? `删除存档 ${confirmAction.slotIndex + 1}？此操作无法撤销。`
+      : confirmAction?.type === "restart"
+        ? "重新开始会清除当前自动进度，三个手动存档会保留。"
+        : "";
+
+  const runConfirmedAction = () => {
+    if (!confirmAction) return;
+    if (confirmAction.type === "overwrite") onSave(confirmAction.slotIndex);
+    if (confirmAction.type === "delete") onDelete(confirmAction.slotIndex);
+    if (confirmAction.type === "restart") onRestart();
+    setConfirmAction(null);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[260] flex items-center justify-center px-4 py-6"
+      style={{ background: "rgba(1,5,14,0.84)", backdropFilter: "blur(12px)" }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="local-save-settings-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-[#c9a84c]/25 bg-[#080e1b] shadow-[0_28px_90px_rgba(0,0,0,0.65)]">
+        <header className="flex items-center gap-3 border-b border-white/10 px-5 py-4 sm:px-6">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#c9a84c]/10 text-[#dec678]">
+            <Settings size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 id="local-save-settings-title" className="text-[17px] font-semibold text-slate-100">设置与存档</h2>
+            <p className="mt-0.5 text-[10px] text-slate-500">存档仅保存在当前浏览器，换设备或清理数据后不会同步。</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="关闭设置" className="rounded-lg p-2 text-slate-500 transition hover:bg-white/5 hover:text-white">
+            <X size={17} />
+          </button>
+        </header>
+
+        <div className="p-4 sm:p-6">
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[0, 1, 2].map((slotIndex) => {
+              const slot = slots[slotIndex] ?? null;
+              const progressLabel = slot?.phase === "ending"
+                ? "已达成结局"
+                : slot
+                  ? `第 ${slot.semester} 学期 · 第 ${slot.round} 回合`
+                  : "";
+              return (
+                <section
+                  key={slotIndex}
+                  className={`relative min-h-52 overflow-hidden rounded-xl border p-4 transition ${slot ? "border-white/10 bg-white/[0.025]" : "border-dashed border-white/10 bg-black/10"}`}
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <span className="text-[10px] font-medium tracking-[0.2em] text-[#c9a84c]">SAVE {String(slotIndex + 1).padStart(2, "0")}</span>
+                    <span className={`h-1.5 w-1.5 rounded-full ${slot ? "bg-emerald-400" : "bg-slate-700"}`} />
+                  </div>
+
+                  {slot ? (
+                    <>
+                      <div className="min-h-24">
+                        <h3 className="truncate text-[16px] font-semibold text-slate-100" title={slot.playerName}>{slot.playerName}</h3>
+                        <p className="mt-1 truncate text-[11px] text-slate-400" title={slot.schoolName}>{slot.schoolName}</p>
+                        <p className="mt-3 text-[11px] text-[#dec678]">{progressLabel}</p>
+                        <p className="mt-1 text-[9px] tabular-nums text-slate-600">{new Date(slot.savedAt).toLocaleString("zh-CN", { hour12: false })}</p>
+                      </div>
+                      <div className="mt-4 grid grid-cols-[1fr_1fr_auto] gap-1.5">
+                        <button type="button" onClick={() => onLoad(slotIndex)} className="flex items-center justify-center gap-1 rounded-lg bg-blue-400/10 px-2 py-2 text-[10px] text-blue-200 transition hover:bg-blue-400/15">
+                          <FolderOpen size={12} />读取
+                        </button>
+                        <button type="button" disabled={!canSave} onClick={() => setConfirmAction({ type: "overwrite", slotIndex })} className="flex items-center justify-center gap-1 rounded-lg bg-[#c9a84c]/10 px-2 py-2 text-[10px] text-[#dec678] transition hover:bg-[#c9a84c]/15 disabled:cursor-not-allowed disabled:opacity-35">
+                          <Save size={12} />覆盖
+                        </button>
+                        <button type="button" onClick={() => setConfirmAction({ type: "delete", slotIndex })} aria-label={`删除存档 ${slotIndex + 1}`} className="rounded-lg px-2.5 py-2 text-slate-600 transition hover:bg-red-400/[0.08] hover:text-red-300">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex min-h-36 flex-col items-center justify-center text-center">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-dashed border-white/10 text-slate-700">
+                        <Save size={16} />
+                      </span>
+                      <p className="mt-3 text-[11px] text-slate-600">空存档</p>
+                      <button type="button" disabled={!canSave} onClick={() => onSave(slotIndex)} className="mt-4 rounded-lg border border-[#c9a84c]/20 bg-[#c9a84c]/8 px-4 py-2 text-[11px] text-[#dec678] transition hover:bg-[#c9a84c]/14 disabled:cursor-not-allowed disabled:opacity-35">
+                        保存到此格
+                      </button>
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+
+          {feedback && <p className="mt-4 text-center text-[11px] text-emerald-300" aria-live="polite">{feedback}</p>}
+
+          {confirmAction && (
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-red-400/15 bg-red-400/[0.055] p-3 sm:flex-row sm:items-center">
+              <p className="min-w-0 flex-1 text-[11px] text-red-100">{confirmCopy}</p>
+              <div className="flex shrink-0 gap-2">
+                <button type="button" onClick={runConfirmedAction} className="rounded-lg bg-red-500 px-3 py-2 text-[10px] font-medium text-white">确认</button>
+                <button type="button" onClick={() => setConfirmAction(null)} className="rounded-lg px-3 py-2 text-[10px] text-slate-400 hover:bg-white/5">取消</button>
+              </div>
+            </div>
+          )}
+
+          <footer className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center">
+            <p className="flex min-w-0 flex-1 items-center gap-2 text-[10px] text-slate-600">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />游戏过程会自动保存，三个存档格用于保留不同人生路线。
+            </p>
+            <button type="button" disabled={!canSave} onClick={() => setConfirmAction({ type: "restart" })} className="flex items-center justify-center gap-2 rounded-lg border border-red-400/15 px-4 py-2.5 text-[11px] text-red-200 transition hover:bg-red-400/[0.06] disabled:cursor-not-allowed disabled:opacity-35">
+              <RefreshCw size={13} />重新开始
+            </button>
+          </footer>
+        </div>
+      </div>
+    </div>
+  );
+}
+const GAME_GUIDE_STEPS = [
+  {
+    eyebrow: "游戏目录",
+    title: "先认识左侧的每一个入口",
+    description: "左侧负责切换游戏场景，入口不会消耗回合。",
+    items: [
+      { label: "本回合 / 地图", copy: "两者展示同一份事件与行动结果；地图是场景化入口。" },
+      { label: "电脑", copy: "功能仍在开发中，敬请期待。", status: "开发中" },
+      { label: "状态", copy: "查看能力诊断、薄弱项和最接近的职业路线。" },
+      { label: "简历", copy: "整理教育经历与实习成果，观察履历成长。" },
+      { label: "机会", copy: "未来用于管理更多生涯机会，当前仍在规划中。", status: "规划中" },
+      { label: "设置与存档", copy: "管理三个手动存档，也可在这里重新开始。" },
+    ],
+  },
+  {
+    eyebrow: "回合选择",
+    title: "先读事件，再决定这一回合",
+    description: "每个选项会改变能力、资源或心理状态。选择前不会剧透数值，选择后会显示具体影响。",
+  },
+  {
+    eyebrow: "生涯仪表盘",
+    title: "随时留意右侧关键数值",
+    description: "导师好感度、核心能力和心理状态都会影响 Offer 与最终结局。危险数值出现时，及时调整行动。",
+  },
+  {
+    eyebrow: "AI 转行军师",
+    title: "遇到问题，随时问建哥 AI",
+    description: "右下角绿色在线头像就是建哥。游戏机制、属性培养、结局路线，以及现实中的转行方向、岗位选择和准备方法，都可以直接问他。",
+    items: [
+      { label: "游戏攻略", copy: "询问玩法机制、加点思路、Offer 与结局条件。" },
+      { label: "现实转行", copy: "讨论真实岗位、能力准备、求职与转型选择。" },
+    ],
+  },
+] as const;
+
+function GameOnboardingGuide({
+  step,
+  phase,
+  onStepChange,
+  onFinish,
+}: {
+  step: number;
+  phase: GamePhase;
+  onStepChange: (step: number) => void;
+  onFinish: () => void;
+}) {
+  const currentStep = GAME_GUIDE_STEPS[step] ?? GAME_GUIDE_STEPS[0];
+  const actionChoiceGuide = step === 1 && phase === "action_choice";
+  const actionResultGuide = step === 1 && phase === "action_result";
+  const guideTitle = actionChoiceGuide
+    ? "从框选区域选择本回合行动"
+    : actionResultGuide
+      ? "在框选区域查看行动结果"
+      : currentStep.title;
+  const guideDescription = actionChoiceGuide
+    ? "事件已经结算。现在从框选区域选择本回合行动；每项行动都会影响能力、资源或心理状态。"
+    : actionResultGuide
+      ? "这里会展示本回合行动带来的具体数值变化；确认后即可进入下一回合。"
+      : currentStep.description;
+  const positionClass = step === 0
+    ? "lg:bottom-auto lg:right-auto lg:left-[92px] lg:top-1/2 lg:-translate-y-1/2 xl:left-[228px]"
+    : step === 1
+      ? (phase === "event_view" ? "lg:right-auto lg:top-auto lg:bottom-8 lg:left-1/2 lg:-translate-x-1/2" : "lg:right-auto lg:bottom-auto lg:top-5 lg:left-1/2 lg:-translate-x-1/2")
+      : step === 2
+        ? "lg:bottom-auto lg:left-auto lg:right-[272px] lg:top-1/2 lg:-translate-y-1/2 xl:right-[304px]"
+        : "lg:left-auto lg:top-auto lg:bottom-6 lg:right-[96px]";
+
+  return (
+    <>
+      <div className="pointer-events-none fixed inset-0 z-[210] bg-black/55" aria-hidden="true" />
+      <section
+        aria-label={`新手指引，第 ${step + 1} 步，共 ${GAME_GUIDE_STEPS.length} 步`}
+        aria-live="polite"
+        className={`fixed bottom-4 left-4 right-4 z-[230] rounded-2xl border border-[#c9a84c]/35 bg-[#080e1b]/98 p-5 shadow-[0_22px_70px_rgba(0,0,0,0.62)] backdrop-blur-xl sm:left-auto sm:right-4 sm:w-[370px] ${positionClass}`}
+      >
+        <span
+          className={`absolute hidden h-3 w-3 rotate-45 border-[#c9a84c]/35 bg-[#080e1b] lg:block ${step === 0 ? "-left-1.5 top-1/2 -translate-y-1/2 border-b border-l" : step === 1 ? "bottom-[-7px] left-1/2 -translate-x-1/2 border-b border-r" : step === 2 ? "-right-1.5 top-1/2 -translate-y-1/2 border-r border-t" : "-right-1.5 bottom-7 border-r border-t"}`}
+          aria-hidden="true"
+        />
+        <div className="flex items-start gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#c9a84c]/12 text-[12px] font-semibold text-[#dec678]">
+            {step + 1}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-[#c9a84c]">{currentStep.eyebrow}</p>
+            <h3 className="mt-1 text-[16px] font-semibold text-slate-100">{guideTitle}</h3>
+          </div>
+          <button type="button" onClick={onFinish} aria-label="跳过新手指引" className="rounded-lg p-1.5 text-slate-600 transition hover:bg-white/5 hover:text-white">
+            <X size={15} />
+          </button>
+        </div>
+        <p className="mt-4 text-[12px] leading-6 text-slate-400">{guideDescription}</p>
+        {"items" in currentStep && currentStep.items && (
+          <div className="mt-3 space-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.025] p-2.5">
+            {currentStep.items.map((item) => (
+              <div key={item.label} className="flex items-start gap-2.5 rounded-lg px-2 py-1.5">
+                <span className="w-[88px] shrink-0 text-[10px] font-medium text-slate-200">{item.label}</span>
+                <span className="min-w-0 flex-1 text-[10px] leading-4 text-slate-500">{item.copy}</span>
+                {"status" in item && item.status && <span className="shrink-0 rounded bg-[#c9a84c]/10 px-1.5 py-0.5 text-[8px] text-[#d8bd69]">{item.status}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-5 flex items-center gap-3">
+          <div className="flex items-center gap-1.5" aria-hidden="true">
+            {GAME_GUIDE_STEPS.map((_, index) => (
+              <span key={index} className={`h-1.5 rounded-full transition-all ${index === step ? "w-5 bg-[#c9a84c]" : "w-1.5 bg-white/15"}`} />
+            ))}
+          </div>
+          <span className="text-[10px] tabular-nums text-slate-600">{step + 1} / {GAME_GUIDE_STEPS.length}</span>
+          <div className="ml-auto flex gap-2">
+            {step > 0 && (
+              <button type="button" onClick={() => onStepChange(step - 1)} className="rounded-lg px-3 py-2 text-[11px] text-slate-400 transition hover:bg-white/5 hover:text-white">
+                上一步
+              </button>
+            )}
+            <button type="button" onClick={() => step < GAME_GUIDE_STEPS.length - 1 ? onStepChange(step + 1) : onFinish()} className="flex items-center gap-1 rounded-lg bg-[#c9a84c] px-4 py-2 text-[11px] font-semibold text-[#07101d] transition hover:bg-[#ddc46c]">
+              {step < GAME_GUIDE_STEPS.length - 1 ? "下一步" : "开始游戏"}<ChevronRight size={13} />
+            </button>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
 export function GamePage() {
   const [phase, setPhase] = useState<GamePhase>("intro");
   const [character, setCharacter] = useState<CharacterInfo | null>(null);
@@ -2558,28 +2879,27 @@ export function GamePage() {
   const [distributionError, setDistributionError] = useState("");
   const [expandedOfferLevels, setExpandedOfferLevels] = useState<Set<string>>(new Set(["大厂"]));
   const [hasSubmittedResult, setHasSubmittedResult] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [localSaveUpdatedAt, setLocalSaveUpdatedAt] = useState<string | null>(null);
+  const [localSaveFeedback, setLocalSaveFeedback] = useState("");
+  const [localSaveSlots, setLocalSaveSlots] = useState<Array<LocalSaveSlotSummary | null>>(() => readLocalSaveSlotSummaries());
 
   // ── 存档/读档逻辑 ──
   const STORAGE_KEY = "archGameSave_v1";
 
-  // 自动保存
-  useEffect(() => {
-    // 只有在非 intro 阶段才保存，避免覆盖存档为初始状态
-    if (phase === "intro") return;
-
-    const gameState = {
-      phase, character, stats, mentor, semester, round,
-      currentEvent, activeCampusEvent, campusEventResult,
-      seenEventIds: Array.from(seenEventIds),
-      seenCampusIds: Array.from(seenCampusIds),
-      chosenAction, actionDelta, eventDelta, selectedEventBranch, ending,
-      actionNarrative, selectedOfferId, selectedInternshipId,
-      showTutorial, tutorialStep,
-      pastInternships, currentOfferedInternships, offerBuffs,
-      isResumeOpen, receivedOffers,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
-  }, [
+  const buildGameState = useCallback(() => ({
+    version: 2,
+    savedAt: new Date().toISOString(),
+    phase, character, stats, mentor, semester, round,
+    currentEvent, activeCampusEvent, campusEventResult,
+    seenEventIds: Array.from(seenEventIds),
+    seenCampusIds: Array.from(seenCampusIds),
+    chosenAction, actionDelta, eventDelta, selectedEventBranch, ending,
+    actionNarrative, selectedOfferId, selectedInternshipId,
+    showTutorial, tutorialStep,
+    pastInternships, currentOfferedInternships, offerBuffs,
+    isResumeOpen, receivedOffers,
+  }), [
     phase, character, stats, mentor, semester, round,
     currentEvent, activeCampusEvent, campusEventResult,
     seenEventIds, seenCampusIds,
@@ -2587,59 +2907,129 @@ export function GamePage() {
     actionNarrative, selectedOfferId, selectedInternshipId,
     showTutorial, tutorialStep,
     pastInternships, currentOfferedInternships, offerBuffs,
-    isResumeOpen, receivedOffers
+    isResumeOpen, receivedOffers,
   ]);
 
-  // 初始加载
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.phase && data.phase !== "intro") {
-          setPhase(data.phase);
-          if (data.character) {
-            const savedCharacter = {
-              ...data.character,
-              name: typeof data.character.name === "string" && data.character.name.trim()
-                ? data.character.name.trim()
-                : "未命名同学",
-            };
-            setCharacter(savedCharacter);
-            setPlayerNameInput(savedCharacter.name);
-          }
-          if (data.stats) setStats(data.stats);
-          if (data.mentor) setMentor(data.mentor);
-          if (data.semester) setSemester(data.semester);
-          if (data.round) setRound(data.round);
-          if (data.currentEvent) setCurrentEvent(data.currentEvent);
-          if (data.activeCampusEvent) setActiveCampusEvent(data.activeCampusEvent);
-          if (data.campusEventResult) setCampusEventResult(data.campusEventResult);
-          if (data.seenEventIds) setSeenEventIds(new Set(data.seenEventIds));
-          if (data.seenCampusIds) setSeenCampusIds(new Set(data.seenCampusIds));
-          if (data.chosenAction) setChosenAction(data.chosenAction);
-          if (data.actionDelta) setActionDelta(data.actionDelta);
-          if (data.eventDelta) setEventDelta(data.eventDelta);
-          if (data.selectedEventBranch) setSelectedEventBranch(data.selectedEventBranch);
-          if (data.ending) setEnding(data.ending);
-          if (data.actionNarrative) setActionNarrative(data.actionNarrative);
-          if (data.selectedOfferId) setSelectedOfferId(data.selectedOfferId);
-          if (data.selectedInternshipId) setSelectedInternshipId(data.selectedInternshipId);
-          if (data.showTutorial !== undefined) setShowTutorial(data.showTutorial);
-          if (data.tutorialStep !== undefined) setTutorialStep(data.tutorialStep);
-          if (data.pastInternships) setPastInternships(data.pastInternships);
-          if (data.currentOfferedInternships) setCurrentOfferedInternships(data.currentOfferedInternships);
-          if (data.offerBuffs) setOfferBuffs(data.offerBuffs);
-          if (data.isResumeOpen !== undefined) setIsResumeOpen(data.isResumeOpen);
-          if (data.receivedOffers) setReceivedOffers(data.receivedOffers);
-        }
-      } catch (e) {
-        console.error("Failed to load save game", e);
-        localStorage.removeItem(STORAGE_KEY);
-      }
+  const restoreGameState = useCallback((data: Record<string, any>) => {
+    if (!data.phase || data.phase === "intro") return false;
+
+    setPhase(data.phase as GamePhase);
+    if (data.character) {
+      const savedCharacter = {
+        ...data.character,
+        name: typeof data.character.name === "string" && data.character.name.trim()
+          ? data.character.name.trim()
+          : "未命名同学",
+      };
+      setCharacter(savedCharacter);
+      setPlayerNameInput(savedCharacter.name);
     }
+    setStats(data.stats ?? null);
+    setMentor(MENTORS.find((item) => item.id === data.mentor?.id) ?? data.mentor ?? null);
+    setSemester(data.semester ?? 1);
+    setRound(data.round ?? 1);
+    setCurrentEvent(EVENTS.find((item) => item.id === data.currentEvent?.id) ?? data.currentEvent ?? null);
+    setActiveCampusEvent(CAMPUS_EVENTS.find((item) => item.id === data.activeCampusEvent?.id) ?? data.activeCampusEvent ?? null);
+    setCampusEventResult(data.campusEventResult ?? null);
+    setSeenEventIds(new Set(Array.isArray(data.seenEventIds) ? data.seenEventIds : []));
+    setSeenCampusIds(new Set(Array.isArray(data.seenCampusIds) ? data.seenCampusIds : []));
+    setChosenAction(ACTIONS.find((item) => item.id === data.chosenAction?.id) ?? data.chosenAction ?? null);
+    setActionDelta(data.actionDelta ?? {});
+    setEventDelta(data.eventDelta ?? {});
+    setSelectedEventBranch(data.selectedEventBranch ?? null);
+    setEnding(ENDINGS.find((item) => item.id === data.ending?.id) ?? data.ending ?? null);
+    setActionNarrative(data.actionNarrative ?? "");
+    setSelectedOfferId(data.selectedOfferId ?? null);
+    setSelectedInternshipId(data.selectedInternshipId ?? null);
+    setShowTutorial(Boolean(data.showTutorial));
+    setTutorialStep(data.tutorialStep ?? 0);
+    setPastInternships(Array.isArray(data.pastInternships) ? data.pastInternships : []);
+    setCurrentOfferedInternships(Array.isArray(data.currentOfferedInternships) ? data.currentOfferedInternships : []);
+    setOfferBuffs(data.offerBuffs ?? {});
+    setIsResumeOpen(Boolean(data.isResumeOpen));
+    setReceivedOffers(Array.isArray(data.receivedOffers)
+      ? data.receivedOffers.map((savedCompany: Company) => COMPANIES.find((company) => company.id === savedCompany.id) ?? savedCompany)
+      : null);
+    setHasSubmittedResult(data.phase === "ending");
+    setDesktopGameSection("round");
+    return true;
   }, []);
 
+  const writeLocalSave = useCallback((showFeedback = false) => {
+    if (phase === "intro") return;
+    try {
+      const gameState = buildGameState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+      setLocalSaveUpdatedAt(gameState.savedAt);
+      if (showFeedback) setLocalSaveFeedback("进度已保存到当前浏览器");
+    } catch (error) {
+      console.error("Failed to save game", error);
+      setLocalSaveFeedback("保存失败，请检查浏览器存储权限");
+    }
+  }, [phase, buildGameState]);
+
+  // 游戏状态变化后自动保存，短暂延迟用于合并同一次结算产生的多项更新。
+  useEffect(() => {
+    if (phase === "intro") return;
+    const timer = window.setTimeout(() => writeLocalSave(false), 250);
+    return () => window.clearTimeout(timer);
+  }, [phase, writeLocalSave]);
+
+  // 首次进入时自动读取上一次本地进度。
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    try {
+      const data = JSON.parse(saved) as Record<string, any>;
+      if (restoreGameState(data)) {
+        setLocalSaveUpdatedAt(typeof data.savedAt === "string" ? data.savedAt : null);
+      }
+    } catch (error) {
+      console.error("Failed to load save game", error);
+      localStorage.removeItem(STORAGE_KEY);
+      setLocalSaveUpdatedAt(null);
+    }
+  }, [restoreGameState]);
+
+  const saveLocalGame = useCallback((slotIndex: number) => {
+    setLocalSaveFeedback("");
+    if (phase === "intro") return;
+    try {
+      const gameState = buildGameState();
+      localStorage.setItem(LOCAL_SAVE_SLOT_KEYS[slotIndex], JSON.stringify(gameState));
+      setLocalSaveSlots(readLocalSaveSlotSummaries());
+      setLocalSaveFeedback(`已保存到存档 ${slotIndex + 1}`);
+    } catch (error) {
+      console.error("Failed to save slot", error);
+      setLocalSaveFeedback("保存失败，请检查浏览器存储权限");
+    }
+  }, [phase, buildGameState]);
+
+  const loadLocalGame = useCallback((slotIndex: number) => {
+    setLocalSaveFeedback("");
+    const saved = localStorage.getItem(LOCAL_SAVE_SLOT_KEYS[slotIndex]);
+    if (!saved) {
+      setLocalSaveSlots(readLocalSaveSlotSummaries());
+      setLocalSaveFeedback(`存档 ${slotIndex + 1} 不存在`);
+      return;
+    }
+    try {
+      const data = JSON.parse(saved) as Record<string, any>;
+      if (!restoreGameState(data)) throw new Error("Invalid local save");
+      setLocalSaveUpdatedAt(typeof data.savedAt === "string" ? data.savedAt : null);
+      setLocalSaveFeedback(`已读取存档 ${slotIndex + 1}`);
+      setIsSettingsOpen(false);
+    } catch (error) {
+      console.error("Failed to restore save slot", error);
+      setLocalSaveFeedback(`存档 ${slotIndex + 1} 已损坏，无法读取`);
+    }
+  }, [restoreGameState]);
+
+  const deleteLocalSave = useCallback((slotIndex: number) => {
+    localStorage.removeItem(LOCAL_SAVE_SLOT_KEYS[slotIndex]);
+    setLocalSaveSlots(readLocalSaveSlotSummaries());
+    setLocalSaveFeedback(`存档 ${slotIndex + 1} 已删除`);
+  }, []);
   // 监听结局状态，提交数据并获取统计
   useEffect(() => {
     if (phase === "ending" && ending && !hasSubmittedResult) {
@@ -2826,6 +3216,8 @@ export function GamePage() {
       setStats(newStats);
       maybeShowEvent(newStats, 1, new Set());
       setShowTutorial(true);
+      setTutorialStep(0);
+      setDesktopGameSection("round");
     },
     [stats, maybeShowEvent]
   );
@@ -3049,6 +3441,12 @@ export function GamePage() {
     setPlayerNameError("");
     setShareFeedback("");
     setIsExportingEnding(false);
+    setShowTutorial(false);
+    setIsResumeOpen(false);
+    setActionNarrative("");
+    setIsSettingsOpen(false);
+    setLocalSaveUpdatedAt(null);
+    setLocalSaveFeedback("");
   }, []);
 
   // ── 渲染：进度显示
@@ -3097,6 +3495,17 @@ export function GamePage() {
         }}
         className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-6 lg:py-8"
       >
+        <LocalSaveSettings
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          slots={localSaveSlots}
+          feedback={localSaveFeedback}
+          canSave={false}
+          onSave={saveLocalGame}
+          onLoad={loadLocalGame}
+          onDelete={deleteLocalSave}
+          onRestart={resetGame}
+        />
         <div className="relative z-10 max-w-lg w-full text-center lg:text-left lg:mr-[42vw]">
           <p className="mb-4 text-[12px] uppercase tracking-[0.3em]" style={{ color: accent }}>
             ARCH·HISTORIA · 互动叙事
@@ -3168,6 +3577,9 @@ export function GamePage() {
             style={{ background: accent, color: "#070d1c" }}
           >
             以 {playerNameInput.trim() || "我的名字"} 开始游戏 →
+          </button>
+          <button type="button" onClick={() => { setLocalSaveFeedback(""); setLocalSaveSlots(readLocalSaveSlotSummaries()); setIsSettingsOpen(true); }} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] py-2.5 text-[12px] text-slate-400 transition hover:border-[#c9a84c]/25 hover:text-[#dec678]">
+            <FolderOpen size={14} />查看三个存档格
           </button>
           <div className="mt-3 flex flex-col items-center gap-1 text-[11px]" style={{ color: "rgba(180,200,240,0.3)" }}>
              <p>建议使用电脑端浏览器体验以获得最佳效果</p>
@@ -3357,156 +3769,39 @@ export function GamePage() {
             resumeUpdated={pastInternships.length > 0}
             schoolName={character.masterSchool}
             schoolTier={character.isOverseas ? "海外留学" : TIER_LABELS[character.masterTier]}
+            onOpenSettings={() => { setLocalSaveFeedback(""); setIsSettingsOpen(true); }}
+            tutorialActive={showTutorial && tutorialStep === 0}
           />
         )}
-        {/* ── 新手引导弹窗 ── */}
+        <LocalSaveSettings
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          slots={localSaveSlots}
+          feedback={localSaveFeedback}
+          canSave={phase !== "intro"}
+          onSave={saveLocalGame}
+          onLoad={loadLocalGame}
+          onDelete={deleteLocalSave}
+          onRestart={resetGame}
+        />
+        {/* ── 贴合界面的新手指引 ── */}
         {showTutorial && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center px-6" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}>
-            <div className="max-w-md w-full rounded-2xl p-8 relative" style={{ background: card, border: `1px solid ${accent}` }}>
-              
-              {/* Step 0: 左侧属性 */}
-              {tutorialStep === 0 && (
-                <>
-                  <div className="text-center mb-6">
-                    <p className="text-[12px] tracking-widest uppercase mb-2" style={{ color: accent }}>
-                      GUIDE 1/3
-                    </p>
-                    <h3 className="text-2xl font-bold text-white" style={{ fontFamily: "'Noto Serif SC', serif" }}>
-                      关注你的核心数值
-                    </h3>
-                  </div>
-                  
-                  <div className="space-y-6 mb-8">
-                    <div className="flex gap-4">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(74,158,255,0.1)", color: "#4a9eff" }}>
-                        <TrendingUp size={20} />
-                      </div>
-                      <div>
-                        <h4 className="text-[16px] font-bold text-white mb-1">左侧属性面板</h4>
-                        <p className="text-[14px]" style={{ color: textSecondary }}>
-                          逻辑、表达、英语等属性直接决定你能拿到什么等级的 Offer。请根据目标尽早规划加点。
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(239,83,80,0.1)", color: "#ef5350" }}>
-                        <Zap size={20} />
-                      </div>
-                      <div>
-                        <h4 className="text-[16px] font-bold text-white mb-1">压力与焦虑</h4>
-                        <p className="text-[14px]" style={{ color: textSecondary }}>
-                          压力过大会导致崩溃，焦虑过高会触发转行结局。请适时选择“摆烂”或“运动”来调整状态。
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(201,168,76,0.1)", color: accent }}>
-                        <BookOpen size={20} />
-                      </div>
-                      <div>
-                        <h4 className="text-[16px] font-bold text-white mb-1">导师好感度</h4>
-                        <p className="text-[14px]" style={{ color: textSecondary }}>
-                          千万别惹导师生气！好感度过低（&lt;0）会直接导致退学结局。送礼或完成课题可挽回。
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Step 1: 中间行动 */}
-              {tutorialStep === 1 && (
-                <>
-                  <div className="text-center mb-6">
-                    <p className="text-[12px] tracking-widest uppercase mb-2" style={{ color: accent }}>
-                      GUIDE 2/3
-                    </p>
-                    <h3 className="text-2xl font-bold text-white" style={{ fontFamily: "'Noto Serif SC', serif" }}>
-                      每回合一次行动
-                    </h3>
-                  </div>
-                  <div className="space-y-6 mb-8 px-2">
-                     <p className="text-[15px] leading-relaxed text-center" style={{ color: textSecondary }}>
-                       中间区域是你的行动面板。你可以选择【改图】、【学产品】、【投实习】等行动。<br/><br/>
-                       有些行动会消耗金钱，有些会增加压力。请根据你的目标（互联网/外企/深造）来平衡你的每一周。
-                     </p>
-                     <div className="p-4 rounded-xl text-center text-[13px]" style={{ background: "rgba(255,255,255,0.05)" }}>
-                        💡 提示：偶尔会出现“随机事件”和“校园招聘”，那是改变命运的机会，不要错过！
-                     </div>
-                  </div>
-                </>
-              )}
-
-              {/* Step 2: 右侧简历 */}
-              {tutorialStep === 2 && (
-                <>
-                  <div className="text-center mb-6">
-                    <p className="text-[12px] tracking-widest uppercase mb-2" style={{ color: accent }}>
-                      GUIDE 3/3
-                    </p>
-                    <h3 className="text-2xl font-bold text-white" style={{ fontFamily: "'Noto Serif SC', serif" }}>
-                      丰富你的简历
-                    </h3>
-                  </div>
-                  <div className="space-y-6 mb-8 px-2">
-                     <p className="text-[15px] leading-relaxed text-center" style={{ color: textSecondary }}>
-                       右侧面板展示了你的【教育背景】和【实习经历】。<br/><br/>
-                       当你成功完成实习或特殊事件时，简历会自动更新。一份漂亮的简历是你拿到大厂 Offer 的敲门砖。
-                     </p>
-                     <div className="p-4 rounded-xl text-center text-[13px]" style={{ background: "rgba(255,255,255,0.05)" }}>
-                        📄 你的目标：在24个回合结束前，打造一份完美的简历。
-                     </div>
-                  </div>
-                </>
-              )}
-              
-              <div className="flex flex-col gap-3">
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowTutorial(false)}
-                    className="flex-1 py-3 rounded-xl text-[14px] transition-all hover:bg-white/5"
-                    style={{ border: `1px solid rgba(255,255,255,0.1)`, color: textSecondary }}
-                  >
-                    跳过引导
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (tutorialStep < 2) {
-                        setTutorialStep(s => s + 1);
-                      } else {
-                        setShowTutorial(false);
-                      }
-                    }}
-                    className="flex-1 py-3 rounded-xl text-[14px] font-bold transition-all hover:opacity-90"
-                    style={{ background: accent, color: "#070d1c" }}
-                  >
-                    {tutorialStep < 2 ? "下一步 →" : "开始游戏"}
-                  </button>
-                </div>
-                
-                {tutorialStep === 1 && (
-                  <a
-                    href="https://v.wjx.cn/vm/YDzWe08.aspx#"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full py-2.5 rounded-xl text-[12px] text-center transition-all hover:opacity-80"
-                    style={{ background: "rgba(255,255,255,0.05)", color: textSecondary, border: `1px dashed ${textSecondary}` }}
-                  >
-                    ✍️ 随机事件征集：分享你的真实故事
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
+          <GameOnboardingGuide
+            step={tutorialStep}
+            phase={phase}
+            onStepChange={setTutorialStep}
+            onFinish={() => { setShowTutorial(false); setTutorialStep(0); }}
+          />
         )}
-
         {/* ─── 左侧：属性面板 ─── */}
         <aside
-          className={`flex shrink-0 flex-col border-b p-5 lg:self-start lg:border-b-0 lg:border-r ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "status" ? "lg:mx-auto lg:flex lg:w-full lg:max-w-3xl" : "lg:hidden") : "lg:flex lg:w-64"}`}
+          className={`flex shrink-0 flex-col border-b p-5 lg:self-start lg:border-b-0 lg:border-r ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "status" ? "lg:flex lg:min-w-0 lg:flex-1 lg:shrink" : "lg:hidden") : "lg:flex lg:w-64"}`}
           style={{ borderColor: border, background: "rgba(255,255,255,0.01)" }}
         >
+          {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "status" ? (
+            <StatusAnalysisPanel stats={stats} phase={phase} actionDelta={actionDelta} eventDelta={eventDelta} />
+          ) : (
+          <>
           {/* 角色信息 */}
           <div className="mb-5">
             <p className="text-[12px] tracking-widest uppercase mb-2" style={{ color: textSecondary }}>
@@ -3595,6 +3890,8 @@ export function GamePage() {
               <StatBar key={k} statKey={k} value={stats[k]} delta={phase === "action_result" ? (actionDelta[k] ?? eventDelta[k]) : eventDelta[k]} />
             ))}
           </div>
+          </>
+          )}
         </aside>
 
         <main className={`flex-1 p-6 lg:p-8 overflow-y-auto relative ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "round" ? "lg:mx-auto lg:block lg:w-full lg:max-w-5xl" : "lg:hidden") : "lg:block"}`}>
@@ -3628,13 +3925,25 @@ export function GamePage() {
                 第 {round} 回合 · 共24回合
               </p>
             </div>
-            <button
-              onClick={resetGame}
-              className="text-[12px] px-3 py-1.5 rounded-lg transition-all hover:opacity-70 flex items-center gap-1.5"
-              style={{ color: textSecondary, border: `1px solid ${border}` }}
-            >
-              <RefreshCw size={10} /> 重新开始
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={resetGame}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] transition-all hover:opacity-70"
+                style={{ color: textSecondary, border: `1px solid ${border}` }}
+              >
+                <RefreshCw size={11} /> 重新开始
+              </button>
+              <button
+                type="button"
+                onClick={() => { setDesktopGameSection("round"); setTutorialStep(0); setShowTutorial(true); }}
+                aria-label="查看新手指引"
+                title="查看新手指引"
+                className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-white/[0.05] hover:text-[#dec678]"
+                style={{ border: `1px solid ${border}` }}
+              >
+                <CircleHelp size={14} />
+              </button>
+            </div>
           </div>
 
           {/* ── 校园特招弹窗 (覆盖在最上方) ── */}
@@ -3694,7 +4003,7 @@ export function GamePage() {
           {/* ── 事件卡片 ── */}
           {(phase === "event_view" || (phase === "action_choice" && displayEvent)) && displayEvent && phase === "event_view" && (
             <div
-              className="mb-6 rounded-2xl p-6"
+              className={`mb-6 rounded-2xl p-6 ${showTutorial && tutorialStep === 1 ? "relative z-[221] ring-2 ring-[#dec678]/80 shadow-[0_0_0_8px_rgba(201,168,76,0.08)]" : ""}`}
               style={{
                 background: displayEvent.type === "positive" ? "rgba(74,222,128,0.05)" : "rgba(239,83,80,0.05)",
                 border: displayEvent.type === "positive" ? "1px solid rgba(74,222,128,0.2)" : "1px solid rgba(239,83,80,0.2)",
@@ -3837,7 +4146,7 @@ export function GamePage() {
 
           {/* ── 行动选择 ── */}
           {phase === "action_choice" && (
-            <>
+            <div className={showTutorial && tutorialStep === 1 ? "relative z-[221] -m-3 rounded-2xl p-3 ring-2 ring-[#dec678]/80 shadow-[0_0_0_8px_rgba(201,168,76,0.08)]" : ""}>
               <p className="text-[14px] mb-4" style={{ color: textSecondary }}>
                 本回合行动（选择一项）：
               </p>
@@ -3867,12 +4176,12 @@ export function GamePage() {
                   </button>
                 ))}
               </div>
-            </>
+            </div>
           )}
 
           {/* ── 行动结果 ── */}
           {phase === "action_result" && chosenAction && (
-            <div>
+            <div className={showTutorial && tutorialStep === 1 ? "relative z-[221] -m-3 rounded-2xl p-3 ring-2 ring-[#dec678]/80 shadow-[0_0_0_8px_rgba(201,168,76,0.08)]" : ""}>
               <div
                 className="rounded-2xl p-6 mb-6"
                 style={{ background: "rgba(74,158,255,0.05)", border: `1px solid rgba(74,158,255,0.18)` }}
@@ -4028,7 +4337,7 @@ export function GamePage() {
         {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "computer" && <DesktopComputerPreview />}
         {/* ─── 右侧：常驻简历 ─── */}
         <aside
-          className={`hidden shrink-0 flex-col p-5 overflow-y-auto ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "lg:mx-auto lg:flex lg:w-full lg:max-w-3xl lg:flex-1" : "lg:hidden") : "lg:flex lg:w-80"}`}
+          className={`hidden shrink-0 flex-col p-5 overflow-y-auto ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "lg:flex lg:min-w-0 lg:flex-1 lg:shrink lg:flex-1" : "lg:hidden") : "lg:flex lg:w-80"}`}
           style={{ background: "rgba(0,0,0,0.2)" }}
         >
           <ResumeView
@@ -4050,8 +4359,10 @@ export function GamePage() {
             phase={phase}
             actionDelta={actionDelta}
             eventDelta={eventDelta}
+            tutorialActive={showTutorial && tutorialStep === 2}
           />
-        )}        <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
+        )}
+        <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} tutorialActive={showTutorial && tutorialStep === 3} />
       </div >
     );
   }
@@ -4402,6 +4713,17 @@ export function GamePage() {
 
     return (
       <div style={endingPageStyle} className="flex flex-col items-center min-h-screen px-6 py-16">
+        <LocalSaveSettings
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          slots={localSaveSlots}
+          feedback={localSaveFeedback}
+          canSave={phase !== "intro"}
+          onSave={saveLocalGame}
+          onLoad={loadLocalGame}
+          onDelete={deleteLocalSave}
+          onRestart={resetGame}
+        />
         <div className="max-w-2xl w-full">
           {isResumeOpen && character && (
             <ResumeView
@@ -4724,11 +5046,11 @@ export function GamePage() {
           {/* 删除了最终选 offer 的环节，因为在之前已经选过了 */}
 
           <button
-            onClick={resetGame}
+            onClick={() => { setLocalSaveFeedback(""); setIsSettingsOpen(true); }}
             className="w-full py-4 rounded-xl text-[15px] transition-all hover:opacity-90 flex items-center justify-center gap-2"
             style={{ background: "rgba(74,158,255,0.12)", color: accent, border: `1px solid rgba(74,158,255,0.25)` }}
           >
-            <RefreshCw size={14} /> 重新开始，写另一个故事
+            <Settings size={15} /> 设置与存档
           </button>
 
           <a

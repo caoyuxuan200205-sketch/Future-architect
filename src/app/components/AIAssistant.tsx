@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { MessageSquare, X, Send, Bot, User, Loader2, Settings, Key, Monitor, MapPinned } from "lucide-react";
+import { X, Send, Bot, User, Loader2, Settings, Key, Monitor, MapPinned } from "lucide-react";
 import { searchKnowledge, localSearch } from "../../lib/knowledgeBase";
 import { askAssistant, ChatMessage } from "../../lib/llm";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
@@ -12,9 +12,10 @@ interface LocalChatMessage {
 
 interface AIAssistantProps {
   gameContext: any; // 传入当前的属性、进度等状态
+  tutorialActive?: boolean;
 }
 
-export function AIAssistant({ gameContext }: AIAssistantProps) {
+export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"game" | "real">("game");
   const [gameMessages, setGameMessages] = useState<LocalChatMessage[]>([
@@ -218,7 +219,7 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
     <>
       {/* 悬浮入口 */}
       {!isOpen && (
-        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex items-end gap-2.5">
+        <div className={`fixed bottom-4 right-4 flex items-end gap-2.5 sm:bottom-6 sm:right-6 ${tutorialActive ? "z-[221] rounded-full ring-2 ring-[#dec678]/80 shadow-[0_0_0_8px_rgba(201,168,76,0.08)]" : "z-50"}`}>
           {utilityNotice && (
             <div className="absolute bottom-[calc(100%+12px)] right-0 whitespace-nowrap rounded-lg border border-white/10 bg-[#0b1020]/95 px-3 py-2 text-xs text-slate-200 shadow-xl backdrop-blur-md">
               {utilityNotice === "computer" ? "电脑功能正在规划中" : "地图功能正在规划中"}
@@ -252,12 +253,16 @@ export function AIAssistant({ gameContext }: AIAssistantProps) {
 
           <button
             onClick={() => setIsOpen(true)}
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-blue-600 text-white shadow-xl transition-transform hover:scale-105 hover:bg-blue-700"
+            className="group relative flex h-14 w-14 items-center justify-center rounded-full border border-blue-300/35 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 text-white shadow-[0_12px_32px_rgba(37,99,235,0.42)] transition-all duration-300 hover:-translate-y-1 hover:scale-105 hover:shadow-[0_16px_38px_rgba(37,99,235,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070c17]"
             title="召唤建哥 (AI攻略助手)"
+            aria-label="召唤建哥，AI 助手在线"
           >
-            <MessageSquare size={24} />
-            {/* 未读提示小红点 */}
-            <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+            <span className="absolute inset-1 rounded-full border border-white/10 transition-transform duration-500 group-hover:rotate-6" />
+            <Bot size={27} strokeWidth={1.9} className="relative z-10 transition-transform duration-300 group-hover:scale-110" />
+            <span className="absolute right-0 top-0 flex h-3.5 w-3.5" aria-hidden="true">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-55" />
+              <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.9)]" />
+            </span>
           </button>
         </div>
       )}

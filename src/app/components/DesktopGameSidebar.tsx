@@ -28,6 +28,8 @@ interface DesktopGameSidebarProps {
   resumeUpdated?: boolean;
   schoolName: string;
   schoolTier: string;
+  onOpenSettings: () => void;
+  tutorialActive?: boolean;
 }
 
 const PRIMARY_ITEMS = [
@@ -95,7 +97,7 @@ const SCHOOL_LOGOS: Record<string, string> = {
   "烟台大学": "/assets/visuals/schools/yantai-university.png",
 };
 
-export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdated, schoolName, schoolTier }: DesktopGameSidebarProps) {
+export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdated, schoolName, schoolTier, onOpenSettings, tutorialActive = false }: DesktopGameSidebarProps) {
   const schoolLogo = SCHOOL_LOGOS[schoolName];
   const renderItem = ({ id, label, icon: Icon, badge, dot }: { id: DesktopGameSection; label: string; icon: typeof Activity; badge?: number; dot?: boolean }) => {
     const selected = active === id;
@@ -120,7 +122,7 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
   };
 
   return (
-    <aside className="sticky top-0 z-30 hidden h-screen w-[76px] shrink-0 flex-col border-r border-[#c9a84c]/18 bg-[#070c17]/96 px-2 py-4 shadow-[14px_0_35px_rgba(0,0,0,0.2)] backdrop-blur-xl lg:flex xl:w-[212px] xl:px-3">
+    <aside className={`sticky top-0 hidden h-screen w-[76px] shrink-0 flex-col border-r border-[#c9a84c]/18 bg-[#070c17]/96 px-2 py-4 shadow-[14px_0_35px_rgba(0,0,0,0.2)] backdrop-blur-xl lg:flex xl:w-[212px] xl:px-3 ${tutorialActive ? "z-[221] ring-2 ring-inset ring-[#dec678]/80" : "z-30"}`}>
       <div className="mb-5 flex min-h-14 items-center gap-3 rounded-xl border border-[#c9a84c]/12 bg-white/[0.018] px-2 py-2">
         <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#c9a84c]/40 bg-white/95 text-[#d7bb66] shadow-[0_0_18px_rgba(201,168,76,0.12)]">
           {schoolLogo ? (
@@ -155,7 +157,7 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
           <div className="mb-1 flex items-center gap-2 text-xs text-blue-200"><Bot size={14} /><span>建哥 AI 在线</span><span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" /></div>
           <p className="text-[9px] leading-relaxed text-slate-500">右下角随时召唤你的转行军师</p>
         </div>
-        <button type="button" className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-slate-500 transition-colors hover:bg-white/[0.04] hover:text-slate-300">
+        <button type="button" onClick={onOpenSettings} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-slate-500 transition-colors hover:bg-white/[0.04] hover:text-slate-300">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center"><Settings size={18} /></span>
           <span className="hidden text-[12px] xl:block">设置与存档</span>
         </button>
