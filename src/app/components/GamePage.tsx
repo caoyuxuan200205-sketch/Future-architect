@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, type CSSProperties } from "react";
 import { RefreshCw, ChevronRight, ChevronDown, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert, BriefcaseBusiness, CheckCircle2, Pencil, Check, X, Share2, Save, FolderOpen, Trash2, Settings, CircleHelp } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { evaluateCustomEventAction } from "../../lib/llm";
 import { AIAssistant } from "./AIAssistant";
 import { StatusAnalysisPanel } from "./StatusAnalysisPanel";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
@@ -2860,6 +2861,12 @@ export function GamePage() {
   const [playerNameInput, setPlayerNameInput] = useState("");
   const [playerNameError, setPlayerNameError] = useState("");
   const [selectedEventBranch, setSelectedEventBranch] = useState<EventBranchOption | null>(null);
+  const [isCustomEventActionOpen, setIsCustomEventActionOpen] = useState(false);
+  const [customEventAction, setCustomEventAction] = useState("");
+  const [customEventActionFeedback, setCustomEventActionFeedback] = useState("");
+  const [isEvaluatingCustomEventAction, setIsEvaluatingCustomEventAction] = useState(false);
+  const [customEventEvaluationStage, setCustomEventEvaluationStage] = useState(0);
+  const customEventEvaluationAbortRef = useRef<AbortController | null>(null);
 
   // 新增状态
   const [pastInternships, setPastInternships] = useState<InternshipOption[]>([]);
@@ -2883,6 +2890,23 @@ export function GamePage() {
   const [localSaveUpdatedAt, setLocalSaveUpdatedAt] = useState<string | null>(null);
   const [localSaveFeedback, setLocalSaveFeedback] = useState("");
   const [localSaveSlots, setLocalSaveSlots] = useState<Array<LocalSaveSlotSummary | null>>(() => readLocalSaveSlotSummaries());
+
+  useEffect(() => {
+    if (!isEvaluatingCustomEventAction) {
+      setCustomEventEvaluationStage(0);
+      return;
+    }
+
+    setCustomEventEvaluationStage(0);
+    const timers = [
+      window.setTimeout(() => setCustomEventEvaluationStage(1), 6000),
+      window.setTimeout(() => setCustomEventEvaluationStage(2), 15000),
+      window.setTimeout(() => setCustomEventEvaluationStage(3), 26000),
+    ];
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [isEvaluatingCustomEventAction]);
+
+  useEffect(() => () => customEventEvaluationAbortRef.current?.abort(), []);
 
   // ── 存档/读档逻辑 ──
   const STORAGE_KEY = "archGameSave_v1";
@@ -3189,6 +3213,12 @@ export function GamePage() {
   const maybeShowEvent = useCallback(
     (currentStats: Stats, sem: number, seen: Set<string>) => {
       setSelectedEventBranch(null);
+      setIsCustomEventActionOpen(false);
+      setCustomEventAction("");
+      setCustomEventActionFeedback("");
+      customEventEvaluationAbortRef.current?.abort();
+      customEventEvaluationAbortRef.current = null;
+      setIsEvaluatingCustomEventAction(false);
       const hasEvent = Math.random() < 0.45;
       if (!hasEvent) {
         setPhase("action_choice");
@@ -3251,6 +3281,66 @@ export function GamePage() {
     }
   }, [currentEvent, stats, seenEventIds, selectedEventBranch]);
 
+  const submitCustomEventAction = useCallback(async () => {
+    const action = customEventAction.trim();
+    if (!currentEvent || !stats || selectedEventBranch || isEvaluatingCustomEventAction || action.length < 10) return;
+
+    customEventEvaluationAbortRef.current?.abort();
+    const controller = new AbortController();
+    customEventEvaluationAbortRef.current = controller;
+    setIsEvaluatingCustomEventAction(true);
+    setCustomEventActionFeedback("");
+
+    try {
+      const evaluation = await evaluateCustomEventAction({
+        event: {
+          id: currentEvent.id,
+          title: currentEvent.title,
+          description: currentEvent.description,
+          type: currentEvent.type,
+        },
+        action,
+        stats,
+        character,
+        semester,
+        referenceBranches: (EVENT_BRANCHES[currentEvent.id] ?? []).map((branch) => ({
+          label: branch.label,
+          tag: branch.tag,
+          effects: branch.effects,
+        })),
+        signal: controller.signal,
+      });
+
+      chooseEventBranch({
+        id: "D",
+        label: evaluation.summary,
+        tag: evaluation.tag,
+        effects: evaluation.effects,
+        resultText: evaluation.resultText,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        setCustomEventActionFeedback("已取消推演，你的输入已保留，可以修改后重新提交。");
+      } else {
+        console.error("Custom event evaluation failed:", error);
+        setCustomEventActionFeedback(error instanceof Error ? error.message : "AI 推演失败，请稍后重试。");
+      }
+    } finally {
+      if (customEventEvaluationAbortRef.current === controller) {
+        customEventEvaluationAbortRef.current = null;
+        setIsEvaluatingCustomEventAction(false);
+      }
+    }
+  }, [
+    character,
+    chooseEventBranch,
+    currentEvent,
+    customEventAction,
+    isEvaluatingCustomEventAction,
+    selectedEventBranch,
+    semester,
+    stats,
+  ]);
   // 看完分支结果后进入本回合行动；没有分支数据的旧事件沿用原结算方式。
   const acknowledgeEvent = useCallback(() => {
     if (!currentEvent || !stats) return;
@@ -3306,6 +3396,12 @@ export function GamePage() {
 
     setEventDelta({});
     setSelectedEventBranch(null);
+    setIsCustomEventActionOpen(false);
+    setCustomEventAction("");
+    setCustomEventActionFeedback("");
+    customEventEvaluationAbortRef.current?.abort();
+    customEventEvaluationAbortRef.current = null;
+    setIsEvaluatingCustomEventAction(false);
     setActionDelta({});
     setChosenAction(null);
     setCurrentEvent(null);
@@ -3418,6 +3514,12 @@ export function GamePage() {
     setSelectedInternshipId(null);
     setEventDelta({});
     setSelectedEventBranch(null);
+    setIsCustomEventActionOpen(false);
+    setCustomEventAction("");
+    setCustomEventActionFeedback("");
+    customEventEvaluationAbortRef.current?.abort();
+    customEventEvaluationAbortRef.current = null;
+    setIsEvaluatingCustomEventAction(false);
     setActionDelta({});
     setChosenAction(null);
     setCurrentEvent(null);
@@ -4099,6 +4201,145 @@ export function GamePage() {
                         </span>
                       </button>
                     ))}
+
+                    {isCustomEventActionOpen ? (
+                      <div className="rounded-xl border border-[#c9a84c]/35 bg-[#c9a84c]/[0.055] p-4" aria-label="自定义行动">
+                        <div className="mb-3 flex items-center gap-3">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#c9a84c]/35 bg-[#c9a84c]/15 font-mono text-[12px] text-[#dec678]">D</span>
+                          <div>
+                            <p className="text-[15px] font-medium text-slate-100">我有自己的做法</p>
+                            <p className="mt-0.5 text-[11px] text-slate-500">描述你的行动，之后将由 AI 推演可能的影响</p>
+                          </div>
+                          <span className="ml-auto rounded-full border border-[#c9a84c]/20 px-2 py-0.5 text-[10px] text-[#cdb768]">自由行动</span>
+                        </div>
+
+                        <div className="relative">
+                          <textarea
+                            value={customEventAction}
+                            onChange={(event) => {
+                              setCustomEventAction(event.target.value);
+                              setCustomEventActionFeedback("");
+                            }}
+                            maxLength={200}
+                            rows={4}
+                            autoFocus
+                            disabled={isEvaluatingCustomEventAction}
+                            placeholder="例如：我会在面试后做一个小型线上项目，并把结果补充发给 HR……"
+                            className="w-full resize-none rounded-xl border border-white/10 bg-black/20 px-4 py-3 pb-8 text-[14px] leading-relaxed text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-[#c9a84c]/45 focus:ring-2 focus:ring-[#c9a84c]/10"
+                          />
+                          <span className="pointer-events-none absolute bottom-2.5 right-3 text-[10px] tabular-nums text-slate-600">
+                            {customEventAction.length} / 200
+                          </span>
+                        </div>
+
+                        {isEvaluatingCustomEventAction && (
+                          <div
+                            className="mt-3 rounded-xl border border-[#c9a84c]/20 bg-black/20 p-3.5"
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <span className="flex items-center gap-2 text-[12px] font-medium text-[#dec678]">
+                                <RefreshCw size={13} className="animate-spin" />AI 推演进行中
+                              </span>
+                              <span className="text-[10px] text-slate-600">无需重复提交</span>
+                            </div>
+                            <div className="space-y-2.5">
+                              {[
+                                "理解你的行动与当前处境",
+                                "评估可行性、风险与代价",
+                                "生成结果并计算属性影响",
+                              ].map((step, index) => {
+                                const activeIndex = Math.min(customEventEvaluationStage, 2);
+                                const isDone = index < activeIndex;
+                                const isActive = index === activeIndex;
+                                return (
+                                  <div key={step} className="flex items-center gap-2.5">
+                                    <span
+                                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] transition-colors ${
+                                        isDone
+                                          ? "border-emerald-400/35 bg-emerald-400/10 text-emerald-300"
+                                          : isActive
+                                            ? "border-[#c9a84c]/45 bg-[#c9a84c]/10 text-[#dec678]"
+                                            : "border-white/10 text-slate-700"
+                                      }`}
+                                    >
+                                      {isDone ? <Check size={11} /> : isActive ? <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" /> : index + 1}
+                                    </span>
+                                    <span className={`text-[11px] transition-colors ${isDone ? "text-slate-500" : isActive ? "text-slate-200" : "text-slate-700"}`}>
+                                      {step}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {customEventEvaluationStage >= 3 && (
+                              <p className="mt-3 border-t border-white/[0.06] pt-2.5 text-[10px] leading-relaxed text-slate-500">
+                                仍在等待模型生成。复杂选择可能需要更久，你的输入已安全保留，也可以随时取消推演。
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {customEventActionFeedback && (
+                          <p className="mt-2 rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/[0.05] px-3 py-2 text-[12px] leading-relaxed text-[#cdb768]" role="status">
+                            {customEventActionFeedback}
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isEvaluatingCustomEventAction) {
+                                customEventEvaluationAbortRef.current?.abort();
+                                return;
+                              }
+                              setIsCustomEventActionOpen(false);
+                              setCustomEventAction("");
+                              setCustomEventActionFeedback("");
+                            }}
+                            className="rounded-lg px-4 py-2 text-[12px] text-slate-400 transition hover:bg-white/5 hover:text-slate-200"
+                          >
+                            {isEvaluatingCustomEventAction ? "取消推演" : "取消"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={customEventAction.trim().length < 10 || isEvaluatingCustomEventAction}
+                            onClick={submitCustomEventAction}
+                            aria-busy={isEvaluatingCustomEventAction}
+                            className="flex items-center gap-2 rounded-lg border border-[#c9a84c]/30 bg-[#c9a84c]/15 px-4 py-2 text-[12px] font-medium text-[#dec678] transition hover:bg-[#c9a84c]/20 disabled:cursor-not-allowed disabled:border-white/5 disabled:bg-white/[0.025] disabled:text-slate-600"
+                          >
+                            {isEvaluatingCustomEventAction ? (
+                              <><RefreshCw size={13} className="animate-spin" />命运正在推演……</>
+                            ) : (
+                              <>推演结果 →</>
+                            )}
+                          </button>
+                        </div>
+                        {customEventAction.trim().length > 0 && customEventAction.trim().length < 10 && (
+                          <p className="mt-2 text-right text-[10px] text-slate-600">至少输入 10 个字，让 AI 能理解你的行动</p>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomEventActionOpen(true);
+                          setCustomEventActionFeedback("");
+                        }}
+                        className="group w-full rounded-xl border border-dashed border-[#c9a84c]/25 bg-[#c9a84c]/[0.025] p-4 text-left outline-none transition-all hover:border-[#c9a84c]/50 hover:bg-[#c9a84c]/[0.07] focus-visible:ring-2 focus-visible:ring-[#c9a84c]/50"
+                      >
+                        <span className="flex items-center gap-3">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#c9a84c]/25 bg-[#c9a84c]/10 font-mono text-[12px] text-[#dec678]">D</span>
+                          <span>
+                            <span className="block text-[15px] font-medium text-slate-100">我有自己的做法</span>
+                            <span className="mt-1 block text-[11px] text-slate-500">输入你的行动，让 AI 推演可能的结果</span>
+                          </span>
+                          <span className="ml-auto rounded-full border border-[#c9a84c]/15 px-2 py-0.5 text-[10px] text-[#a9965b] transition-colors group-hover:text-[#dec678]">自由行动</span>
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (

@@ -353,7 +353,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
                 <h4 className="font-medium text-sm">配置大模型 (魔搭 & 向量)</h4>
               </div>
               <p className="text-[10px] text-gray-400 mb-4 leading-relaxed">
-                为了实现20w字 RAG，我们使用魔搭进行文本生成，火山引擎进行向量化。配置仅保存在本地浏览器。
+                随机事件 AI 只需填写魔搭 API Key，模型和 Base URL 留空即可使用默认值。火山引擎仅用于现实知识库检索。配置只保存在本地浏览器。
               </p>
               
               <div className="space-y-3 flex-1 text-left">
@@ -370,7 +370,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
                 </div>
                 {/* Qwen Model */}
                 <div>
-                  <label className="block text-[10px] text-gray-300 mb-1">魔搭 Model ID</label>
+                  <label className="block text-[10px] text-gray-300 mb-1">魔搭 Model ID（可选）</label>
                   <input 
                     type="text"
                     value={qwenModelInput}
