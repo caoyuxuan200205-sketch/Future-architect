@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Send, Bot, User, Loader2, Settings, Key, Monitor, MapPinned } from "lucide-react";
+import { X, Send, Bot, User, Loader2, Settings, Key, Monitor, MapPinned, BookOpenCheck, BriefcaseBusiness } from "lucide-react";
 import { searchKnowledge, localSearch } from "../../lib/knowledgeBase";
 import { askAssistant, ChatMessage } from "../../lib/llm";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
@@ -325,23 +325,25 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
           <div className="flex border-b border-gray-750 bg-gray-900/60 font-sans text-xs shrink-0 select-none">
             <button
               onClick={() => setActiveTab("game")}
-              className={`flex-1 py-2 text-center font-medium transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-2 py-2 font-medium transition-colors ${
                 activeTab === "game"
                   ? "text-blue-400 border-b-2 border-blue-500 bg-[#1a1c23]/40 font-semibold"
                   : "text-gray-400 hover:text-gray-200"
               }`}
             >
-              🎮 游戏攻略
+              <BookOpenCheck size={16} strokeWidth={1.8} aria-hidden="true" />
+              <span>游戏攻略</span>
             </button>
             <button
               onClick={() => setActiveTab("real")}
-              className={`flex-1 py-2 text-center font-medium transition-colors ${
+              className={`flex flex-1 items-center justify-center gap-2 py-2 font-medium transition-colors ${
                 activeTab === "real"
                   ? "text-blue-400 border-b-2 border-blue-500 bg-[#1a1c23]/40 font-semibold"
                   : "text-gray-400 hover:text-gray-200"
               }`}
             >
-              💼 现实避坑
+              <BriefcaseBusiness size={16} strokeWidth={1.8} aria-hidden="true" />
+              <span>现实避坑</span>
             </button>
           </div>
 

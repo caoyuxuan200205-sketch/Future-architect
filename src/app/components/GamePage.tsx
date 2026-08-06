@@ -11,6 +11,10 @@ import {
   DesktopMapPreview,
   DesktopComputerPreview,
   type DesktopGameSection,
+  type ComputerInterviewItem,
+  type ComputerInterviewQuestion,
+  type ComputerInterviewPreparation,
+  type ComputerInterviewAnswer,
 } from "./DesktopGameSidebar";
 
 // ================================================================
@@ -191,8 +195,8 @@ const ACTIONS: Action[] = [
     id: "internship",
     label: "投实习",
     emoji: "📮",
-    description: "大量投递简历，提升表达力与人脉，但面临被拒的心理压力",
-    effects: { expression: 5, network: 5, selfDoubt: -4, money: 3, mentorFavorability: [-10, -5] },
+    description: "筛选岗位、选择渠道并投出简历，结果将在下一回合更新",
+    effects: { expression: 2, network: 1, stress: -2, selfDoubt: 2, mentorFavorability: [-4, -2] },
     narratives: [
       "你在Boss直聘上刷新了二十七次，最终投出了八份简历，然后等待。等待的感觉像是把自己折叠成纸飞机，扔进黑暗里。",
       "你修改了第十七版简历，把建筑项目经历改得更像互联网的语言，心里有一种说不清是进化还是失去的感觉。",
@@ -655,6 +659,7 @@ const EVENTS: GameEvent[] = [
 const CAMPUS_EVENTS: CampusEvent[] = [
   {
     id: "ce01",
+    companyId: "bytedance",
     companyName: "字节跳动",
     title: "10X 增长产品专场特招",
     description: "校园里贴满了字节跳动的海报。他们正在寻找对数据敏感、成长极快的年轻人，直通终面。你要去投递那张简历吗？",
@@ -666,6 +671,7 @@ const CAMPUS_EVENTS: CampusEvent[] = [
   },
   {
     id: "ce02",
+    companyId: "tencent",
     companyName: "腾讯",
     title: "微信事业群秋招提前批",
     description: "微信事业群的高管来学校做闭门分享。听说如果被看中，基本就稳了。去试试吗？",
@@ -677,6 +683,7 @@ const CAMPUS_EVENTS: CampusEvent[] = [
   },
   {
     id: "ce03",
+    companyId: "google",
     companyName: "Google",
     title: "Google APAC 宣讲会",
     description: "一场全程使用英文交流的科技沙龙，现场提供免费的美式咖啡。你在人群外围徘徊。",
@@ -688,6 +695,7 @@ const CAMPUS_EVENTS: CampusEvent[] = [
   },
   {
     id: "ce04",
+    companyId: "xiaohongshu",
     companyName: "小红书",
     title: "社区生态建设专场研讨",
     description: "小红书在学校咖啡馆办了一场小型的线下研讨，讨论年轻人的生活方式。",
@@ -1394,19 +1402,57 @@ function aggregateGameResultRows(rows: GameResultDistributionRow[]): GameResultD
 // 简化的实习机会（根据当前能力值筛选）
 interface InternshipOption {
   id: string;
+  companyId?: string;
   title: string;
   companyName: string;
   stipend: string;
   description: string;
   minLogic: number;
   minExpression: number;
+  minEnglish?: number;
+  minStructured?: number;
   detailedAchievements?: string[]; // 新增：用于结局页展示的具体工作成就
 }
+
+type InternshipChannel = "official" | "direct" | "referral";
+type InternshipApplicationStatus = "submitted" | "interview" | "interview_pending" | "offered" | "rejected" | "silent" | "accepted" | "declined";
+
+interface InternshipApplication {
+  id: string;
+  internshipId: string;
+  channel: InternshipChannel;
+  submittedRound: number;
+  status: InternshipApplicationStatus;
+  message: string;
+  interviewStage?: "invited" | "preparing" | "in_progress" | "waiting_result";
+  interviewPreparation?: ComputerInterviewPreparation;
+  interviewQuestionIndex?: number;
+  interviewAnswers?: ComputerInterviewAnswer[];
+  interviewScore?: number;
+  interviewPassed?: boolean;
+  interviewCompletedRound?: number;
+  fitAtSubmission?: "matched" | "stretch";
+  screeningMindsetSettled?: boolean;
+  interviewResultMindsetSettled?: boolean;
+  mindsetFeedback?: string;
+}
+
+const INTERNSHIP_CHANNELS: Array<{
+  id: InternshipChannel;
+  label: string;
+  description: string;
+  bonus: number;
+}> = [
+  { id: "official", label: "官网海投", description: "不消耗人脉，反馈较慢，胜在稳定。", bonus: 0 },
+  { id: "direct", label: "招聘平台直聊", description: "主动联系招聘者，更看重表达能力。", bonus: 6 },
+  { id: "referral", label: "校友内推", description: "让简历更容易被看到，人脉越高越有效。", bonus: 10 },
+];
 
 const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_tencent",
     title: "产品策划实习生",
+    companyId: "tencent",
     companyName: "腾讯",
     stipend: "400 元/天 · 住房补贴",
     description: "参与微信或互娱业务线的日常需求评审，负责功能模块的产品设计与竞品分析。",
@@ -1420,6 +1466,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_tencent_pm",
     title: "产品经理实习生",
+    companyId: "tencent",
     companyName: "腾讯",
     stipend: "450 元/天 · 住房补贴",
     description: "负责核心业务线的产品规划与迭代，需具备极强的逻辑思维与跨部门沟通能力。",
@@ -1433,6 +1480,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_tencent_ops",
     title: "产品运营实习生",
+    companyId: "tencent",
     companyName: "腾讯",
     stipend: "350 元/天 · 班车接送",
     description: "协助策划线上活动方案，监控运营数据指标，优化用户活跃度。",
@@ -1446,6 +1494,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_bytedance",
     title: "产品运营实习生",
+    companyId: "bytedance",
     companyName: "字节跳动",
     stipend: "400 元/天 · 三餐全包",
     description: "参与拉新活动的策略制定与落地执行，分析用户数据并输出优化方案。",
@@ -1459,6 +1508,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_bytedance_aipm",
     title: "AI产品经理实习生",
+    companyId: "bytedance",
     companyName: "字节跳动",
     stipend: "500 元/天 · 就近租房补贴",
     description: "参与大模型应用场景落地，需对AIGC技术有深入理解并能转化为产品需求。",
@@ -1472,6 +1522,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_bytedance_content",
     title: "内容运营实习生",
+    companyId: "bytedance",
     companyName: "字节跳动",
     stipend: "350 元/天 · 下午茶",
     description: "负责抖音/头条内容生态的治理与推荐策略优化，挖掘优质创作者。",
@@ -1485,6 +1536,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_ali_product",
     title: "产品经理实习生",
+    companyId: "alibaba",
     companyName: "阿里巴巴",
     stipend: "400 元/天 · 园区食堂",
     description: "参与淘宝/天猫核心交易链路的产品设计，需具备极强的商业敏感度。",
@@ -1498,6 +1550,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_ali_operation",
     title: "行业运营实习生",
+    companyId: "alibaba",
     companyName: "阿里巴巴",
     stipend: "300 元/天 · 餐补",
     description: "负责特定行业商家的拓展与维护，策划大促营销活动。",
@@ -1511,6 +1564,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_meituan_strategy",
     title: "商业分析实习生",
+    companyId: "meituan",
     companyName: "美团",
     stipend: "350 元/天 · 免费开水",
     description: "协助进行外卖业务的经营分析与竞对调研，产出高质量分析报告。",
@@ -1524,6 +1578,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_meituan_pm",
     title: "产品实习生",
+    companyId: "meituan",
     companyName: "美团",
     stipend: "300 元/天 · 团建多",
     description: "负责到店业务B端商户后台的功能优化，注重逻辑闭环。",
@@ -1537,6 +1592,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_pdd_strategy",
     title: "策略产品实习生",
+    companyId: "pdd",
     companyName: "拼多多",
     stipend: "500 元/天 · 包三餐",
     description: "参与百亿补贴等核心业务的增长策略制定，抗压能力要求极高。",
@@ -1550,6 +1606,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_netease_game_pm",
     title: "游戏策划实习生",
+    companyId: "netease",
     companyName: "网易游戏",
     stipend: "400 元/天 · 猪厂食堂",
     description: "参与新项目的数值或文案策划，需要丰富的游戏阅历与创意。",
@@ -1563,6 +1620,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_netease_pm",
     title: "产品策划实习生",
+    companyId: "netease",
     companyName: "网易云音乐",
     stipend: "350 元/天 · 严选折扣",
     description: "负责社区互动氛围的营造与功能迭代，关注年轻用户心理。",
@@ -1576,6 +1634,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_kuaishou_pm",
     title: "产品经理实习生",
+    companyId: "kuaishou",
     companyName: "快手",
     stipend: "450 元/天 · 房补",
     description: "负责直播业务的变现产品设计，需对下沉市场用户有深刻理解。",
@@ -1589,6 +1648,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_kuaishou_ops",
     title: "社区运营实习生",
+    companyId: "kuaishou",
     companyName: "快手",
     stipend: "300 元/天 · 冰激凌",
     description: "挖掘站内优质短视频内容，维护核心创作者关系。",
@@ -1602,6 +1662,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_jd_pm",
     title: "产品经理实习生",
+    companyId: "jd",
     companyName: "京东",
     stipend: "350 元/天 · 餐补",
     description: "参与物流供应链系统的产品优化，注重流程效率与逻辑严密性。",
@@ -1615,6 +1676,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_microsoft_pm",
     title: "Program Manager Intern",
+    companyId: "microsoft",
     companyName: "微软",
     stipend: "500 元/天 · 弹性不打卡",
     description: "参与Azure云服务或Office套件的产品规划，全英文工作环境，极度重视逻辑与沟通。",
@@ -1628,6 +1690,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_google_pm",
     title: "Associate Product Manager Intern",
+    companyId: "google",
     companyName: "Google",
     stipend: "600 元/天 · 顶级食堂",
     description: "负责Search或Ads产品的创新功能探索，需要极客精神与全球化视野。",
@@ -1641,6 +1704,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_amazon_ops",
     title: "Operations Intern",
+    companyId: "amazon",
     companyName: "Amazon",
     stipend: "400 元/天 · 领导力准则",
     description: "负责跨境电商业务的数据监控与流程优化，强调数据驱动决策。",
@@ -1654,6 +1718,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_mckinsey_pta",
     title: "Part-time Assistant",
+    companyId: "mckinsey",
     companyName: "麦肯锡",
     stipend: "350 元/天 · 顶级圈层",
     description: "协助顾问团队进行行业研究与专家访谈，需要极强的案头研究能力与PPT制作技巧。",
@@ -1667,6 +1732,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_bcg_pta",
     title: "Project Assistant",
+    companyId: "bcg",
     companyName: "BCG",
     stipend: "300 元/天 · 每日水果",
     description: "参与数字化转型项目的战略咨询，高强度脑力激荡，逻辑思维要求极高。",
@@ -1680,6 +1746,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_goldman_ibd",
     title: "Investment Banking Intern",
+    companyId: "goldman",
     companyName: "高盛",
     stipend: "1000 元/天 · 华尔街精英",
     description: "参与IPO或并购项目的估值建模，工作强度极大但回报丰厚，精英文化浓厚。",
@@ -1706,6 +1773,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_tesla_pm",
     title: "Product Management Intern",
+    companyId: "tesla",
     companyName: "Tesla",
     stipend: "450 元/天 · 马斯克文化",
     description: "参与自动驾驶或能源产品的用户体验优化，First Principles思维至上。",
@@ -1719,6 +1787,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_apple_marcom",
     title: "Marcom Intern",
+    companyId: "apple",
     companyName: "Apple",
     stipend: "500 元/天 · 保密文化",
     description: "协助大中华区市场营销活动的落地，对细节要求近乎苛刻。",
@@ -1732,6 +1801,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_xiaohongshu",
     title: "社区商业化实习生",
+    companyId: "xiaohongshu",
     companyName: "小红书",
     stipend: "300 元/天 · 下午茶",
     description: "负责内容互动相关的体验优化，协助推进社区变现的专项调研。",
@@ -1745,6 +1815,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_bilibili",
     title: "用户体验实习生",
+    companyId: "bilibili",
     companyName: "哔哩哔哩",
     stipend: "300 元/天 · 弹性打卡",
     description: "设计B站新功能的原型线框图，从0到1收集用户反馈完成灰度测试。",
@@ -1758,6 +1829,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_keep",
     title: "初级产品实习生",
+    companyId: "keep",
     companyName: "Keep",
     stipend: "200 元/天 · 免费健身",
     description: "从用户访谈到上线跟踪都需要你参与，是快速了解产品全流程的好机会。",
@@ -1823,6 +1895,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_local_soe",
     title: "行政助理实习生",
+    companyId: "cadg",
     companyName: "中国建筑设计研究院",
     stipend: "100 元/天 · 食堂超好",
     description: "协助整理档案，收发文件，工作节奏慢，适合考公备考。",
@@ -1836,6 +1909,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_data_entry",
     title: "建筑设计实习生",
+    companyId: "seu_design",
     companyName: "东南大学建筑设计研究院",
     stipend: "150 元/天 · 校园环境",
     description: "负责将别人的方案拼凑成自己的方案，工作枯燥但繁杂，不需要动脑。",
@@ -1849,6 +1923,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_event_assist",
     title: "活动执行助理",
+    companyId: "mixue",
     companyName: "蜜雪冰城",
     stipend: "140 元/天 · 包盒饭",
     description: "帮忙布置会场，搬运物料，现场维持秩序，体力活较多。",
@@ -1875,6 +1950,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_boss",
     title: "产品助理",
+    companyId: "boss",
     companyName: "Boss直聘",
     stipend: "250 元/天 · 导师带教",
     description: "协助产品经理进行需求调研和数据整理，参与日常的立项会议。",
@@ -1884,6 +1960,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_fanka",
     title: "内容审核实习生",
+    companyId: "fanka",
     companyName: "翻咔",
     stipend: "150 元/天 · 弹性工作",
     description: "负责LGBT社群内容审核与话题引导，及时处理违规内容。",
@@ -1897,6 +1974,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_chayan",
     title: "新媒体运营实习生",
+    companyId: "chayan",
     companyName: "茶颜悦色",
     stipend: "140 元/天 · 奶茶自由",
     description: "参与公众号与小红书的内容策划，撰写推文。",
@@ -1910,6 +1988,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_ctrip",
     title: "产品运营实习生",
+    companyId: "ctrip",
     companyName: "携程",
     stipend: "200 元/天 · 旅游津贴",
     description: "协助跟进机票/酒店业务线的活动配置与数据复盘。",
@@ -1923,6 +2002,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_didi",
     title: "用户增长实习生",
+    companyId: "didi",
     companyName: "滴滴",
     stipend: "250 元/天 · 晚餐",
     description: "参与司机端或乘客端的拉新活动策划与执行。",
@@ -1936,6 +2016,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_iqiyi",
     title: "内容策略实习生",
+    companyId: "iqiyi",
     companyName: "爱奇艺",
     stipend: "180 元/天 · 追剧自由",
     description: "分析剧集播放数据，协助制定剧集推广策略。",
@@ -1949,6 +2030,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_zuoyebang",
     title: "用户研究实习生",
+    companyId: "zuoyebang",
     companyName: "作业帮",
     stipend: "200 元/天 · 免费晚餐",
     description: "协助进行K12用户访谈，整理用户反馈。",
@@ -1962,6 +2044,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_yuanfudao",
     title: "课程产品实习生",
+    companyId: "yuanfudao",
     companyName: "猿辅导",
     stipend: "220 元/天 · 零食",
     description: "参与在线课程的标准化课件制作与验收。",
@@ -1975,6 +2058,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_gad",
     title: "建筑设计实习生",
+    companyId: "gad",
     companyName: "gad",
     stipend: "120 元/天 · 豪宅项目",
     description: "参与高端住宅项目的立面深化与文本制作。",
@@ -1988,6 +2072,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_cushman",
     title: "房地产分析实习生",
+    companyId: "cushman",
     companyName: "戴德梁行",
     stipend: "150 元/天 · CBD办公",
     description: "协助撰写写字楼/商业地产市场季度报告。",
@@ -2001,6 +2086,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_tesla",
     title: "产品体验实习生",
+    companyId: "tesla",
     companyName: "Tesla",
     stipend: "200 元/天 · 期权梦想",
     description: "参与车辆交付环节的用户教育与体验优化。",
@@ -2014,6 +2100,7 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
     id: "intern_cicc",
     title: "行研分析实习生",
+    companyId: "cicc",
     companyName: "中金公司",
     stipend: "300 元/天 · 顶级光环",
     description: "协助分析师进行行业数据搜集与底稿搭建。",
@@ -2024,23 +2111,360 @@ const INTERNSHIP_OPTIONS: InternshipOption[] = [
       "协助撰写深度行业报告的图表绘制与数据核对。",
     ],
   },
+  {
+    id: "intern_baidu_ai_pm",
+    companyId: "baidu",
+    title: "AI 产品经理实习生",
+    companyName: "百度",
+    stipend: "350 元/天 · AI 业务",
+    description: "参与搜索或大模型产品的需求分析、用户反馈整理与功能迭代。",
+    minLogic: 68,
+    minExpression: 62,
+    minStructured: 65,
+    detailedAchievements: ["整理大模型产品用户反馈并完成需求分级。", "参与搜索功能竞品分析，输出产品优化建议。"],
+  },
+  {
+    id: "intern_ant_business",
+    companyId: "antgroup",
+    title: "商业分析实习生",
+    companyName: "蚂蚁集团",
+    stipend: "400 元/天 · 园区餐补",
+    description: "围绕支付与数字金融业务搭建分析框架，协助完成经营复盘。",
+    minLogic: 75,
+    minExpression: 65,
+    minStructured: 72,
+    detailedAchievements: ["搭建业务指标看板并定位转化漏斗异常。", "协助完成行业研究与季度经营复盘。"],
+  },
+  {
+    id: "intern_meta_uxr",
+    companyId: "meta",
+    title: "UX Research Intern",
+    companyName: "Meta",
+    stipend: "600 元/天 · Remote Collaboration",
+    description: "参与国际化产品用户研究，从访谈与行为数据中提炼体验洞察。",
+    minLogic: 76,
+    minExpression: 75,
+    minEnglish: 82,
+    minStructured: 72,
+    detailedAchievements: ["Designed and conducted interviews with cross-market users.", "Synthesized research findings into product recommendations."],
+  },
+  {
+    id: "intern_bain_aci",
+    companyId: "bain",
+    title: "Associate Consultant Intern",
+    companyName: "Bain",
+    stipend: "500 元/天 · 项目制",
+    description: "协助咨询项目完成市场研究、访谈纪要与问题拆解。",
+    minLogic: 80,
+    minExpression: 74,
+    minEnglish: 68,
+    minStructured: 80,
+    detailedAchievements: ["完成消费行业市场规模测算与竞品分析。", "将专家访谈整理为结构化项目洞察。"],
+  },
+  {
+    id: "intern_deloitte_consulting",
+    companyId: "deloitte",
+    title: "Consulting Analyst Intern",
+    companyName: "Deloitte",
+    stipend: "300 元/天 · 客户项目",
+    description: "参与数字化转型项目，协助整理业务流程并制作客户汇报材料。",
+    minLogic: 72,
+    minExpression: 68,
+    minEnglish: 65,
+    minStructured: 72,
+    detailedAchievements: ["梳理客户现有业务流程并识别关键痛点。", "参与制作数字化转型方案与管理层汇报。"],
+  },
+  {
+    id: "intern_nio_ux_ops",
+    companyId: "nio",
+    title: "用户体验运营实习生",
+    companyName: "蔚来",
+    stipend: "300 元/天 · 用户活动",
+    description: "参与用户社区与线下空间体验运营，连接产品、服务和用户反馈。",
+    minLogic: 62,
+    minExpression: 68,
+    detailedAchievements: ["协助策划用户中心活动并复盘到场与满意度数据。", "整理车主反馈，推动服务流程体验优化。"],
+  },
+  {
+    id: "intern_li_strategy",
+    companyId: "li",
+    title: "产品策略实习生",
+    companyName: "理想",
+    stipend: "350 元/天 · 晚餐班车",
+    description: "研究家庭用户出行场景，支持车型功能与产品策略判断。",
+    minLogic: 72,
+    minExpression: 62,
+    minStructured: 70,
+    detailedAchievements: ["分析家庭用户出行需求并形成场景地图。", "参与竞品车型功能拆解和策略汇报。"],
+  },
+  {
+    id: "intern_xpeng_cockpit",
+    companyId: "xpeng",
+    title: "智能座舱产品实习生",
+    companyName: "小鹏",
+    stipend: "320 元/天 · 通勤班车",
+    description: "参与车机交互与智能座舱功能设计，跟踪需求到测试闭环。",
+    minLogic: 70,
+    minExpression: 58,
+    minStructured: 68,
+    detailedAchievements: ["绘制车机功能用户旅程并提出交互优化建议。", "跟踪需求评审、测试反馈与版本上线。"],
+  },
+  {
+    id: "intern_byd_planning",
+    companyId: "byd",
+    title: "产品规划实习生",
+    companyName: "比亚迪",
+    stipend: "250 元/天 · 食宿补贴",
+    description: "协助新能源车型市场研究、用户需求分析与配置规划。",
+    minLogic: 65,
+    minExpression: 56,
+    minStructured: 64,
+    detailedAchievements: ["整理新能源细分市场销量与配置数据。", "协助输出目标用户画像和车型配置建议。"],
+  },
+  {
+    id: "intern_citic_ibd",
+    companyId: "citic",
+    title: "投资银行部实习生",
+    companyName: "中信证券",
+    stipend: "300 元/天 · 项目补贴",
+    description: "协助完成行业研究、申报材料核查与项目底稿整理。",
+    minLogic: 78,
+    minExpression: 64,
+    minEnglish: 68,
+    minStructured: 76,
+    detailedAchievements: ["核对项目申报材料并维护尽调底稿。", "完成行业数据搜集与可比公司分析。"],
+  },
+  {
+    id: "intern_morgan_ibd",
+    companyId: "morgan",
+    title: "IBD Summer Analyst",
+    companyName: "Morgan Stanley",
+    stipend: "650 元/天 · Summer Program",
+    description: "参与跨境投融资项目的行业研究、估值分析与材料制作。",
+    minLogic: 84,
+    minExpression: 75,
+    minEnglish: 82,
+    minStructured: 82,
+    detailedAchievements: ["Built comparable-company analysis for a cross-border transaction.", "Supported pitchbook preparation and financial data verification."],
+  },
+  {
+    id: "intern_beike_product",
+    companyId: "beike",
+    title: "居住产品实习生",
+    companyName: "贝壳找房",
+    stipend: "250 元/天 · 居住研究",
+    description: "把建筑空间理解转化为线上找房与居住服务产品体验。",
+    minLogic: 58,
+    minExpression: 55,
+    minStructured: 56,
+    detailedAchievements: ["梳理用户从搜索房源到线下带看的完整旅程。", "参与户型标签与房源信息展示优化。"],
+  },
+  {
+    id: "intern_iflytek_ai_pm",
+    companyId: "iflytek",
+    title: "AI 产品实习生",
+    companyName: "科大讯飞",
+    stipend: "240 元/天 · AI 场景",
+    description: "参与语音与大模型产品的场景调研、数据验收和需求设计。",
+    minLogic: 62,
+    minExpression: 56,
+    minStructured: 60,
+    detailedAchievements: ["整理教育场景语音交互需求与异常样本。", "协助完成 AI 功能验收标准和需求文档。"],
+  },
+  {
+    id: "intern_dewu_growth",
+    companyId: "dewu",
+    title: "用户增长实习生",
+    companyName: "得物",
+    stipend: "260 元/天 · 潮流业务",
+    description: "围绕年轻用户完成增长活动配置、数据监测与策略复盘。",
+    minLogic: 57,
+    minExpression: 55,
+    detailedAchievements: ["监测拉新活动漏斗并定位关键流失环节。", "协助设计用户召回实验与活动复盘。"],
+  },
+  {
+    id: "intern_soul_community",
+    companyId: "soul",
+    title: "社区产品实习生",
+    companyName: "Soul",
+    stipend: "220 元/天 · 弹性工作",
+    description: "参与社交社区互动功能和内容生态治理的产品迭代。",
+    minLogic: 48,
+    minExpression: 52,
+    detailedAchievements: ["分析新用户破冰路径并提出功能优化方案。", "整理社区内容反馈，协助更新治理规则。"],
+  },
+  {
+    id: "intern_moji_ops",
+    companyId: "moji",
+    title: "产品运营实习生",
+    companyName: "墨迹天气",
+    stipend: "180 元/天 · 弹性打卡",
+    description: "参与天气场景内容运营、用户反馈和功能数据复盘。",
+    minLogic: 42,
+    minExpression: 44,
+    detailedAchievements: ["策划极端天气专题并跟踪用户触达数据。", "整理天气预警功能反馈并推动体验优化。"],
+  },
+  {
+    id: "intern_ecadi_arch",
+    companyId: "ecadi",
+    title: "建筑设计实习生",
+    companyName: "华东建筑设计研究院",
+    stipend: "180 元/天 · 项目餐补",
+    description: "参与大型公共建筑方案深化、模型推敲与汇报文本制作。",
+    minLogic: 45,
+    minExpression: 35,
+    detailedAchievements: ["参与公共建筑方案模型与分析图绘制。", "协助完成设计竞标文本和汇报材料。"],
+  },
+  {
+    id: "intern_vanke_design_mgmt",
+    companyId: "vanke",
+    title: "产品设计管理实习生",
+    companyName: "万科",
+    stipend: "220 元/天 · 地产项目",
+    description: "从开发商视角参与住宅产品定位、设计协调与现场巡检。",
+    minLogic: 55,
+    minExpression: 52,
+    minStructured: 52,
+    detailedAchievements: ["整理住宅产品竞品调研与户型对标。", "参与设计单位协调会并跟踪问题闭环。"],
+  },
+  {
+    id: "intern_longfor_commercial",
+    companyId: "longfor",
+    title: "商业空间运营实习生",
+    companyName: "龙湖",
+    stipend: "210 元/天 · 商场餐补",
+    description: "参与商业空间客流分析、活动运营与商户体验优化。",
+    minLogic: 52,
+    minExpression: 55,
+    detailedAchievements: ["分析商场分时客流并提出空间导视优化建议。", "协助执行商业活动并复盘商户与顾客反馈。"],
+  },
+  {
+    id: "intern_cbre_research",
+    companyId: "cbre",
+    title: "市场研究实习生",
+    companyName: "世邦魏理仕",
+    stipend: "220 元/天 · CBD办公",
+    description: "参与办公、商业与产业地产市场数据研究和报告撰写。",
+    minLogic: 57,
+    minExpression: 55,
+    minEnglish: 60,
+    detailedAchievements: ["维护重点城市办公市场租金与空置率数据库。", "协助撰写季度房地产市场研究报告。"],
+  },
+  {
+    id: "intern_jll_consulting",
+    companyId: "jll",
+    title: "城市与地产咨询实习生",
+    companyName: "仲量联行",
+    stipend: "230 元/天 · 咨询项目",
+    description: "参与城市更新、产业园区与商业地产咨询项目。",
+    minLogic: 60,
+    minExpression: 58,
+    minEnglish: 62,
+    minStructured: 58,
+    detailedAchievements: ["完成城市更新案例研究与政策信息梳理。", "协助搭建产业园区定位和业态分析框架。"],
+  },
 ];
 
-function getAvailableInternships(stats: Stats): InternshipOption[] {
-  const available = INTERNSHIP_OPTIONS.filter(
-    (opt) => stats.logic >= opt.minLogic && stats.expression >= opt.minExpression
-  );
-
-  // 随机打乱满足门槛的实习机会，增加每次“投简历”的随机体验
-  for (let i = available.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [available[i], available[j]] = [available[j], available[i]];
-  }
-
-  // 界面最多展示3个
-  return available.slice(0, 3);
+function getInternshipRequirementGaps(option: InternshipOption, stats: Stats) {
+  const gaps = [
+    { key: "logic", label: "逻辑能力", value: stats.logic - option.minLogic },
+    { key: "expression", label: "表达能力", value: stats.expression - option.minExpression },
+  ];
+  if (option.minEnglish !== undefined) gaps.push({ key: "english", label: "英语能力", value: stats.english - option.minEnglish });
+  if (option.minStructured !== undefined) gaps.push({ key: "structured", label: "结构化思维", value: stats.structured - option.minStructured });
+  return gaps;
 }
 
+function getInternshipFitInfo(option: InternshipOption, stats: Stats): { label: string; reason: string; color: string } {
+  const gaps = getInternshipRequirementGaps(option, stats);
+  const weakest = [...gaps].sort((a, b) => a.value - b.value)[0];
+
+  if (weakest.value >= 6) {
+    return { label: "匹配", reason: "核心能力达到岗位要求", color: "#81c784" };
+  }
+  if (weakest.value >= -5) {
+    return { label: "可以尝试", reason: weakest.value >= 0 ? "能力基本符合，仍需看经历" : `${weakest.label}略有不足`, color: "#64b5f6" };
+  }
+  return { label: "冲刺", reason: `${weakest.label}与岗位要求存在差距`, color: "#ef9a9a" };
+}
+
+function getInternshipListings(stats: Stats): InternshipOption[] {
+  const shuffled = [...INTERNSHIP_OPTIONS];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const matched = shuffled.filter((option) => getInternshipRequirementGaps(option, stats).every((gap) => gap.value >= -5));
+  const stretch = shuffled.filter((option) => !matched.includes(option));
+  return [...matched.slice(0, 4), ...stretch.slice(0, 2)].slice(0, 6);
+}
+function resolveInternshipScreening(
+  applications: InternshipApplication[],
+  stats: Stats
+): InternshipApplication[] {
+  return applications.map((application) => {
+    if (application.status !== "submitted") return application;
+    const option = INTERNSHIP_OPTIONS.find((item) => item.id === application.internshipId);
+    if (!option) return { ...application, status: "rejected", message: "岗位已经停止招聘。" };
+
+    const channel = INTERNSHIP_CHANNELS.find((item) => item.id === application.channel);
+    const requirementGaps = getInternshipRequirementGaps(option, stats);
+    const fitMargin = requirementGaps.reduce((total, gap) => total + gap.value, 0) / requirementGaps.length;
+    const directBonus = application.channel === "direct" ? Math.max(0, (stats.expression - 45) / 5) : 0;
+    const referralBonus = application.channel === "referral" ? Math.max(0, (stats.network - 40) / 6) : 0;
+    const passChance = Math.max(8, Math.min(88, 38 + fitMargin * 1.7 + (channel?.bonus ?? 0) + directBonus + referralBonus));
+
+    if (Math.random() * 100 < passChance) {
+      return { ...application, status: "interview", interviewStage: "invited", interviewQuestionIndex: 0, interviewAnswers: [], interviewScore: 0, message: "简历通过筛选。HR 已将视频面试邀请发送到你的电脑，请在本回合内处理。" };
+    }
+    if (Math.random() < 0.3) {
+      return { ...application, status: "silent", message: "状态停在“已投递”，没有拒信，也没有下一步。" };
+    }
+
+    const weakestRequirement = [...requirementGaps].sort((a, b) => a.value - b.value)[0];
+    const reason = weakestRequirement.value < 0
+      ? `岗位筛选认为你的${weakestRequirement.label}还没有达到当前要求。`
+      : "你的经历并不差，但另一位候选人与岗位更直接相关。";
+    return { ...application, status: "rejected", message: `简历筛选未通过。${reason}` };
+  });
+}
+const STANDARD_INTERVIEW_OPTIONS: ComputerInterviewQuestion["options"] = [
+  { id: "structured", label: "先给结论，再分点说明判断", hint: "强调逻辑和结构" },
+  { id: "honest", label: "坦白未知，并说明学习路径", hint: "强调真实和成长性" },
+  { id: "evidence", label: "从具体项目、行动和结果讲起", hint: "强调经历与证据" },
+];
+
+function getInternshipInterviewQuestions(option: InternshipOption): ComputerInterviewQuestion[] {
+  const title = option.title;
+  const roleQuestion = title.includes("产品")
+    ? "如果让你改进一款每天使用的产品，你会怎样找到最值得解决的问题？"
+    : title.includes("运营") || title.includes("内容") || title.includes("市场") || title.includes("Marcom")
+      ? "一次活动数据低于预期，你会如何定位问题并提出下一步动作？"
+      : title.includes("研究") || title.includes("分析") || title.includes("咨询") || title.includes("行研")
+        ? "面对信息不完整的问题，你会如何拆解并形成一个可信的结论？"
+        : title.includes("设计") || title.includes("体验")
+          ? "请挑一个作品，说明你如何从模糊需求推进到最终方案。"
+          : "遇到一项自己从未做过的任务时，你会如何快速上手并交付？";
+
+  return [
+    {
+      prompt: "请先简单介绍一下自己，并说说为什么申请这个岗位。",
+      context: `面试官想判断你的转行动机是否清楚，以及你对 ${option.title} 的理解。`,
+      options: STANDARD_INTERVIEW_OPTIONS,
+    },
+    {
+      prompt: "讲一次你在团队中遇到分歧或压力，并最终推动事情向前的经历。",
+      context: "请尽量说清当时的目标、你采取的行动和实际结果。",
+      options: STANDARD_INTERVIEW_OPTIONS,
+    },
+    {
+      prompt: roleQuestion,
+      context: `这是一道与 ${option.companyName} · ${option.title} 更相关的岗位问题。`,
+      options: STANDARD_INTERVIEW_OPTIONS,
+    },
+  ];
+}
 // ================================================================
 // SECTION 8: 子组件
 // ================================================================
@@ -2717,8 +3141,9 @@ const GAME_GUIDE_STEPS = [
     title: "先认识左侧的每一个入口",
     description: "左侧负责切换游戏场景，入口不会消耗回合。",
     items: [
-      { label: "本回合 / 地图", copy: "两者展示同一份事件与行动结果；地图是场景化入口。" },
-      { label: "电脑", copy: "功能仍在开发中，敬请期待。", status: "开发中" },
+      { label: "地图", copy: "默认首页。选择地点并发起学习、求职或生活行动。" },
+      { label: "本回合", copy: "用于快速选择行动、处理随机事件并确认本轮结果。" },
+      { label: "电脑", copy: "查看求职邮件、准备面试，并在视频会议中完成岗位问答。", status: "可用" },
       { label: "状态", copy: "查看能力诊断、薄弱项和最接近的职业路线。" },
       { label: "简历", copy: "整理教育经历与实习成果，观察履历成长。" },
       { label: "机会", copy: "未来用于管理更多生涯机会，当前仍在规划中。", status: "规划中" },
@@ -2857,7 +3282,7 @@ export function GamePage() {
   const [selectedInternshipId, setSelectedInternshipId] = useState<string | null>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
-  const [desktopGameSection, setDesktopGameSection] = useState<DesktopGameSection>("round");
+  const [desktopGameSection, setDesktopGameSection] = useState<DesktopGameSection>("map");
   const [playerNameInput, setPlayerNameInput] = useState("");
   const [playerNameError, setPlayerNameError] = useState("");
   const [selectedEventBranch, setSelectedEventBranch] = useState<EventBranchOption | null>(null);
@@ -2871,6 +3296,13 @@ export function GamePage() {
   // 新增状态
   const [pastInternships, setPastInternships] = useState<InternshipOption[]>([]);
   const [currentOfferedInternships, setCurrentOfferedInternships] = useState<InternshipOption[]>([]);
+  const [selectedInternshipIds, setSelectedInternshipIds] = useState<string[]>([]);
+  const [internshipChannel, setInternshipChannel] = useState<InternshipChannel>("official");
+  const [internshipApplications, setInternshipApplications] = useState<InternshipApplication[]>([]);
+  const [currentInternshipUpdates, setCurrentInternshipUpdates] = useState<InternshipApplication[]>([]);
+  const [internshipApplicationFeedback, setInternshipApplicationFeedback] = useState("");
+  const [activeInterviewApplicationId, setActiveInterviewApplicationId] = useState<string | null>(null);
+  const [careerInboxNotificationCount, setCareerInboxNotificationCount] = useState(0);
   const [offerBuffs, setOfferBuffs] = useState<Record<string, number>>({});
   const [isResumeOpen, setIsResumeOpen] = useState(false);
   const [receivedOffers, setReceivedOffers] = useState<Company[] | null>(null);
@@ -2908,6 +3340,38 @@ export function GamePage() {
 
   useEffect(() => () => customEventEvaluationAbortRef.current?.abort(), []);
 
+  // 兼容旧存档：同一轮投递只能接受一份实习 Offer。
+  useEffect(() => {
+    const accepted = currentInternshipUpdates.filter((item) => item.status === "accepted");
+    if (accepted.length === 0) return;
+
+    const kept = accepted[0];
+    const keptOption = INTERNSHIP_OPTIONS.find((item) => item.id === kept.internshipId);
+    const competing = currentInternshipUpdates.filter((item) => (
+      item.id !== kept.id && (item.status === "accepted" || item.status === "offered" || item.status === "interview" || item.status === "interview_pending")
+    ));
+    if (competing.length === 0) return;
+
+    const competingApplicationIds = new Set(competing.map((item) => item.id));
+    const duplicateAcceptedInternshipIds = new Set(
+      competing.filter((item) => item.status === "accepted").map((item) => item.internshipId)
+    );
+    const normalize = (items: InternshipApplication[]) => items.map((item): InternshipApplication => (
+      competingApplicationIds.has(item.id)
+        ? {
+            ...item,
+            status: "declined",
+            message: `你已经接受了 ${keptOption?.companyName ?? "另一家公司"} 的 Offer，因此放弃了这条流程。`,
+          }
+        : item
+    ));
+
+    setCurrentInternshipUpdates((previous) => normalize(previous));
+    setInternshipApplications((previous) => normalize(previous));
+    if (duplicateAcceptedInternshipIds.size > 0) {
+      setPastInternships((previous) => previous.filter((item) => !duplicateAcceptedInternshipIds.has(item.id)));
+    }
+  }, [currentInternshipUpdates]);
   // ── 存档/读档逻辑 ──
   const STORAGE_KEY = "archGameSave_v1";
 
@@ -2921,7 +3385,8 @@ export function GamePage() {
     chosenAction, actionDelta, eventDelta, selectedEventBranch, ending,
     actionNarrative, selectedOfferId, selectedInternshipId,
     showTutorial, tutorialStep,
-    pastInternships, currentOfferedInternships, offerBuffs,
+    pastInternships, currentOfferedInternships, selectedInternshipIds, internshipChannel,
+    internshipApplications, currentInternshipUpdates, internshipApplicationFeedback, offerBuffs,
     isResumeOpen, receivedOffers,
   }), [
     phase, character, stats, mentor, semester, round,
@@ -2930,7 +3395,8 @@ export function GamePage() {
     chosenAction, actionDelta, eventDelta, selectedEventBranch, ending,
     actionNarrative, selectedOfferId, selectedInternshipId,
     showTutorial, tutorialStep,
-    pastInternships, currentOfferedInternships, offerBuffs,
+    pastInternships, currentOfferedInternships, selectedInternshipIds, internshipChannel,
+    internshipApplications, currentInternshipUpdates, internshipApplicationFeedback, offerBuffs,
     isResumeOpen, receivedOffers,
   ]);
 
@@ -2969,13 +3435,18 @@ export function GamePage() {
     setTutorialStep(data.tutorialStep ?? 0);
     setPastInternships(Array.isArray(data.pastInternships) ? data.pastInternships : []);
     setCurrentOfferedInternships(Array.isArray(data.currentOfferedInternships) ? data.currentOfferedInternships : []);
+    setSelectedInternshipIds(Array.isArray(data.selectedInternshipIds) ? data.selectedInternshipIds : []);
+    setInternshipChannel(data.internshipChannel === "direct" || data.internshipChannel === "referral" ? data.internshipChannel : "official");
+    setInternshipApplications(Array.isArray(data.internshipApplications) ? data.internshipApplications : []);
+    setCurrentInternshipUpdates(Array.isArray(data.currentInternshipUpdates) ? data.currentInternshipUpdates : []);
+    setInternshipApplicationFeedback(typeof data.internshipApplicationFeedback === "string" ? data.internshipApplicationFeedback : "");
     setOfferBuffs(data.offerBuffs ?? {});
     setIsResumeOpen(Boolean(data.isResumeOpen));
     setReceivedOffers(Array.isArray(data.receivedOffers)
       ? data.receivedOffers.map((savedCompany: Company) => COMPANIES.find((company) => company.id === savedCompany.id) ?? savedCompany)
       : null);
     setHasSubmittedResult(data.phase === "ending");
-    setDesktopGameSection("round");
+    setDesktopGameSection("map");
     return true;
   }, []);
 
@@ -3247,7 +3718,7 @@ export function GamePage() {
       maybeShowEvent(newStats, 1, new Set());
       setShowTutorial(true);
       setTutorialStep(0);
-      setDesktopGameSection("round");
+      setDesktopGameSection("map");
     },
     [stats, maybeShowEvent]
   );
@@ -3341,13 +3812,14 @@ export function GamePage() {
     semester,
     stats,
   ]);
-  // 看完分支结果后进入本回合行动；没有分支数据的旧事件沿用原结算方式。
+  // 看完分支结果后返回地图继续行动；没有分支数据的旧事件沿用原结算方式。
   const acknowledgeEvent = useCallback(() => {
     if (!currentEvent || !stats) return;
     const branches = EVENT_BRANCHES[currentEvent.id] ?? [];
     if (branches.length > 0) {
       if (!selectedEventBranch) return;
       setPhase("action_choice");
+      setDesktopGameSection("map");
       return;
     }
 
@@ -3358,11 +3830,19 @@ export function GamePage() {
     setStats(newStats);
     setEventDelta(delta);
     setPhase("action_choice");
+    setDesktopGameSection("map");
   }, [currentEvent, stats, seenEventIds, selectedEventBranch]);
 
   // 玩家选择行动
   const chooseAction = useCallback(
     (action: Action) => {
+      const pendingInterview = internshipApplications.find((application) => application.status === "interview");
+      if (pendingInterview) {
+        setCareerInboxNotificationCount((previous) => Math.max(previous, 1));
+        setActiveInterviewApplicationId(null);
+        setDesktopGameSection("computer");
+        return;
+      }
       if (!stats) return;
       const { newStats, delta } = applyEffects(stats, action.effects);
       setStats(newStats);
@@ -3371,29 +3851,81 @@ export function GamePage() {
       setActionNarrative(pick(action.narratives));
 
       if (action.id === "internship") {
-        setCurrentOfferedInternships(getAvailableInternships(newStats));
+        setCurrentOfferedInternships(getInternshipListings(newStats));
+        setSelectedInternshipIds([]);
+        setInternshipChannel("official");
+        setInternshipApplicationFeedback("");
       } else {
         setCurrentOfferedInternships([]);
+        setSelectedInternshipIds([]);
       }
 
       setPhase("action_result");
     },
-    [stats]
+    [stats, internshipApplications]
   );
 
   // 进入下一回合 / 或进入最终 offer 选择阶段
   const nextRound = useCallback(() => {
+    const pendingInterview = internshipApplications.find((application) => application.status === "interview");
+    if (pendingInterview) {
+      setCareerInboxNotificationCount((previous) => Math.max(previous, 1));
+      setActiveInterviewApplicationId(null);
+      setDesktopGameSection("computer");
+      return;
+    }
     if (!stats) return;
 
-    // 记录上一回合选择的实习
-    if (selectedInternshipId) {
-      // 重新从最新的 INTERNSHIP_OPTIONS 中查找，以确保获取到 detailedAchievements
-      const internship = INTERNSHIP_OPTIONS.find(o => o.id === selectedInternshipId);
-      if (internship) {
-        setPastInternships(prev => [...prev, internship]);
-      }
+    const totalRound = (semester - 1) * 4 + round;
+    if (chosenAction?.id === "internship" && selectedInternshipIds.length === 0) {
+      setInternshipApplicationFeedback("请至少选择 1 个岗位再提交投递。");
+      return;
     }
 
+    const completedInterviewResults = internshipApplications
+      .filter((application) => application.status === "interview_pending")
+      .map((application): InternshipApplication => {
+        const option = INTERNSHIP_OPTIONS.find((item) => item.id === application.internshipId);
+        const passed = application.interviewPassed === true;
+        return {
+          ...application,
+          status: passed ? "offered" : "rejected",
+          message: passed
+            ? `面试通过。${option?.companyName ?? "招聘团队"} 向你发来了实习 Offer，等待你的决定。`
+            : "感谢你参加面试。团队认可你的投入，但本次决定优先推进与岗位经验更直接的候选人。",
+        };
+      });
+    let newCareerInboxMessageCount = completedInterviewResults.length;
+    const completedResultMap = new Map(completedInterviewResults.map((application) => [application.id, application]));
+    if (completedInterviewResults.length > 0) {
+      setInternshipApplications((previous) => previous.map((application) => completedResultMap.get(application.id) ?? application));
+
+    }
+
+    if (chosenAction?.id === "internship") {
+      const submitted = selectedInternshipIds.map((internshipId, index): InternshipApplication => ({
+        id: `${internshipId}-${totalRound}-${Date.now()}-${index}`,
+        internshipId,
+        channel: internshipChannel,
+        submittedRound: totalRound,
+        status: "submitted",
+        fitAtSubmission: (() => {
+          const option = INTERNSHIP_OPTIONS.find((item) => item.id === internshipId);
+          return option && getInternshipFitInfo(option, stats).label === "冲刺" ? "stretch" : "matched";
+        })(),
+        message: "简历已投递，等待筛选结果。",
+      }));
+      const resolved = resolveInternshipScreening(submitted, stats);
+      newCareerInboxMessageCount += resolved.filter((application) => application.status === "interview" || application.status === "rejected").length;
+      setInternshipApplications((previous) => [...previous, ...resolved]);
+      setCurrentInternshipUpdates([...completedInterviewResults, ...resolved]);
+      setInternshipApplicationFeedback("");
+    } else if (completedInterviewResults.length > 0) {
+      setCurrentInternshipUpdates(completedInterviewResults);
+    }
+    if (newCareerInboxMessageCount > 0) {
+      setCareerInboxNotificationCount(newCareerInboxMessageCount);
+    }
     setEventDelta({});
     setSelectedEventBranch(null);
     setIsCustomEventActionOpen(false);
@@ -3407,8 +3939,7 @@ export function GamePage() {
     setCurrentEvent(null);
     setSelectedInternshipId(null);
     setCurrentOfferedInternships([]);
-
-    const totalRound = (semester - 1) * 4 + round;
+    setSelectedInternshipIds([]);
 
     // 1. 被动增加年龄焦虑 (0-5点)
     const { newStats: statsAfterPassive } = applyEffects(stats, { ageAnxiety: [0, 5] });
@@ -3453,6 +3984,7 @@ export function GamePage() {
     if (nextRd > 4) { nextRd = 1; nextSem = semester + 1; }
     setSemester(nextSem);
     setRound(nextRd);
+    setDesktopGameSection("map");
 
     // 10% 概率弹出校招/特招事件 (不在第一学期)
     if (nextSem >= 2 && Math.random() < 0.15) {
@@ -3465,8 +3997,240 @@ export function GamePage() {
     }
 
     maybeShowEvent(statsAfterPassive, nextSem, seenEventIds);
-  }, [stats, semester, round, seenEventIds, seenCampusIds, maybeShowEvent, selectedInternshipId]);
+  }, [stats, semester, round, seenEventIds, seenCampusIds, maybeShowEvent, chosenAction, selectedInternshipIds, internshipChannel, internshipApplications]);
 
+  const selectInternshipApplication = useCallback((applicationId: string) => {
+    setActiveInterviewApplicationId(applicationId || null);
+    if (!applicationId || !stats) return;
+
+    const selected = internshipApplications.find((application) => application.id === applicationId);
+    if (!selected) return;
+
+    if (!selected.screeningMindsetSettled) {
+      const batch = internshipApplications.filter((application) => application.submittedRound === selected.submittedRound);
+      const screeningRejections = batch.filter((application) => application.status === "rejected" && !application.interviewStage);
+      const interviewCount = batch.filter((application) => Boolean(application.interviewStage)).length;
+      const hasScreeningOutcome = screeningRejections.length > 0 || interviewCount > 0;
+
+      if (hasScreeningOutcome) {
+        const rejectionCount = screeningRejections.length;
+        const baseImpact = rejectionCount === 1
+          ? { selfDoubt: 2, stress: -1, ageAnxiety: 0 }
+          : rejectionCount === 2
+            ? { selfDoubt: 5, stress: -2, ageAnxiety: 0 }
+            : rejectionCount >= 3
+              ? { selfDoubt: 9, stress: -4, ageAnxiety: 1 }
+              : { selfDoubt: 0, stress: 0, ageAnxiety: 0 };
+        const weightedRejections = screeningRejections.reduce((total, application) => {
+          if (application.fitAtSubmission === "stretch") return total + 0.5;
+          if (application.fitAtSubmission === "matched") return total + 1;
+          const option = INTERNSHIP_OPTIONS.find((item) => item.id === application.internshipId);
+          return total + (option && getInternshipFitInfo(option, stats).label === "冲刺" ? 0.5 : 1);
+        }, 0);
+        const rejectionFactor = rejectionCount > 0 ? weightedRejections / rejectionCount : 0;
+        const resilienceReduction = stats.stress >= 85 ? 2 : stats.stress >= 70 ? 1 : 0;
+        const selfDoubtImpact = Math.max(0, Math.round(baseImpact.selfDoubt * rejectionFactor) - resilienceReduction) - interviewCount;
+        const stressImpact = rejectionCount > 0 ? -Math.max(1, Math.round(Math.abs(baseImpact.stress) * rejectionFactor)) : 0;
+        const ageAnxietyImpact = Math.round(baseImpact.ageAnxiety * rejectionFactor);
+        const effects: Record<string, number> = {};
+        if (selfDoubtImpact !== 0) effects.selfDoubt = selfDoubtImpact;
+        if (stressImpact !== 0) effects.stress = stressImpact;
+        if (ageAnxietyImpact !== 0) effects.ageAnxiety = ageAnxietyImpact;
+        if (Object.keys(effects).length > 0) {
+          setStats((previous) => previous ? applyEffects(previous, effects).newStats : previous);
+        }
+
+        const outcomeParts = [
+          rejectionCount > 0 ? `${rejectionCount} 份申请未通过` : "",
+          interviewCount > 0 ? `${interviewCount} 份申请进入面试` : "",
+        ].filter(Boolean);
+        const impactParts = [
+          selfDoubtImpact !== 0 ? `自我怀疑 ${selfDoubtImpact > 0 ? "+" : ""}${selfDoubtImpact}` : "",
+          stressImpact !== 0 ? `抗压值 ${stressImpact}` : "",
+          ageAnxietyImpact !== 0 ? `年龄焦虑 +${ageAnxietyImpact}` : "",
+        ].filter(Boolean);
+        const feedback = `本轮求职反馈：${outcomeParts.join("，")}。${impactParts.length > 0 ? impactParts.join("，") : "心态保持稳定"}。`;
+        const settleBatch = (items: InternshipApplication[]) => items.map((application) => application.submittedRound === selected.submittedRound
+          ? { ...application, screeningMindsetSettled: true, mindsetFeedback: feedback }
+          : application);
+        setInternshipApplications((previous) => settleBatch(previous));
+        setCurrentInternshipUpdates((previous) => settleBatch(previous));
+      }
+    }
+
+    if (selected.status === "offered" && !selected.interviewResultMindsetSettled) {
+      const offerEffects = { selfDoubt: -4, ageAnxiety: -2 };
+      setStats((previous) => previous ? applyEffects(previous, offerEffects).newStats : previous);
+      const feedback = "收到 Offer：自我怀疑 -4，年龄焦虑 -2。";
+      const settleOffer = (items: InternshipApplication[]) => items.map((application) => application.id === applicationId
+        ? { ...application, interviewResultMindsetSettled: true, mindsetFeedback: feedback }
+        : application);
+      setInternshipApplications((previous) => settleOffer(previous));
+      setCurrentInternshipUpdates((previous) => settleOffer(previous));
+    }
+  }, [internshipApplications, stats]);
+
+  const attendInternshipInterview = useCallback((applicationId: string) => {
+    const update = (item: InternshipApplication): InternshipApplication => item.id === applicationId
+      && item.status === "interview"
+      && item.interviewStage === "invited"
+      ? {
+          ...item,
+          interviewStage: "preparing",
+          message: "你已确认参加视频面试。请选择一项面试前准备策略。",
+        }
+      : item;
+    setInternshipApplications((previous) => previous.map(update));
+    setCurrentInternshipUpdates((previous) => previous.map(update));
+  }, []);
+
+  const declineInternshipInterview = useCallback((applicationId: string) => {
+    const update = (item: InternshipApplication): InternshipApplication => item.id === applicationId
+      && item.status === "interview"
+      && (item.interviewStage === "invited" || item.interviewStage === "preparing")
+      ? {
+          ...item,
+          status: "declined",
+          message: "你拒绝了这次面试邀请，这条招聘流程已经结束。",
+        }
+      : item;
+    setInternshipApplications((previous) => previous.map(update));
+    setCurrentInternshipUpdates((previous) => previous.map(update));
+  }, []);
+
+  const chooseInterviewPreparation = useCallback((applicationId: string, preparation: ComputerInterviewPreparation) => {
+    const update = (item: InternshipApplication): InternshipApplication => item.id === applicationId && item.status === "interview"
+      ? {
+          ...item,
+          interviewStage: "in_progress",
+          interviewPreparation: preparation,
+          interviewQuestionIndex: item.interviewQuestionIndex ?? 0,
+          interviewAnswers: item.interviewAnswers ?? [],
+          interviewScore: item.interviewScore ?? 0,
+          message: "你已进入视频面试。完成三道问题后，招聘团队会在下一回合反馈结果。",
+        }
+      : item;
+    setInternshipApplications((previous) => previous.map(update));
+    setCurrentInternshipUpdates((previous) => previous.map(update));
+  }, []);
+
+  const answerInternshipInterview = useCallback((applicationId: string, answer: ComputerInterviewAnswer) => {
+    if (!stats) return;
+    const application = internshipApplications.find((item) => item.id === applicationId);
+    const option = application ? INTERNSHIP_OPTIONS.find((item) => item.id === application.internshipId) : null;
+    if (!application || !option || application.status !== "interview" || application.interviewStage !== "in_progress") return;
+
+    const questions = getInternshipInterviewQuestions(option);
+    const questionIndex = application.interviewQuestionIndex ?? 0;
+    const preferredAnswers: ComputerInterviewAnswer[] = ["structured", "evidence", "structured"];
+    const abilityScore = answer === "structured"
+      ? (stats.logic + stats.structured) / 25
+      : answer === "honest"
+        ? (stats.expression + stats.stress) / 27
+        : (stats.logic + stats.expression) / 25 + pastInternships.length;
+    const answerFitBonus = preferredAnswers[questionIndex] === answer ? 3 : 0;
+    const preparationBonus = application.interviewPreparation === "company" && questionIndex === 2
+      ? 3
+      : application.interviewPreparation === "story" && questionIndex === 1
+        ? 3
+        : application.interviewPreparation === "rest"
+          ? 1
+          : 0;
+    const nextScore = (application.interviewScore ?? 0) + abilityScore + answerFitBonus + preparationBonus;
+    const nextAnswers = [...(application.interviewAnswers ?? []), answer];
+    const isComplete = questionIndex >= questions.length - 1;
+    const currentTotalRound = (semester - 1) * 4 + round;
+
+    let updated: InternshipApplication;
+    if (isComplete) {
+      const requirementGaps = getInternshipRequirementGaps(option, stats);
+      const fitMargin = requirementGaps.reduce((total, gap) => total + gap.value, 0) / requirementGaps.length;
+      const passChance = Math.max(16, Math.min(90, 24 + fitMargin * 1.15 + nextScore * 2.35));
+      updated = {
+        ...application,
+        status: "interview_pending",
+        interviewStage: "waiting_result",
+        interviewQuestionIndex: questionIndex,
+        interviewAnswers: nextAnswers,
+        interviewScore: nextScore,
+        interviewPassed: Math.random() * 100 < passChance,
+        interviewCompletedRound: currentTotalRound,
+        message: "面试已经结束。招聘团队正在整理评价，结果会在下一回合通过电脑邮箱送达。",
+      };
+      const { newStats } = applyEffects(stats, { expression: 1, structured: 1 });
+      setStats(newStats);
+    } else {
+      updated = {
+        ...application,
+        interviewQuestionIndex: questionIndex + 1,
+        interviewAnswers: nextAnswers,
+        interviewScore: nextScore,
+        message: `视频面试进行中：已完成 ${questionIndex + 1} / ${questions.length} 道问题。`,
+      };
+    }
+
+    setInternshipApplications((previous) => previous.map((item) => item.id === applicationId ? updated : item));
+    setCurrentInternshipUpdates((previous) => previous.map((item) => item.id === applicationId ? updated : item));
+  }, [internshipApplications, pastInternships.length, round, semester, stats]);
+  const acceptInternshipOffer = useCallback((applicationId: string) => {
+    const application = internshipApplications.find((item) => item.id === applicationId);
+    const option = application ? INTERNSHIP_OPTIONS.find((item) => item.id === application.internshipId) : null;
+    if (!application || !option || application.status !== "offered") return;
+
+    const previouslyAccepted = internshipApplications.filter((item) => item.id !== applicationId && item.status === "accepted");
+    const previouslyAcceptedInternshipIds = new Set(previouslyAccepted.map((item) => item.internshipId));
+    const competingIds = new Set(
+      internshipApplications
+        .filter((item) => item.id !== applicationId && (
+          item.status === "accepted"
+          || item.status === "offered"
+          || item.status === "interview"
+          || item.status === "interview_pending"
+        ))
+        .map((item) => item.id)
+    );
+    const updateBatch = (items: InternshipApplication[]) => items.map((item): InternshipApplication => {
+      if (item.id === applicationId) {
+        return {
+          ...item,
+          status: "accepted",
+          message: previouslyAccepted.length > 0
+            ? `你改为接受 ${option.companyName} 的实习 Offer，原先接受的实习已撤销。这段经历已经加入简历。`
+            : `你接受了 ${option.companyName} 的实习 Offer。这段经历已经加入简历。`,
+        };
+      }
+      if (competingIds.has(item.id)) {
+        return {
+          ...item,
+          status: "declined",
+          message: item.status === "accepted"
+            ? `你后来改为接受 ${option.companyName} 的 Offer，因此撤销了此前的接受决定。`
+            : `你已经接受了 ${option.companyName} 的 Offer，因此放弃了这条仍在进行的流程。`,
+        };
+      }
+      return item;
+    });
+
+    setInternshipApplications((previous) => updateBatch(previous));
+    setCurrentInternshipUpdates((previous) => updateBatch(previous));
+    setPastInternships((previous) => {
+      const withoutPreviousAcceptance = previous.filter((item) => !previouslyAcceptedInternshipIds.has(item.id));
+      return withoutPreviousAcceptance.some((item) => item.id === option.id)
+        ? withoutPreviousAcceptance
+        : [...withoutPreviousAcceptance, option];
+    });
+  }, [internshipApplications]);
+  const declineInternshipOffer = useCallback((applicationId: string) => {
+    const application = internshipApplications.find((item) => item.id === applicationId);
+    if (!application || application.status !== "offered") return;
+    const updated: InternshipApplication = {
+      ...application,
+      status: "declined",
+      message: "你拒绝了这份 Offer，决定继续等待更合适的机会。",
+    };
+    setInternshipApplications((previous) => previous.map((item) => item.id === applicationId ? updated : item));
+    setCurrentInternshipUpdates((previous) => previous.map((item) => item.id === applicationId ? updated : item));
+  }, [internshipApplications]);
   // 处理校招/特招弹窗交互
   const handleCampusEvent = useCallback((participate: boolean) => {
     if (!activeCampusEvent || !stats) return;
@@ -3527,6 +4291,13 @@ export function GamePage() {
     setSeenCampusIds(new Set());
     setPastInternships([]);
     setCurrentOfferedInternships([]);
+    setSelectedInternshipIds([]);
+    setInternshipChannel("official");
+    setInternshipApplications([]);
+    setCurrentInternshipUpdates([]);
+    setInternshipApplicationFeedback("");
+    setActiveInterviewApplicationId(null);
+    setCareerInboxNotificationCount(0);
     setOfferBuffs({});
     setReceivedOffers(null);
     setActiveCampusEvent(null);
@@ -3549,11 +4320,34 @@ export function GamePage() {
     setIsSettingsOpen(false);
     setLocalSaveUpdatedAt(null);
     setLocalSaveFeedback("");
+    setDesktopGameSection("map");
   }, []);
 
   // ── 渲染：进度显示
   const totalRound = (semester - 1) * 4 + round;
   const progressPct = Math.round((totalRound / 24) * 100);
+  const computerInterviews: ComputerInterviewItem[] = [...internshipApplications]
+    .reverse()
+    .map((application) => {
+      const option = INTERNSHIP_OPTIONS.find((item) => item.id === application.internshipId)!;
+      const channel = INTERNSHIP_CHANNELS.find((item) => item.id === application.channel);
+      return {
+        id: application.id,
+        company: option?.companyName ?? "招聘团队",
+        role: option?.title ?? "实习岗位",
+        channelLabel: channel?.label ?? "在线申请",
+        stipend: option?.stipend ?? "面议",
+        message: application.message,
+        status: application.status,
+        stage: application.interviewStage ?? "invited",
+        preparation: application.interviewPreparation,
+        questionIndex: application.interviewQuestionIndex ?? 0,
+        answers: application.interviewAnswers ?? [],
+        questions: option ? getInternshipInterviewQuestions(option) : [],
+        mindsetFeedback: application.mindsetFeedback,
+      };
+    });
+  const computerPendingCount = internshipApplications.filter((application) => application.status === "interview" || application.status === "offered").length;
 
   // ── 渲染：公司达标情况（结局页用）
   const qualifiedCompanies = stats ? checkQualifiedCompanies(stats, offerBuffs, pastInternships) : [];
@@ -3866,9 +4660,14 @@ export function GamePage() {
         {ENABLE_DESKTOP_GAME_SIDEBAR && (
           <DesktopGameSidebar
             active={desktopGameSection}
-            onChange={setDesktopGameSection}
+            onChange={(section) => {
+              setDesktopGameSection(section);
+              if (section === "computer") setCareerInboxNotificationCount(0);
+            }}
             statusAlert={stats.mentorFavorability < 15 || stats.stress < 20 || stats.selfDoubt > 75 || stats.ageAnxiety > 75}
             resumeUpdated={pastInternships.length > 0}
+            computerBadge={computerPendingCount}
+            roundAlert={phase === "event_view" || phase === "action_result" || Boolean(activeCampusEvent)}
             schoolName={character.masterSchool}
             schoolTier={character.isOverseas ? "海外留学" : TIER_LABELS[character.masterTier]}
             onOpenSettings={() => { setLocalSaveFeedback(""); setIsSettingsOpen(true); }}
@@ -3886,13 +4685,40 @@ export function GamePage() {
           onDelete={deleteLocalSave}
           onRestart={resetGame}
         />
+        {careerInboxNotificationCount > 0 && desktopGameSection !== "computer" && (
+          <div className="fixed inset-0 z-[235] flex items-center justify-center bg-[#020611]/72 p-5 backdrop-blur-sm">
+            <section role="dialog" aria-modal="true" aria-labelledby="career-inbox-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-blue-400/25 bg-[#091321] shadow-[0_28px_90px_rgba(0,0,0,0.62)]">
+              <div className="border-b border-white/[0.07] bg-[radial-gradient(circle_at_top_right,rgba(72,126,210,0.18),transparent_55%)] px-6 py-5">
+                <div className="flex items-start gap-4">
+                  <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-400/25 bg-blue-400/10 text-blue-300">
+                    <BriefcaseBusiness size={21} />
+                    <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-red-500 px-1 text-center text-[10px] font-bold leading-5 text-white">{careerInboxNotificationCount}</span>
+                  </span>
+                  <div>
+                    <p className="text-[10px] tracking-[0.2em] text-blue-300">APPLICATION UPDATE</p>
+                    <h3 id="career-inbox-title" className="mt-1 text-xl font-semibold text-white">求职邮箱有新消息</h3>
+                  </div>
+                </div>
+                <p className="mt-4 text-[13px] leading-6 text-slate-300">电脑传来一声新邮件提示。你正在进行的招聘流程出现了新的进展，邮件标题只显示“Application Update”。</p>
+                <p className="mt-2 text-[11px] text-slate-500">打开求职电脑查看邮件，并处理其中需要回复的事项。</p>
+              </div>
+              <div className="flex items-center justify-end gap-2 px-6 py-4">
+                <button type="button" onClick={() => setCareerInboxNotificationCount(0)} className="rounded-lg px-4 py-2 text-[11px] text-slate-400 transition hover:bg-white/5 hover:text-white">稍后处理</button>
+                <button type="button" onClick={() => { setCareerInboxNotificationCount(0); setActiveInterviewApplicationId(null); setDesktopGameSection("computer"); }} className="rounded-lg border border-blue-400/25 bg-blue-400/12 px-5 py-2 text-[11px] font-medium text-blue-200 transition hover:bg-blue-400/20">打开求职电脑</button>
+              </div>
+            </section>
+          </div>
+        )}
         {/* ── 贴合界面的新手指引 ── */}
         {showTutorial && (
           <GameOnboardingGuide
             step={tutorialStep}
             phase={phase}
-            onStepChange={setTutorialStep}
-            onFinish={() => { setShowTutorial(false); setTutorialStep(0); }}
+            onStepChange={(step) => {
+              setTutorialStep(step);
+              if (step === 1) setDesktopGameSection("round");
+            }}
+            onFinish={() => { setShowTutorial(false); setTutorialStep(0); setDesktopGameSection("map"); }}
           />
         )}
         {/* ─── 左侧：属性面板 ─── */}
@@ -4164,7 +4990,7 @@ export function GamePage() {
                         border: displayEvent.type === "positive" ? "1px solid rgba(74,222,128,0.25)" : "1px solid rgba(239,83,80,0.25)",
                       }}
                     >
-                      继续本回合
+                      返回地图继续行动
                     </button>
                     <a
                       href="https://v.wjx.cn/vm/YDzWe08.aspx#"
@@ -4394,11 +5220,15 @@ export function GamePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {ACTIONS.filter(
                   (action) =>
-                    action.id !== "campus" || semester >= 5
+                    (action.id !== "campus" || semester >= 5)
+                    && (action.id !== "internship" || totalRound < 24)
                 ).map((action) => (
                   <button
                     key={action.id}
-                    onClick={() => chooseAction(action)}
+                    onClick={() => {
+                      chooseAction(action);
+                      if (action.id === "internship") setDesktopGameSection("map");
+                    }}
                     className="text-left p-4 rounded-xl transition-all duration-200 hover:border-blue-400/40 hover:bg-white/5 group"
                     style={{ background: card, border: `1px solid ${border}` }}
                   >
@@ -4421,7 +5251,7 @@ export function GamePage() {
           )}
 
           {/* ── 行动结果 ── */}
-          {phase === "action_result" && chosenAction && (
+          {phase === "action_result" && chosenAction && chosenAction.id !== "internship" && (
             <div className={showTutorial && tutorialStep === 1 ? "relative z-[221] -m-3 rounded-2xl p-3 ring-2 ring-[#dec678]/80 shadow-[0_0_0_8px_rgba(201,168,76,0.08)]" : ""}>
               <div
                 className="rounded-2xl p-6 mb-6"
@@ -4452,80 +5282,6 @@ export function GamePage() {
                 )}
               </div>
 
-              {/* 如果是“投实习”，给出可选的实习 offer */}
-              {chosenAction.id === "internship" && currentOfferedInternships.length > 0 && (
-                <div
-                  className="rounded-2xl p-5 mb-5"
-                  style={{ background: "rgba(7,16,40,0.9)", border: `1px dashed ${border}` }}
-                >
-                  <p
-                    className="text-[14px] mb-3"
-                    style={{ color: textSecondary }}
-                  >
-                    根据你当前的能力值，本学期你拿到了以下实习机会，选择一个你更想去的：
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {currentOfferedInternships.map((opt) => {
-                      const selected = selectedInternshipId === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() =>
-                            setSelectedInternshipId(
-                              selected ? null : opt.id
-                            )
-                          }
-                          className="text-left rounded-xl px-3.5 py-3 transition-all duration-200"
-                          style={{
-                            background: selected
-                              ? "rgba(201,168,76,0.16)"
-                              : "rgba(10,18,40,0.9)",
-                            border: selected
-                              ? `1px solid ${accent}`
-                              : "1px solid rgba(120,140,200,0.25)",
-                            boxShadow: selected
-                              ? "0 0 0 1px rgba(201,168,76,0.25)"
-                              : "none",
-                          }}
-                        >
-                          <p
-                            className="text-[14px] mb-0.5"
-                            style={{ color: textPrimary }}
-                          >
-                            {opt.title}
-                          </p>
-                          <p
-                            className="text-[13px] mb-1"
-                            style={{ color: textSecondary }}
-                          >
-                            {opt.companyName}
-                          </p>
-                          <p
-                            className="text-[13px] mb-1"
-                            style={{ color: accent }}
-                          >
-                            {opt.stipend}
-                          </p>
-                          <p
-                            className="text-[13px] leading-relaxed"
-                            style={{ color: "rgba(190,205,240,0.7)" }}
-                          >
-                            {opt.description}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p
-                    className="text-[12px] mt-3"
-                    style={{ color: "rgba(160,180,220,0.6)" }}
-                  >
-                    （不选择也可以直接进入下一回合，仅影响你的代入感，不改变数值结局。）
-                  </p>
-                </div>
-              )}
-
               {/* 学期小结（每4回合一次） */}
               {round === 4 && (
                 <div
@@ -4552,8 +5308,12 @@ export function GamePage() {
                 className="w-full py-3.5 rounded-xl text-[15px] transition-all hover:opacity-90 flex items-center justify-center gap-2"
                 style={{ background: totalRound >= 24 ? "#4a9eff" : `rgba(74,158,255,0.15)`, color: totalRound >= 24 ? "#070d1c" : accent, border: totalRound >= 24 ? "none" : `1px solid rgba(74,158,255,0.3)` }}
               >
-                {totalRound >= 24 ? "查看结局 →" : `进入下一回合 `}
-                {totalRound < 24 && <ChevronRight size={14} />}
+                {chosenAction.id === "internship"
+                  ? selectedInternshipIds.length > 0
+                    ? `提交 ${selectedInternshipIds.length} 份申请，进入下一回合`
+                    : "请先选择要投递的岗位"
+                  : totalRound >= 24 ? "查看结局 →" : "进入下一回合"}
+                {totalRound < 24 && chosenAction.id !== "internship" && <ChevronRight size={14} />}
               </button>
             </div>
           )}
@@ -4565,17 +5325,113 @@ export function GamePage() {
             semester={semester}
             round={round}
             canChooseAction={phase === "action_choice"}
+            roundNotice={
+              activeCampusEvent
+                ? { title: "收到一条特殊机遇", description: "前往“本回合”查看邀请并作出决定。" }
+                : phase === "event_view"
+                  ? { title: selectedEventBranch ? "事件结果等待确认" : "本回合出现随机事件", description: selectedEventBranch ? "查看结果后即可返回地图选择行动。" : "先处理事件，地图行动随后开放。", urgent: true }
+                  : phase === "action_result"
+                    ? { title: "本轮行动等待结算", description: "查看行动结果，并确认进入下一回合。" }
+                    : null
+            }
+            onOpenRound={() => setDesktopGameSection("round")}
             actions={ACTIONS}
             onChooseAction={(actionId) => {
               const action = ACTIONS.find((candidate) => candidate.id === actionId);
               if (!action || phase !== "action_choice") return;
               chooseAction(action);
-              setDesktopGameSection("round");
+              if (action.id !== "internship") setDesktopGameSection("round");
             }}
           />
         )}
 
-        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "computer" && <DesktopComputerPreview />}
+        {desktopGameSection !== "computer" && phase === "action_result" && chosenAction?.id === "internship" && currentOfferedInternships.length > 0 && (
+          <div className="fixed inset-0 z-[210] flex items-center justify-center bg-[#020611]/78 p-3 backdrop-blur-md sm:p-6">
+            <section role="dialog" aria-modal="true" aria-labelledby="map-internship-title" className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[#c9a84c]/30 bg-[#07101d] shadow-[0_30px_100px_rgba(0,0,0,0.68)]">
+              <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(201,168,76,0.12),transparent_58%)] px-4 py-3 sm:px-5">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#c9a84c]">Career Center · Internship Radar</p>
+                  <h3 id="map-internship-title" className="mt-1 text-xl font-semibold text-white">选择本轮要投递的岗位</h3>
+                  <p className="mt-1 text-[11px] text-slate-500">最多投递 3 个岗位，筛选进展将在下一回合发送到求职电脑。</p>
+                </div>
+                <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-400">已选 {selectedInternshipIds.length} / 3</span>
+              </header>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
+                <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-3">
+                  {currentOfferedInternships.map((option) => {
+                    const selected = selectedInternshipIds.includes(option.id);
+                    const fit = getInternshipFitInfo(option, stats);
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => {
+                          setInternshipApplicationFeedback("");
+                          setSelectedInternshipIds((previous) => {
+                            if (previous.includes(option.id)) return previous.filter((id) => id !== option.id);
+                            if (previous.length >= 3) {
+                              setInternshipApplicationFeedback("一轮最多投递 3 个岗位，先取消一个已选岗位。");
+                              return previous;
+                            }
+                            return [...previous, option.id];
+                          });
+                        }}
+                        className={`rounded-xl border p-3 text-left transition-all ${selected ? "border-[#c9a84c] bg-[#c9a84c]/12 shadow-[0_0_0_1px_rgba(201,168,76,0.14)]" : "border-blue-300/15 bg-[#0a1224] hover:border-blue-300/30 hover:bg-[#0d172b]"}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div><p className="text-[11px] text-slate-500">{option.companyName}</p><p className="mt-0.5 text-[14px] font-medium text-white">{option.title}</p></div>
+                          <span className="shrink-0 rounded-full border px-2 py-0.5 text-[9px]" style={{ color: fit.color, borderColor: `${fit.color}55`, background: `${fit.color}12` }}>{fit.label}</span>
+                        </div>
+                        <p className="mt-1.5 text-[11px] text-[#dec678]">{option.stipend}</p>
+                        <p className="mt-1.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{option.description}</p>
+                        <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2"><span className="text-[9px] text-slate-600">{fit.reason}</span><span className={`text-[10px] ${selected ? "text-[#dec678]" : "text-slate-600"}`}>{selected ? "已加入投递" : "选择岗位"}</span></div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-3.5">
+                  <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">选择投递渠道</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {INTERNSHIP_CHANNELS.map((channel) => {
+                      const selected = internshipChannel === channel.id;
+                      return (
+                        <button key={channel.id} type="button" onClick={() => setInternshipChannel(channel.id)} className={`rounded-xl border px-3 py-2.5 text-left transition-all ${selected ? "border-blue-400/50 bg-blue-400/10" : "border-white/[0.08] bg-white/[0.02] hover:border-white/15"}`}>
+                          <span className={`block text-[11px] font-medium ${selected ? "text-blue-300" : "text-slate-300"}`}>{channel.label}</span>
+                          <span className="mt-1 block text-[9px] leading-4 text-slate-600">{channel.description}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {internshipApplicationFeedback && <p className="mt-3 rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/[0.05] px-3 py-2 text-[10px] text-[#cdb768]">{internshipApplicationFeedback}</p>}
+              </div>
+
+              <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] px-4 py-3 sm:px-5">
+                <p className="text-[10px] text-slate-600">提交后本回合结束，招聘进展不会在地图上直接揭晓。</p>
+                <button type="button" onClick={nextRound} className="rounded-xl border border-[#c9a84c]/35 bg-[#c9a84c]/15 px-6 py-3 text-[12px] font-semibold text-[#e3cc7d] transition hover:bg-[#c9a84c]/22">
+                  {selectedInternshipIds.length > 0 ? `提交 ${selectedInternshipIds.length} 份申请并结束本回合` : "请先选择要投递的岗位"}
+                </button>
+              </footer>
+            </section>
+          </div>
+        )}
+        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "computer" && (
+          <DesktopComputerPreview
+            interviews={computerInterviews}
+            activeInterviewId={activeInterviewApplicationId}
+            onSelectInterview={selectInternshipApplication}
+            onAttendInterview={attendInternshipInterview}
+            onDeclineInterview={declineInternshipInterview}
+            onChoosePreparation={chooseInterviewPreparation}
+            onAnswer={answerInternshipInterview}
+            onAcceptOffer={acceptInternshipOffer}
+            onDeclineOffer={declineInternshipOffer}
+            onClose={() => { setDesktopGameSection("map"); setActiveInterviewApplicationId(null); }}
+          />
+        )}
         {/* ─── 右侧：常驻简历 ─── */}
         <aside
           className={`hidden shrink-0 flex-col p-5 overflow-y-auto ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "lg:flex lg:min-w-0 lg:flex-1 lg:shrink lg:flex-1" : "lg:hidden") : "lg:flex lg:w-80"}`}
@@ -4602,6 +5458,12 @@ export function GamePage() {
             eventDelta={eventDelta}
             tutorialActive={showTutorial && tutorialStep === 2}
           />
+        )}
+        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection !== "computer" && (
+          <button type="button" onClick={() => { setCareerInboxNotificationCount(0); setActiveInterviewApplicationId(null); setDesktopGameSection("computer"); }} className="fixed bottom-5 left-4 z-40 flex items-center gap-2 rounded-full border border-[#c9a84c]/30 bg-[#07101d]/95 px-4 py-2.5 text-[12px] text-[#dec678] shadow-xl backdrop-blur lg:hidden">
+            <BriefcaseBusiness size={15} />求职电脑
+            {computerPendingCount > 0 && <span className="min-w-4 rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-4 text-white">{computerPendingCount}</span>}
+          </button>
         )}
         <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} tutorialActive={showTutorial && tutorialStep === 3} />
       </div >

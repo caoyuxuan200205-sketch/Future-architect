@@ -4,6 +4,10 @@ import {
   Bot,
   BriefcaseBusiness,
   Building2,
+  CalendarClock,
+  Camera,
+  CheckCircle2,
+  ChevronRight,
   Coffee,
   FileText,
   GraduationCap,
@@ -11,12 +15,15 @@ import {
   Library,
   Landmark,
   LockKeyhole,
+  Mail,
   Map,
-  MapPinned,
-  MessageCircle,
   Settings,
+  Mic,
   Monitor,
   Sparkles,
+  Video,
+  Wifi,
+  X,
 } from "lucide-react";
 
 export type DesktopGameSection = "round" | "computer" | "map" | "status" | "resume";
@@ -26,6 +33,8 @@ interface DesktopGameSidebarProps {
   onChange: (section: DesktopGameSection) => void;
   statusAlert?: boolean;
   resumeUpdated?: boolean;
+  computerBadge?: number;
+  roundAlert?: boolean;
   schoolName: string;
   schoolTier: string;
   onOpenSettings: () => void;
@@ -33,9 +42,9 @@ interface DesktopGameSidebarProps {
 }
 
 const PRIMARY_ITEMS = [
+  { id: "map", label: "地图", icon: Map },
+  { id: "computer", label: "电脑", icon: Monitor },
   { id: "round", label: "本回合", icon: Sparkles },
-  { id: "computer", label: "电脑", icon: Monitor, badge: 3 },
-  { id: "map", label: "地图", icon: Map, dot: true },
 ] as const;
 
 const GROWTH_ITEMS = [
@@ -97,11 +106,11 @@ const SCHOOL_LOGOS: Record<string, string> = {
   "烟台大学": "/assets/visuals/schools/yantai-university.png",
 };
 
-export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdated, schoolName, schoolTier, onOpenSettings, tutorialActive = false }: DesktopGameSidebarProps) {
+export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdated, computerBadge = 0, roundAlert = false, schoolName, schoolTier, onOpenSettings, tutorialActive = false }: DesktopGameSidebarProps) {
   const schoolLogo = SCHOOL_LOGOS[schoolName];
   const renderItem = ({ id, label, icon: Icon, badge, dot }: { id: DesktopGameSection; label: string; icon: typeof Activity; badge?: number; dot?: boolean }) => {
     const selected = active === id;
-    const showDot = dot || (id === "status" && statusAlert) || (id === "resume" && resumeUpdated);
+    const showDot = dot || (id === "round" && roundAlert) || (id === "status" && statusAlert) || (id === "resume" && resumeUpdated);
     return (
       <button
         key={id}
@@ -114,7 +123,7 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
         <span className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[#c9a84c]/12" : "bg-white/[0.025]"}`}>
           <Icon size={19} strokeWidth={selected ? 2.1 : 1.7} />
           {badge && <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-4 text-white">{badge}</span>}
-          {showDot && !badge && <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ${id === "status" && statusAlert ? "bg-red-500" : "bg-amber-400"} ring-2 ring-[#080d18]`} />}
+          {showDot && !badge && <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ${(id === "status" && statusAlert) || (id === "round" && roundAlert) ? "bg-red-500" : "bg-amber-400"} ring-2 ring-[#080d18]`} />}
         </span>
         <span className="hidden truncate text-[13px] font-medium tracking-wide xl:block">{label}</span>
       </button>
@@ -139,7 +148,7 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
       </div>
 
       <nav className="space-y-1" aria-label="游戏模块">
-        {PRIMARY_ITEMS.map((item) => renderItem(item))}
+        {PRIMARY_ITEMS.map((item) => renderItem(item.id === "computer" ? { ...item, badge: computerBadge || undefined } : item))}
       </nav>
 
       <div className="my-4 h-px bg-gradient-to-r from-transparent via-[#c9a84c]/20 to-transparent" />
@@ -187,12 +196,15 @@ interface DesktopMapPreviewProps {
   semester: number;
   round: number;
   canChooseAction: boolean;
+  roundNotice?: { title: string; description: string; urgent?: boolean } | null;
+  onOpenRound: () => void;
   actions: DesktopMapAction[];
   onChooseAction: (actionId: string) => void;
 }
 
-export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAction, actions, onChooseAction }: DesktopMapPreviewProps) {
+export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAction, roundNotice, onOpenRound, actions, onChooseAction }: DesktopMapPreviewProps) {
   const [selectedLocationName, setSelectedLocationName] = useState<string | null>(null);
+  const isUrgentNotice = roundNotice?.urgent === true;
   const selectedLocation = LOCATIONS.find((location) => location.name === selectedLocationName) ?? null;
   const selectedActions = selectedLocation
     ? selectedLocation.actionIds
@@ -221,7 +233,13 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
             <span className="text-xs text-slate-200">本回合可探索区域</span>
             <span className="flex items-center gap-2 text-xs text-amber-300"><span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />6 个地点可探索</span>
           </div>
-
+          {roundNotice && (
+            <button type="button" onClick={onOpenRound} className={`absolute left-1/2 top-[76px] z-40 flex w-[min(560px,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-xl px-4 py-3 text-left backdrop-blur-xl transition ${isUrgentNotice ? "border border-red-500/60 bg-[#270b12]/96 shadow-[0_15px_45px_rgba(239,68,68,0.3)] hover:border-red-400 hover:bg-[#351018]" : "border border-amber-400/30 bg-[#0a1320]/94 shadow-[0_15px_40px_rgba(0,0,0,0.45)] hover:border-amber-300/55 hover:bg-[#111b29]"}`}>
+              <span className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isUrgentNotice ? "bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-400/25" : "bg-amber-400/10 text-amber-300"}`}><Sparkles size={17} /><span className={`absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full ${isUrgentNotice ? "bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.9)]" : "bg-red-400"}`} /></span>
+              <span className="min-w-0 flex-1"><span className={`block text-[12px] font-semibold ${isUrgentNotice ? "text-red-100" : "text-white"}`}>{roundNotice.title}</span><span className={`mt-0.5 block text-[10px] ${isUrgentNotice ? "text-red-200/65" : "text-slate-400"}`}>{roundNotice.description}</span></span>
+              <span className={`flex items-center gap-1 text-[10px] font-medium ${isUrgentNotice ? "text-red-300" : "text-amber-300"}`}>前往处理<ChevronRight size={12} /></span>
+            </button>
+          )}
           {LOCATIONS.map(({ name, description, icon: Icon, color, actionIds, x, y }) => {
             const selected = selectedLocationName === name;
             const availableCount = actionIds.filter((actionId) => actionId !== "campus" || semester >= 5).length;
@@ -229,6 +247,7 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
               <button
                 key={name}
                 type="button"
+                disabled={isUrgentNotice}
                 onClick={() => setSelectedLocationName(selected ? null : name)}
                 aria-label={`${name}，${availableCount} 项行动`}
                 aria-expanded={selected}
@@ -249,7 +268,7 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
             );
           })}
 
-          {selectedLocation && (
+          {selectedLocation && !isUrgentNotice && (
             <div className="absolute bottom-14 left-1/2 z-40 w-[min(720px,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-[#c9a84c]/30 bg-[#07101d]/95 p-4 shadow-[0_20px_55px_rgba(0,0,0,0.6)] backdrop-blur-xl">
               <div className="mb-3 flex items-start justify-between gap-4">
                 <div>
@@ -273,12 +292,12 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
                   </div>
                 )}
               </div>
-              {!canChooseAction && <p className="mt-3 border-t border-white/10 pt-3 text-[10px] text-amber-300/80">请先处理本回合事件，或进入下一回合后再选择行动。</p>}
+              {!canChooseAction && <p className="mt-3 border-t border-white/10 pt-3 text-[10px] text-amber-300/80">当前有待处理事项。请点击地图上方提醒进入“本回合”，处理后即可继续行动。</p>}
             </div>
           )}
 
           <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-between text-[10px]">
-            <span className="rounded-full border border-white/10 bg-[#07101d]/72 px-3 py-1.5 text-slate-300 backdrop-blur-md">选择地点执行行动 · 与“本回合”共享结算</span>
+            <span className="rounded-full border border-white/10 bg-[#07101d]/72 px-3 py-1.5 text-slate-300 backdrop-blur-md">地图负责发起行动 · “本回合”用于快速操作与结算</span>
             <span className="rounded-full border border-[#c9a84c]/20 bg-[#07101d]/72 px-3 py-1.5 text-[#d7bb66] backdrop-blur-md">校园 · 职业探索区</span>
           </div>
         </div>
@@ -286,173 +305,272 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
     </section>
   );
 }
-type ComputerConversation = {
-  id: string;
-  name: string;
-  role: string;
-  initials: string;
-  preview: string;
-  time: string;
-  unread?: number;
-  accent: string;
-  messages: Array<{ from: "them" | "me"; text: string; time: string }>;
-};
+export type ComputerInterviewStage = "invited" | "preparing" | "in_progress" | "waiting_result";
+export type ComputerApplicationStatus = "submitted" | "interview" | "interview_pending" | "offered" | "rejected" | "silent" | "accepted" | "declined";
+export type ComputerInterviewPreparation = "company" | "story" | "rest";
+export type ComputerInterviewAnswer = "structured" | "honest" | "evidence";
 
-const COMPUTER_CONVERSATIONS: ComputerConversation[] = [
-  {
-    id: "mentor",
-    name: "导师",
-    role: "当前导师 · 在线",
-    initials: "导",
-    preview: "明天上午把最新方案带来，我们需要重新讨论动线。",
-    time: "刚刚",
-    unread: 2,
-    accent: "#d8bd69",
-    messages: [
-      { from: "them", text: "我看过你昨晚发来的方案了，空间关系有进步，但主入口的动线还不够清晰。", time: "10:12" },
-      { from: "me", text: "收到。我今晚会重新梳理入口、展厅和中庭之间的关系。", time: "10:18" },
-      { from: "them", text: "明天上午把最新方案带来，我们需要重新讨论动线。别只改图，先把你的判断写下来。", time: "10:24" },
-    ],
-  },
-  {
-    id: "senior",
-    name: "产品学姐",
-    role: "互联网产品经理 · 在线",
-    initials: "产",
-    preview: "周末有个产品工作坊，要不要一起去看看？",
-    time: "20分钟前",
-    unread: 1,
-    accent: "#72a7ff",
-    messages: [
-      { from: "them", text: "上次聊到你想了解产品经理，我这周末正好参加一个用户研究工作坊。", time: "09:42" },
-      { from: "them", text: "周末有个产品工作坊，要不要一起去看看？建筑训练里的调研能力其实很有用。", time: "10:04" },
-      { from: "me", text: "听起来很适合我，可以把时间和地点发给我吗？", time: "10:07" },
-    ],
-  },
-  {
-    id: "classmate",
-    name: "同门学长",
-    role: "研三 · 建筑设计方向",
-    initials: "研",
-    preview: "作品集别只放结果，推导过程才是你的优势。",
-    time: "昨天",
-    accent: "#73cbbd",
-    messages: [
-      { from: "them", text: "你发来的作品集我粗看了一遍，图面挺完整，但现在更像课程作业合集。", time: "昨天 22:18" },
-      { from: "me", text: "我也觉得缺少主线，但还不知道应该从哪里删。", time: "昨天 22:26" },
-      { from: "them", text: "作品集别只放结果，推导过程才是你的优势。先选三个最能说明你思考方式的项目。", time: "昨天 22:31" },
-    ],
-  },
+export interface ComputerInterviewQuestion {
+  prompt: string;
+  context: string;
+  options: Array<{ id: ComputerInterviewAnswer; label: string; hint: string }>;
+}
+
+export interface ComputerInterviewItem {
+  id: string;
+  company: string;
+  role: string;
+  channelLabel: string;
+  stipend: string;
+  message: string;
+  status: ComputerApplicationStatus;
+  stage: ComputerInterviewStage;
+  preparation?: ComputerInterviewPreparation;
+  questionIndex: number;
+  answers: ComputerInterviewAnswer[];
+  questions: ComputerInterviewQuestion[];
+  mindsetFeedback?: string;
+}
+
+interface DesktopComputerPreviewProps {
+  interviews: ComputerInterviewItem[];
+  activeInterviewId: string | null;
+  onSelectInterview: (applicationId: string) => void;
+  onAttendInterview: (applicationId: string) => void;
+  onDeclineInterview: (applicationId: string) => void;
+  onChoosePreparation: (applicationId: string, preparation: ComputerInterviewPreparation) => void;
+  onAnswer: (applicationId: string, answer: ComputerInterviewAnswer) => void;
+  onAcceptOffer: (applicationId: string) => void;
+  onDeclineOffer: (applicationId: string) => void;
+  onClose: () => void;
+}
+
+const PREPARATION_OPTIONS: Array<{
+  id: ComputerInterviewPreparation;
+  title: string;
+  description: string;
+  effect: string;
+}> = [
+  { id: "company", title: "研究公司与岗位", description: "梳理业务、用户与岗位职责。", effect: "提升岗位理解" },
+  { id: "story", title: "整理 STAR 案例", description: "准备一段有行动和结果的项目经历。", effect: "提升回答证据" },
+  { id: "rest", title: "短暂休息调整", description: "停止临时抱佛脚，让表达更稳定。", effect: "降低临场压力" },
 ];
 
-export function DesktopComputerPreview() {
-  const [activeConversationId, setActiveConversationId] = useState(COMPUTER_CONVERSATIONS[0].id);
-  const activeConversation = COMPUTER_CONVERSATIONS.find(({ id }) => id === activeConversationId) ?? COMPUTER_CONVERSATIONS[0];
+function isComputerApplicationEnded(item: ComputerInterviewItem) {
+  return item.status === "accepted" || item.status === "declined" || item.status === "rejected";
+}
+function getComputerApplicationLabel(item: ComputerInterviewItem) {
+  if (item.status === "offered") return "Offer 待确认";
+  if (item.status === "accepted") return "Offer 已接受";
+  if (item.status === "declined") return "流程已放弃";
+  if (item.status === "rejected") return "申请未通过";
+  if (item.status === "silent") return "暂无回应";
+  if (item.status === "submitted") return "简历已投递";
+  if (item.status === "interview_pending" || item.stage === "waiting_result") return "等待面试结果";
+  if (item.stage === "in_progress") return "面试进行中";
+  return "待参加视频面试";
+}
+
+function getComputerApplicationColor(item: ComputerInterviewItem) {
+  if (item.status === "offered" || item.status === "accepted") return "text-emerald-300";
+  if (item.status === "rejected") return "text-rose-300";
+  if (item.status === "interview_pending") return "text-amber-300";
+  if (item.status === "interview") return "text-blue-300";
+  return "text-slate-500";
+}
+function InterviewWorkspace({ interview, onAttendInterview, onDeclineInterview, onChoosePreparation, onAnswer, onAcceptOffer, onDeclineOffer }: {
+  interview: ComputerInterviewItem;
+  onAttendInterview: DesktopComputerPreviewProps["onAttendInterview"];
+  onDeclineInterview: DesktopComputerPreviewProps["onDeclineInterview"];
+  onChoosePreparation: DesktopComputerPreviewProps["onChoosePreparation"];
+  onAnswer: DesktopComputerPreviewProps["onAnswer"];
+  onAcceptOffer: DesktopComputerPreviewProps["onAcceptOffer"];
+  onDeclineOffer: DesktopComputerPreviewProps["onDeclineOffer"];
+}) {
+  const currentQuestion = interview.questions[interview.questionIndex];
+  if (interview.status === "offered") {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-y-auto px-[6%] py-[5%]">
+        <div className="flex items-start gap-3 border-b border-white/8 pb-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10 text-emerald-300"><BriefcaseBusiness size={22} /></span>
+          <div>
+            <p className="text-[10px] tracking-[0.2em] text-emerald-300">OFFER LETTER</p>
+            <h3 className="mt-1 text-[clamp(17px,1.2vw,22px)] font-semibold text-white">{interview.company} 实习录用通知</h3>
+            <p className="mt-1 text-[11px] text-slate-500">{interview.role} · 招聘团队</p>
+          </div>
+        </div>
+        <p className="mt-5 text-[12px] leading-6 text-slate-300">你好，感谢你参与我们的招聘流程。我们很高兴正式向你发出 <span className="text-white">{interview.role}</span> 的实习 Offer。</p>
+        {interview.mindsetFeedback && <p className="mt-3 rounded-xl border border-[#c9a84c]/18 bg-[#c9a84c]/[0.06] px-4 py-3 text-[10px] leading-5 text-[#d8c57f]">{interview.mindsetFeedback}</p>}
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <div className="rounded-xl border border-white/8 bg-white/[0.025] p-3"><p className="text-[9px] text-slate-600">实习待遇</p><p className="mt-1 text-[12px] text-[#dec678]">{interview.stipend}</p></div>
+          <div className="rounded-xl border border-white/8 bg-white/[0.025] p-3"><p className="text-[9px] text-slate-600">回复期限</p><p className="mt-1 text-[12px] text-slate-300">本回合内确认</p></div>
+        </div>
+        <p className="mt-4 rounded-xl border border-amber-400/15 bg-amber-400/[0.05] px-4 py-3 text-[10px] leading-5 text-amber-100/70">接受后，这段经历会加入简历，其他仍在进行的实习流程将自动放弃。</p>
+        <div className="mt-auto flex justify-end gap-2 pt-5">
+          <button type="button" onClick={() => onDeclineOffer(interview.id)} className="rounded-lg px-4 py-2 text-[11px] text-slate-400 transition hover:bg-white/5 hover:text-white">婉拒 Offer</button>
+          <button type="button" onClick={() => onAcceptOffer(interview.id)} className="rounded-lg border border-emerald-400/25 bg-emerald-400/12 px-5 py-2 text-[11px] font-medium text-emerald-200 transition hover:bg-emerald-400/20">接受 Offer</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (["accepted", "declined", "rejected", "silent", "submitted"].includes(interview.status)) {
+    const meta = interview.status === "accepted"
+      ? { title: "Offer 已接受", kicker: "CONFIRMED", color: "text-emerald-300", icon: <CheckCircle2 size={28} /> }
+      : interview.status === "declined"
+        ? { title: "流程已结束", kicker: "DECLINED", color: "text-slate-400", icon: <X size={28} /> }
+        : interview.status === "rejected"
+          ? { title: "本次申请未通过", kicker: "APPLICATION UPDATE", color: "text-rose-300", icon: <X size={28} /> }
+          : interview.status === "silent"
+            ? { title: "暂时没有回应", kicker: "NO UPDATE", color: "text-slate-400", icon: <Mail size={28} /> }
+            : { title: "申请已经投递", kicker: "APPLICATION RECEIVED", color: "text-blue-300", icon: <Mail size={28} /> };
+    return (
+      <div className="flex h-full min-h-0 flex-col items-center justify-center overflow-y-auto px-6 text-center">
+        <span className={`flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-white/[0.035] ${meta.color}`}>{meta.icon}</span>
+        <p className={`mt-5 text-[10px] tracking-[0.2em] ${meta.color}`}>{meta.kicker}</p>
+        <h3 className="mt-2 text-xl font-semibold text-white">{meta.title}</h3>
+        <p className="mt-3 max-w-lg text-[12px] leading-6 text-slate-400">{interview.message}</p>
+        {interview.mindsetFeedback && <p className="mt-3 rounded-xl border border-[#c9a84c]/18 bg-[#c9a84c]/[0.06] px-4 py-2.5 text-[10px] leading-5 text-[#d8c57f]">{interview.mindsetFeedback}</p>}
+        <p className="mt-4 text-[10px] text-slate-600">{interview.company} · {interview.role} · {interview.channelLabel}</p>
+      </div>
+    );
+  }
+
+  if (interview.stage === "waiting_result") {
+    return (
+      <div className="flex h-full min-h-0 flex-col items-center justify-center px-6 text-center">
+        <span className="flex h-16 w-16 items-center justify-center rounded-full border border-emerald-400/25 bg-emerald-400/10 text-emerald-300"><CheckCircle2 size={30} /></span>
+        <p className="mt-5 text-[10px] tracking-[0.22em] text-emerald-300/80">INTERVIEW COMPLETED</p>
+        <h3 className="mt-2 text-xl font-semibold text-white">面试已经结束</h3>
+        <p className="mt-3 max-w-md text-[12px] leading-6 text-slate-400">感谢信已经自动发送。面试官正在整理评价，结果会在你进入下一回合后通过求职邮箱送达。</p>
+        <div className="mt-5 rounded-xl border border-white/8 bg-white/[0.025] px-4 py-3 text-left text-[11px] leading-5 text-slate-500">
+          <p>现场信号：面试官针对你的经历进行了追问，并记录了几次关键回答。</p>
+          <p className="mt-1">不要在这里等待刷新，先继续处理本回合的学习与生活。</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (interview.stage === "invited" || interview.stage === "preparing") {
+    return (
+      <div className="h-full min-h-0 overflow-y-auto px-[5%] py-[4%]">
+        <div className="flex items-start gap-3 border-b border-white/8 pb-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-400/25 bg-blue-400/10 text-blue-300"><Mail size={20} /></span>
+          <div>
+            <p className="text-[10px] tracking-[0.18em] text-blue-300">面试邀请</p>
+            <h3 className="mt-1 text-[clamp(16px,1.1vw,20px)] font-semibold text-white">{interview.company} · {interview.role}</h3>
+            <p className="mt-1 text-[11px] text-slate-500">招聘团队 · 视频一面 · 本回合内可参加</p>
+          </div>
+        </div>
+        <p className="mt-4 text-[12px] leading-6 text-slate-300">你好，我们看过你的申请，希望邀请你参加线上面试。请先确认是否参加；确认参加后，再选择本次面试的准备策略。</p>
+        {interview.mindsetFeedback && <p className="mt-3 rounded-xl border border-[#c9a84c]/18 bg-[#c9a84c]/[0.06] px-4 py-2.5 text-[10px] leading-5 text-[#d8c57f]">{interview.mindsetFeedback}</p>}
+        {interview.stage === "invited" ? (
+          <div className="mt-6 rounded-xl border border-white/8 bg-black/15 p-4">
+            <p className="text-[11px] leading-5 text-slate-400">这场面试需要在本回合内处理。拒绝邀请将结束该岗位的招聘流程。</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => onDeclineInterview(interview.id)} className="rounded-lg px-4 py-2 text-[11px] text-slate-400 transition hover:bg-white/5 hover:text-white">拒绝面试邀请</button>
+              <button type="button" onClick={() => onAttendInterview(interview.id)} className="rounded-lg border border-blue-400/25 bg-blue-400/12 px-5 py-2 text-[11px] font-medium text-blue-200 transition hover:bg-blue-400/20">确认参加面试</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="mb-3 mt-5 text-[11px] font-medium text-slate-400">选择一项面试前准备</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {PREPARATION_OPTIONS.map((option) => (
+                <button key={option.id} type="button" onClick={() => onChoosePreparation(interview.id, option.id)} className="group rounded-xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-[#c9a84c]/45 hover:bg-[#c9a84c]/8">
+                  <span className="text-[12px] font-semibold text-slate-100">{option.title}</span>
+                  <span className="mt-1.5 block text-[10px] leading-4 text-slate-500">{option.description}</span>
+                  <span className="mt-3 block text-[9px] text-[#d8bd69]">{option.effect} <ChevronRight className="inline h-3 w-3" /></span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap items-center gap-4 rounded-xl border border-white/8 bg-black/15 px-4 py-3 text-[10px] text-slate-500">
+              <span className="flex items-center gap-1.5"><Camera size={13} className="text-emerald-400" />摄像头正常</span>
+              <span className="flex items-center gap-1.5"><Mic size={13} className="text-emerald-400" />麦克风正常</span>
+              <span className="flex items-center gap-1.5"><Wifi size={13} className="text-emerald-400" />网络良好</span>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <section className="relative hidden min-h-screen w-full flex-1 overflow-hidden lg:block">
-      <header className="absolute left-8 right-8 top-7 z-20 flex items-end justify-between">
-        <div>
-          <p className="mb-1 text-[11px] tracking-[0.28em] text-[#c9a84c]">PERSONAL TERMINAL</p>
-          <div className="flex items-baseline gap-3">
-            <h2 className="text-3xl font-semibold text-slate-100">个人电脑</h2>
-            <span className="text-xs text-slate-500">你的建筑生涯指挥中心</span>
-          </div>
+    <div className="grid h-full min-h-0 grid-rows-[42%_1fr]">
+      <div className="relative overflow-hidden border-b border-white/8 bg-[radial-gradient(circle_at_50%_30%,rgba(62,100,145,0.2),rgba(3,8,16,0.9))]">
+        <div className="absolute left-4 top-3 flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[9px] text-slate-300"><span className="h-1.5 w-1.5 rounded-full bg-red-400" />面试进行中 · {interview.questionIndex + 1}/{interview.questions.length}</div>
+        <div className="flex h-full flex-col items-center justify-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full border border-blue-300/25 bg-blue-400/10 text-xl font-semibold text-blue-200">面</span>
+          <p className="mt-3 text-[13px] font-medium text-white">业务面试官</p>
+          <p className="mt-1 text-[10px] text-slate-500">{interview.company} · {interview.role}</p>
         </div>
-        <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] text-emerald-300">在线</span>
+        <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-lg border border-white/10 bg-[#07111e]/90 px-2.5 py-1.5 text-[9px] text-slate-400"><Video size={12} />你 · 在线</div>
+      </div>
+      <div className="min-h-0 overflow-y-auto px-[5%] py-[3%]">
+        <p className="text-[9px] tracking-[0.18em] text-blue-300">QUESTION {interview.questionIndex + 1}</p>
+        <h3 className="mt-1.5 text-[clamp(14px,1vw,18px)] font-medium leading-relaxed text-white">“{currentQuestion?.prompt}”</h3>
+        <p className="mt-1 text-[10px] text-slate-500">{currentQuestion?.context}</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {currentQuestion?.options.map((option, index) => (
+            <button key={option.id} type="button" onClick={() => onAnswer(interview.id, option.id)} className="rounded-xl border border-white/10 bg-white/[0.025] p-3 text-left transition hover:border-blue-400/40 hover:bg-blue-400/[0.07]">
+              <span className="text-[10px] text-blue-300">{String.fromCharCode(65 + index)}</span>
+              <span className="mt-1 block text-[11px] font-medium leading-4 text-slate-100">{option.label}</span>
+              <span className="mt-1 block text-[9px] leading-4 text-slate-500">{option.hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function DesktopComputerPreview({ interviews, activeInterviewId, onSelectInterview, onAttendInterview, onDeclineInterview, onChoosePreparation, onAnswer, onAcceptOffer, onDeclineOffer, onClose }: DesktopComputerPreviewProps) {
+  const activeInterview = interviews.find((item) => item.id === activeInterviewId) ?? null;
+  const actionableCount = interviews.filter((item) => item.status === "interview" || item.status === "offered").length;
+
+  return (
+    <section className="fixed inset-0 z-[240] block min-h-screen w-full flex-1 overflow-hidden bg-[#050914] lg:relative lg:z-auto">
+      <header className="absolute left-5 right-5 top-4 z-20 flex items-end justify-between lg:left-8 lg:right-8 lg:top-7">
+        <div>
+          <p className="mb-1 text-[10px] tracking-[0.28em] text-[#c9a84c]">CAREER TERMINAL</p>
+          <div className="flex items-baseline gap-3"><h2 className="text-2xl font-semibold text-slate-100 lg:text-3xl">求职电脑</h2><span className="hidden text-xs text-slate-500 sm:inline">邮箱、面试与求职文件</span></div>
+        </div>
+        <button type="button" onClick={onClose} className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-[10px] text-slate-400 hover:bg-white/5 hover:text-white"><X size={13} /><span className="lg:hidden">返回</span><span className="hidden lg:inline">返回本回合</span></button>
       </header>
 
-      <div className="absolute inset-0 overflow-hidden bg-[#050914]">
-        <img
-          src="/assets/visuals/backgrounds/personal-terminal-background.png"
-          alt="夜间建筑工作室中的个人电脑"
-          className="pointer-events-none absolute inset-0 h-full w-full scale-[1.15] object-cover"
-        />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_51%_38%,transparent_0%,rgba(3,7,14,0.04)_45%,rgba(3,7,14,0.36)_100%)]" />
+      <img src="/assets/visuals/backgrounds/personal-terminal-background.png" alt="夜间建筑工作室中的个人电脑" className="pointer-events-none absolute inset-0 hidden h-full w-full scale-[1.15] object-cover lg:block" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_51%_38%,transparent_0%,rgba(3,7,14,0.1)_45%,rgba(3,7,14,0.55)_100%)]" />
 
-        <div className="absolute left-[14.5%] top-[13.8%] h-[51.7%] w-[73%] overflow-hidden rounded-[1.4%] border border-blue-300/10 bg-[#06101c]/96 text-slate-200 shadow-[inset_0_0_28px_rgba(40,100,180,0.08)]">
-          <div className="flex h-[14%] min-h-11 items-center border-b border-white/8 bg-[#081321]/95 px-[3%]">
-            <div>
-              <p className="text-[clamp(18px,1.35vw,25px)] font-light tabular-nums text-slate-100">10:24</p>
-              <p className="text-[clamp(10px,0.66vw,12px)] text-slate-500">2026/08/01 · 周六</p>
-            </div>
-            <div className="ml-auto flex items-center gap-2 text-[clamp(11px,0.72vw,13px)] text-slate-400">
-              <span>南京 · 18°</span>
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            </div>
-          </div>
-
-          <div className="grid h-[86%] grid-cols-[34%_1fr]">
-            <aside className="min-w-0 border-r border-white/8 bg-[#07111e]/96 p-[4%]">
-              <div className="mb-[5%] flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[#d8bd69]">
-                  <MessageCircle className="h-4 w-4" strokeWidth={1.8} />
-                  <p className="text-[clamp(13px,0.9vw,16px)] font-semibold">消息中心</p>
-                </div>
-                <span className="rounded-full bg-red-500/90 px-1.5 text-[10px] font-bold leading-5 text-white">3</span>
-              </div>
-
-              <div className="space-y-2">
-                {COMPUTER_CONVERSATIONS.map((conversation) => {
-                  const selected = conversation.id === activeConversation.id;
-                  return (
-                    <button
-                      key={conversation.id}
-                      type="button"
-                      onClick={() => setActiveConversationId(conversation.id)}
-                      aria-pressed={selected}
-                      className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-all ${selected ? "border-[#c9a84c]/35 bg-[#c9a84c]/10" : "border-white/5 bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]"}`}
-                    >
-                      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border bg-[#0b1726] text-[13px] font-semibold" style={{ borderColor: conversation.accent + "80", color: conversation.accent }}>
-                        {conversation.initials}
-                        {conversation.unread && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-4 text-white">{conversation.unread}</span>}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2">
-                          <span className="truncate text-[clamp(12px,0.82vw,15px)] font-medium text-slate-100">{conversation.name}</span>
-                          <span className="ml-auto shrink-0 text-[clamp(9px,0.6vw,11px)] text-slate-600">{conversation.time}</span>
-                        </span>
-                        <span className="mt-1 block truncate text-[clamp(10px,0.68vw,12px)] text-slate-500">{conversation.preview}</span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </aside>
-
-            <section className="flex min-w-0 flex-col bg-[#081321]/94">
-              <header className="flex min-h-[18%] items-center border-b border-white/8 px-[4%] py-2">
-                <span className="mr-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border bg-[#0b1726] text-[14px] font-semibold" style={{ borderColor: activeConversation.accent + "80", color: activeConversation.accent }}>
-                  {activeConversation.initials}
-                </span>
-                <div className="min-w-0">
-                  <h3 className="text-[clamp(15px,1vw,18px)] font-semibold text-slate-100">{activeConversation.name}</h3>
-                  <p className="mt-0.5 text-[clamp(10px,0.66vw,12px)] text-slate-500">{activeConversation.role}</p>
-                </div>
-                <span className="ml-auto flex items-center gap-1.5 text-[clamp(10px,0.66vw,12px)] text-emerald-400/80"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />可联系</span>
-              </header>
-
-              <div className="flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-y-auto px-[4%] py-[3%]">
-                {activeConversation.messages.map((message, index) => (
-                  <div key={message.time + index} className={`flex ${message.from === "me" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[78%] rounded-xl px-3 py-2 ${message.from === "me" ? "rounded-br-sm bg-blue-500/16 text-blue-50" : "rounded-bl-sm border border-white/7 bg-white/[0.045] text-slate-200"}`}>
-                      <p className="text-[clamp(11px,0.76vw,14px)] leading-[1.55]">{message.text}</p>
-                      <p className={`mt-1 text-right text-[clamp(8px,0.54vw,10px)] ${message.from === "me" ? "text-blue-300/50" : "text-slate-600"}`}>{message.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex min-h-[16%] items-center gap-2 border-t border-white/8 px-[4%] py-2">
-                <div className="flex min-w-0 flex-1 items-center rounded-lg border border-white/10 bg-black/10 px-3 py-2 text-[clamp(11px,0.72vw,13px)] text-slate-600">输入消息……</div>
-                <button type="button" className="shrink-0 rounded-lg bg-[#c9a84c] px-4 py-2 text-[clamp(11px,0.72vw,13px)] font-semibold text-[#07101d] transition-colors hover:bg-[#ddc46c]">发送</button>
-              </div>
-            </section>
-          </div>
+      <div className="absolute bottom-4 left-3 right-3 top-24 overflow-hidden rounded-2xl border border-blue-300/15 bg-[#06101c]/98 text-slate-200 shadow-2xl lg:bottom-auto lg:left-[14.5%] lg:right-auto lg:top-[13.8%] lg:h-[51.7%] lg:w-[73%] lg:rounded-[1.4%]">
+        <div className="flex h-12 items-center border-b border-white/8 bg-[#081321]/95 px-4">
+          <div className="flex items-center gap-2 text-[#d8bd69]"><Mail size={15} /><span className="text-[12px] font-semibold">求职邮箱</span></div>
+          {actionableCount > 0 && <span className="ml-3 rounded-full bg-red-500/90 px-1.5 text-[9px] font-bold leading-4 text-white">{actionableCount}</span>}
+          <div className="ml-auto flex items-center gap-3 text-[9px] text-slate-500"><span className="hidden sm:inline">2026/08/01</span><span className="flex items-center gap-1 text-emerald-400"><Wifi size={11} />在线</span></div>
         </div>
 
-        <div className="absolute bottom-4 left-4 rounded-full border border-white/10 bg-[#07101d]/72 px-3 py-1.5 text-[10px] text-slate-300 backdrop-blur-md">
-          消息中心原型 · 联系人与对话事件将在玩法版本接入
+        <div className="grid h-[calc(100%-3rem)] grid-cols-1 sm:grid-cols-[34%_1fr]">
+          <aside className={`${activeInterview ? "hidden sm:block" : "block"} min-w-0 overflow-y-auto border-r border-white/8 bg-[#07111e]/96 p-3`}>
+            <p className="mb-2 text-[9px] tracking-[0.18em] text-slate-600">全部申请</p>
+            {interviews.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-white/10 p-5 text-center"><Mail className="mx-auto text-slate-600" size={22} /><p className="mt-3 text-[11px] text-slate-400">暂无求职邮件</p><p className="mt-1 text-[9px] leading-4 text-slate-600">完成实习投递后，申请进度会出现在这里。</p></div>
+            ) : interviews.map((interview) => (
+              <button key={interview.id} type="button" onClick={() => onSelectInterview(interview.id)} className={`mb-2 w-full rounded-xl border p-3 text-left transition ${isComputerApplicationEnded(interview) ? "border-slate-700/25 bg-slate-900/20 opacity-50 grayscale hover:opacity-65" : activeInterview?.id === interview.id ? "border-[#c9a84c]/35 bg-[#c9a84c]/10" : "border-white/6 bg-white/[0.02] hover:border-white/15"}`}>
+                <div className="flex items-start gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${isComputerApplicationEnded(interview) ? "bg-slate-700/10 text-slate-600" : "bg-blue-400/10 text-blue-300"}`}><CalendarClock size={15} /></span><span className="min-w-0"><span className={`block truncate text-[11px] font-medium ${isComputerApplicationEnded(interview) ? "text-slate-500" : "text-white"}`}>{interview.company}</span><span className={`mt-0.5 block truncate text-[9px] ${isComputerApplicationEnded(interview) ? "text-slate-700" : "text-slate-500"}`}>{interview.role}</span></span></div>
+                <span className={`mt-2 block text-[9px] ${getComputerApplicationColor(interview)}`}>{getComputerApplicationLabel(interview)}</span>
+              </button>
+            ))}
+          </aside>
+
+          <main className={`${activeInterview ? "block" : "hidden sm:block"} min-h-0 bg-[#081321]/94`}>
+            {activeInterview ? (
+              <div className="h-full">
+                <button type="button" onClick={() => onSelectInterview("")} className="m-3 mb-0 text-[10px] text-slate-500 sm:hidden">← 返回邮箱</button>
+                <div className="h-[calc(100%-2rem)] sm:h-full"><InterviewWorkspace interview={activeInterview} onAttendInterview={onAttendInterview} onDeclineInterview={onDeclineInterview} onChoosePreparation={onChoosePreparation} onAnswer={onAnswer} onAcceptOffer={onAcceptOffer} onDeclineOffer={onDeclineOffer} /></div>
+              </div>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center text-center"><Monitor size={28} className="text-slate-600" /><p className="mt-3 text-[12px] text-slate-400">选择一封求职邮件</p><p className="mt-1 text-[9px] text-slate-600">面试邀请、招聘结果和 Offer 都会保留在这里。</p></div>
+            )}
+          </main>
         </div>
       </div>
     </section>
