@@ -4,6 +4,7 @@ import { supabase } from "../../lib/supabase";
 import { evaluateCustomEventAction } from "../../lib/llm";
 import { AIAssistant } from "./AIAssistant";
 import { StatusAnalysisPanel } from "./StatusAnalysisPanel";
+import { MobileGameShell, MobileMapView } from "./mobile/MobileGameShell";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
 import { EVENT_BRANCHES, type EventBranchOption } from "../eventBranches";
 import {
@@ -4389,7 +4390,7 @@ export function GamePage() {
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
-        className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-6 lg:py-8"
+        className="relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden overflow-y-auto px-5 py-6 sm:px-6 lg:py-8"
       >
         <LocalSaveSettings
           isOpen={isSettingsOpen}
@@ -4407,7 +4408,7 @@ export function GamePage() {
             ARCH·HISTORIA · 互动叙事
           </p>
           <h1
-            className="mb-3 text-5xl lg:text-[52px]"
+            className="mb-3 text-4xl sm:text-5xl lg:text-[52px]"
             style={{ color: textPrimary, fontFamily: "'Playfair Display', 'Noto Serif SC', serif", letterSpacing: "0.05em" }}
           >
             我是一个"建"人
@@ -4478,7 +4479,7 @@ export function GamePage() {
             <FolderOpen size={14} />查看三个存档格
           </button>
           <div className="mt-3 flex flex-col items-center gap-1 text-[11px]" style={{ color: "rgba(180,200,240,0.3)" }}>
-             <p>建议使用电脑端浏览器体验以获得最佳效果</p>
+             <p>手机与电脑端均可完整体验，游戏进度会自动保存在本机。</p>
              <p>本游戏纯属虚构，如有雷同，那可真是太巧了。</p>
           </div>
         </div>
@@ -4496,13 +4497,13 @@ export function GamePage() {
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
-        className="relative flex min-h-screen flex-col items-center justify-center overflow-y-auto px-6 py-6 lg:py-8"
+        className="relative flex min-h-screen flex-col items-center justify-center overflow-y-auto px-4 py-6 sm:px-6 lg:py-8"
       >
         <div className="relative z-10 w-full max-w-xl lg:mr-[42vw]">
           <p className="mb-3 text-[12px] uppercase tracking-[0.3em]" style={{ color: accent }}>
             角色档案已生成
           </p>
-          <h2 className="mb-1 text-4xl" style={{ fontFamily: "'Playfair Display', 'Noto Serif SC', serif" }}>
+          <h2 className="mb-1 text-3xl sm:text-4xl" style={{ fontFamily: "'Playfair Display', 'Noto Serif SC', serif" }}>
             你的起点
           </h2>
           <p className="mb-5 text-[14px]" style={{ color: textSecondary }}>
@@ -4585,12 +4586,12 @@ export function GamePage() {
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
-        className="relative flex min-h-screen flex-col items-center justify-center overflow-y-auto px-5 py-5 lg:py-7"
+        className="relative flex min-h-screen flex-col items-center justify-start overflow-y-auto px-4 py-6 sm:px-5 lg:justify-center lg:py-7"
       >
         <div className="relative z-10 w-full max-w-[680px] lg:mr-[42vw]">
           <div className="mb-4">
             <p className="mb-2 text-[12px] uppercase tracking-[0.3em]" style={{ color: accent }}>选择你的导师</p>
-            <h2 className="text-4xl" style={{ fontFamily: "'Playfair Display', 'Noto Serif SC', serif" }}>学术道路上的引路人</h2>
+            <h2 className="text-3xl sm:text-4xl" style={{ fontFamily: "'Playfair Display', 'Noto Serif SC', serif" }}>学术道路上的引路人</h2>
             <p className="mt-2 text-[13px]" style={{ color: textSecondary }}>不同导师会改变你的初始能力，也会影响未来三年的生存方式。</p>
           </div>
 
@@ -4655,7 +4656,7 @@ export function GamePage() {
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
         }}
-        className="flex flex-col lg:flex-row min-h-screen"
+        className="flex min-h-screen flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:flex-row lg:pb-0"
       >
         {ENABLE_DESKTOP_GAME_SIDEBAR && (
           <DesktopGameSidebar
@@ -4685,6 +4686,22 @@ export function GamePage() {
           onDelete={deleteLocalSave}
           onRestart={resetGame}
         />
+        {ENABLE_DESKTOP_GAME_SIDEBAR && (
+          <MobileGameShell
+            active={desktopGameSection}
+            onChange={(section) => {
+              setDesktopGameSection(section);
+              if (section === "computer") setCareerInboxNotificationCount(0);
+            }}
+            onOpenSettings={() => { setLocalSaveFeedback(""); setIsSettingsOpen(true); }}
+            semesterLabel={SEMESTER_LABELS[semester]}
+            round={round}
+            progress={progressPct}
+            computerBadge={computerPendingCount}
+            statusAlert={stats.mentorFavorability < 15 || stats.stress < 20 || stats.selfDoubt > 75 || stats.ageAnxiety > 75}
+            roundAlert={phase === "event_view" || phase === "action_result" || Boolean(activeCampusEvent)}
+          />
+        )}
         {careerInboxNotificationCount > 0 && desktopGameSection !== "computer" && (
           <div className="fixed inset-0 z-[235] flex items-center justify-center bg-[#020611]/72 p-5 backdrop-blur-sm">
             <section role="dialog" aria-modal="true" aria-labelledby="career-inbox-title" className="w-full max-w-md overflow-hidden rounded-2xl border border-blue-400/25 bg-[#091321] shadow-[0_28px_90px_rgba(0,0,0,0.62)]">
@@ -4723,7 +4740,7 @@ export function GamePage() {
         )}
         {/* ─── 左侧：属性面板 ─── */}
         <aside
-          className={`flex shrink-0 flex-col border-b p-5 lg:self-start lg:border-b-0 lg:border-r ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "status" ? "lg:flex lg:min-w-0 lg:flex-1 lg:shrink" : "lg:hidden") : "lg:flex lg:w-64"}`}
+          className={`${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "status" ? "flex" : "hidden") : "flex"} shrink-0 flex-col border-b p-4 pb-28 lg:self-start lg:border-b-0 lg:border-r lg:p-5 lg:pb-5 ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "status" ? "lg:flex lg:min-w-0 lg:flex-1 lg:shrink" : "lg:hidden") : "lg:flex lg:w-64"}`}
           style={{ borderColor: border, background: "rgba(255,255,255,0.01)" }}
         >
           {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "status" ? (
@@ -4822,7 +4839,7 @@ export function GamePage() {
           )}
         </aside>
 
-        <main className={`flex-1 p-6 lg:p-8 overflow-y-auto relative ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "round" ? "lg:mx-auto lg:block lg:w-full lg:max-w-5xl" : "lg:hidden") : "lg:block"}`}>
+        <main className={`${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "round" ? "block" : "hidden") : "block"} relative flex-1 overflow-y-auto px-4 pb-28 pt-5 sm:px-6 lg:p-8 ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "round" ? "lg:mx-auto lg:block lg:w-full lg:max-w-5xl" : "lg:hidden") : "lg:block"}`}>
           {/* 简历弹窗 */}
           {isResumeOpen && (
             <div className="fixed inset-0 z-[100] p-6 flex flex-col" style={{ background: bg }}>
@@ -4844,7 +4861,7 @@ export function GamePage() {
           )}
 
           {/* 页眉 */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-6 hidden items-center justify-between lg:flex">
             <div>
               <p className="text-[13px] tracking-widest uppercase" style={{ color: accent }}>
                 {SEMESTER_LABELS[semester]}
@@ -5320,29 +5337,51 @@ export function GamePage() {
         </main>
 
         {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "map" && (
-          <DesktopMapPreview
-            semesterLabel={SEMESTER_LABELS[semester]}
-            semester={semester}
-            round={round}
-            canChooseAction={phase === "action_choice"}
-            roundNotice={
-              activeCampusEvent
-                ? { title: "收到一条特殊机遇", description: "前往“本回合”查看邀请并作出决定。" }
-                : phase === "event_view"
-                  ? { title: selectedEventBranch ? "事件结果等待确认" : "本回合出现随机事件", description: selectedEventBranch ? "查看结果后即可返回地图选择行动。" : "先处理事件，地图行动随后开放。", urgent: true }
-                  : phase === "action_result"
-                    ? { title: "本轮行动等待结算", description: "查看行动结果，并确认进入下一回合。" }
-                    : null
-            }
-            onOpenRound={() => setDesktopGameSection("round")}
-            actions={ACTIONS}
-            onChooseAction={(actionId) => {
-              const action = ACTIONS.find((candidate) => candidate.id === actionId);
-              if (!action || phase !== "action_choice") return;
-              chooseAction(action);
-              if (action.id !== "internship") setDesktopGameSection("round");
-            }}
-          />
+          <>
+            <MobileMapView
+              canChooseAction={phase === "action_choice"}
+              notice={
+                activeCampusEvent
+                  ? { title: "收到一条特殊机遇", description: "前往“本回合”查看邀请并作出决定。" }
+                  : phase === "event_view"
+                    ? { title: selectedEventBranch ? "事件结果等待确认" : "本回合出现随机事件", description: selectedEventBranch ? "查看结果后即可返回地图选择行动。" : "先处理事件，地图行动随后开放。", urgent: true }
+                    : phase === "action_result"
+                      ? { title: "本轮行动等待结算", description: "查看行动结果，并确认进入下一回合。" }
+                      : null
+              }
+              onOpenRound={() => setDesktopGameSection("round")}
+              actions={ACTIONS}
+              onChooseAction={(actionId) => {
+                const action = ACTIONS.find((candidate) => candidate.id === actionId);
+                if (!action || phase !== "action_choice") return;
+                chooseAction(action);
+                if (action.id !== "internship") setDesktopGameSection("round");
+              }}
+            />
+            <DesktopMapPreview
+              semesterLabel={SEMESTER_LABELS[semester]}
+              semester={semester}
+              round={round}
+              canChooseAction={phase === "action_choice"}
+              roundNotice={
+                activeCampusEvent
+                  ? { title: "收到一条特殊机遇", description: "前往“本回合”查看邀请并作出决定。" }
+                  : phase === "event_view"
+                    ? { title: selectedEventBranch ? "事件结果等待确认" : "本回合出现随机事件", description: selectedEventBranch ? "查看结果后即可返回地图选择行动。" : "先处理事件，地图行动随后开放。", urgent: true }
+                    : phase === "action_result"
+                      ? { title: "本轮行动等待结算", description: "查看行动结果，并确认进入下一回合。" }
+                      : null
+              }
+              onOpenRound={() => setDesktopGameSection("round")}
+              actions={ACTIONS}
+              onChooseAction={(actionId) => {
+                const action = ACTIONS.find((candidate) => candidate.id === actionId);
+                if (!action || phase !== "action_choice") return;
+                chooseAction(action);
+                if (action.id !== "internship") setDesktopGameSection("round");
+              }}
+            />
+          </>
         )}
 
         {desktopGameSection !== "computer" && phase === "action_result" && chosenAction?.id === "internship" && currentOfferedInternships.length > 0 && (
@@ -5434,7 +5473,7 @@ export function GamePage() {
         )}
         {/* ─── 右侧：常驻简历 ─── */}
         <aside
-          className={`hidden shrink-0 flex-col p-5 overflow-y-auto ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "lg:flex lg:min-w-0 lg:flex-1 lg:shrink lg:flex-1" : "lg:hidden") : "lg:flex lg:w-80"}`}
+          className={`${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "flex" : "hidden") : "hidden"} shrink-0 flex-col overflow-y-auto p-4 pb-28 lg:p-5 lg:pb-5 ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "lg:flex lg:min-w-0 lg:flex-1 lg:shrink lg:flex-1" : "lg:hidden") : "lg:flex lg:w-80"}`}
           style={{ background: "rgba(0,0,0,0.2)" }}
         >
           <ResumeView
@@ -5459,12 +5498,7 @@ export function GamePage() {
             tutorialActive={showTutorial && tutorialStep === 2}
           />
         )}
-        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection !== "computer" && (
-          <button type="button" onClick={() => { setCareerInboxNotificationCount(0); setActiveInterviewApplicationId(null); setDesktopGameSection("computer"); }} className="fixed bottom-5 left-4 z-40 flex items-center gap-2 rounded-full border border-[#c9a84c]/30 bg-[#07101d]/95 px-4 py-2.5 text-[12px] text-[#dec678] shadow-xl backdrop-blur lg:hidden">
-            <BriefcaseBusiness size={15} />求职电脑
-            {computerPendingCount > 0 && <span className="min-w-4 rounded-full bg-red-500 px-1 text-center text-[9px] font-bold leading-4 text-white">{computerPendingCount}</span>}
-          </button>
-        )}
+
         <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} tutorialActive={showTutorial && tutorialStep === 3} />
       </div >
     );

@@ -44,7 +44,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < 1024);
     };
     checkMobile();
     window.addEventListener("resize", checkMobile);
@@ -113,6 +113,15 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
       scrollToBottom();
     }
   }, [gameMessages, realMessages, activeTab, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !isMobile) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobile, isOpen]);
 
   const renderMarkdown = (text: string) => {
     // 1. 转义 HTML 字符，防止 XSS
@@ -219,14 +228,14 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
     <>
       {/* 悬浮入口 */}
       {!isOpen && (
-        <div className={`fixed bottom-4 right-4 flex items-end gap-2.5 sm:bottom-6 sm:right-6 ${tutorialActive ? "z-[221] rounded-full ring-2 ring-[#dec678]/80 shadow-[0_0_0_8px_rgba(201,168,76,0.08)]" : "z-50"}`}>
+        <div className={`fixed right-4 flex items-end gap-2.5 lg:bottom-6 lg:right-6 ${showUtilityEntrances && ENABLE_DESKTOP_GAME_SIDEBAR ? "bottom-[calc(4.75rem+env(safe-area-inset-bottom))]" : "bottom-4"} ${tutorialActive ? "z-[221] rounded-full ring-2 ring-[#dec678]/80 shadow-[0_0_0_8px_rgba(201,168,76,0.08)]" : "z-50"}`}>
           {utilityNotice && (
             <div className="absolute bottom-[calc(100%+12px)] right-0 whitespace-nowrap rounded-lg border border-white/10 bg-[#0b1020]/95 px-3 py-2 text-xs text-slate-200 shadow-xl backdrop-blur-md">
               {utilityNotice === "computer" ? "电脑功能正在规划中" : "地图功能正在规划中"}
             </div>
           )}
 
-          {showUtilityEntrances && (
+          {showUtilityEntrances && !ENABLE_DESKTOP_GAME_SIDEBAR && (
             <>
               <button
                 type="button"
@@ -270,7 +279,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
       {/* 聊天窗口 */}
       {isOpen && (
         <div 
-          className="fixed bottom-6 right-6 w-80 h-[500px] max-h-[80vh] md:w-auto md:h-auto md:max-h-[90vh] bg-[#1a1c23] border border-gray-700 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden font-sans"
+          className="fixed inset-0 z-[90] flex h-[100dvh] w-full flex-col overflow-hidden border-0 bg-[#1a1c23] font-sans shadow-2xl lg:inset-auto lg:bottom-6 lg:right-6 lg:h-auto lg:max-h-[90vh] lg:w-auto lg:rounded-2xl lg:border lg:border-gray-700"
           style={isMobile ? undefined : { width: `${width}px`, height: `${height}px`, maxWidth: "90vw" }}
         >
           {/* 电脑端拉伸大小手柄 */}
@@ -494,7 +503,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
           </div>
 
           {/* Input Area */}
-          <div className="p-3 bg-gray-800/50 border-t border-gray-700">
+          <div className="mobile-safe-bottom border-t border-gray-700 bg-gray-800/50 p-3">
             <div className="relative flex items-center">
               <input
                 type="text"
@@ -502,7 +511,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="问问这个机制啥意思..."
-                className="w-full bg-[#13141a] text-gray-200 text-sm rounded-full py-3 pl-4 pr-12 border border-gray-700 focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full rounded-full border border-gray-700 bg-[#13141a] py-3 pl-4 pr-12 text-base text-gray-200 transition-colors focus:border-blue-500 focus:outline-none lg:text-sm"
                 disabled={isLoading}
               />
               <button

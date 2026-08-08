@@ -119,13 +119,48 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+@layer utilities {
+  .mobile-safe-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+
+  .mobile-safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+}
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body,
+  #root {
+    min-width: 320px;
+    min-height: 100%;
+  }
+
+  html,
+  body {
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
   body {
     @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    touch-action: manipulation;
   }
 
   /**
