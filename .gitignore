@@ -126,3 +126,6 @@ $RECYCLE.BIN/
 insert_knowledge_chunks.sql
 public/insert_knowledge_chunks.sql
 
+# WorkBuddy workspace data
+.workbuddy/
+

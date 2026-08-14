@@ -3,10 +3,25 @@ import { RefreshCw, ChevronRight, ChevronDown, Zap, TrendingUp, TrendingDown, Bo
 import { supabase } from "../../lib/supabase";
 import { evaluateCustomEventAction } from "../../lib/llm";
 import { AIAssistant } from "./AIAssistant";
+import { tracker } from "../services/tracker";
 import { StatusAnalysisPanel } from "./StatusAnalysisPanel";
 import { MobileGameShell, MobileMapView } from "./mobile/MobileGameShell";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
 import { EVENT_BRANCHES, type EventBranchOption } from "../eventBranches";
+import {
+  createActionMemory,
+  recordAction,
+  recordEventOutcome,
+  markGuaranteedTriggered,
+  resetSemesterActions,
+  recordMentorBetrayal,
+  getCausalEvent,
+  isGuaranteedHit,
+  EVENT_META,
+  type ActionMemory,
+  type ActionId,
+  type CausalStats,
+} from "../eventMeta";
 import {
   DesktopGameSidebar,
   DesktopMapPreview,
@@ -651,6 +666,47 @@ const EVENTS: GameEvent[] = [
     condition: ({ stats }) => stats.network >= 4,
     type: "positive",
   },
+  {
+    id: "e63", title: "导师组会公开表扬",
+    description: "组会上，导师破天荒地停下 PPT，指着你的方案说：'这位同学的场地分析做得非常扎实，大家看一下这个等高线的处理方式。'会议室里安静了两秒，然后是翻页的声音。你低头记笔记，笔尖在纸上颤抖了一下。这是你进组三年第一次被公开肯定，那种感觉像在一片长期阴天的天空里，突然裂开一道缝，阳光直直地照在你身上。你知道它不会持续，但此刻，你愿意站在光里多待一会儿。",
+    effects: { mentorFavorability: 8, selfDoubt: -6, expression: 3, arch: 3 },
+    condition: ({ stats }) => stats.mentorFavorability >= 60,
+    type: "positive",
+  },
+  {
+    id: "e64", title: "招聘软件的推送变了",
+    description: "你打开 Boss 直聘，发现首页推荐不再是'985 优先'的算法岗。一行小字写着：'根据你的画像，为你推荐适合建筑学背景的互联网岗位。'产品策划、设计协同、BIM 平台运营……岗位不多，但每一个都让你觉得'这个我可以试'。你盯着屏幕，突然有种被算法原谅的感觉——原来系统也在学习，原来连它都开始承认，跨学科不该被一刀切。你投了三个岗位，关掉 App，心里有一丝奇怪的轻松。",
+    effects: { network: 4, selfDoubt: -5, logic: 2, expression: 2 },
+    condition: ({ stats, semester }) => semester >= 3,
+    type: "positive",
+  },
+  {
+    id: "e65", title: "副业作品被初创团队看中",
+    description: "你那套'建筑转产品'的可视化笔记被一个做设计协同工具的初创团队发现了。创始人约你喝咖啡，说：'我们的产品正缺一个懂空间逻辑又懂用户的人，要不要一起搞？'你看着他的眼睛，那里面有那种年轻人特有的、未经市场毒打的光。你犹豫了三秒，想起自己在出租屋改图到凌晨的那些夜晚，突然意识到——也许从来不是'建筑'抛弃了你，而是你一直在等一个能把建筑用起来的人。",
+    effects: { network: 8, money: 6, logic: 4, structured: 4, mentorFavorability: -3 },
+    condition: ({ stats }) => stats.network >= 45 && stats.structured >= 50,
+    type: "positive",
+  },
+  {
+    id: "e66", title: "深夜翻到三个月前的日记",
+    description: "你在搬家整理时翻出一个本子，是三个月前写的。那一页写着：'今天又被拒了，觉得自己什么都不是。'笔迹很重，纸都被压出了痕。你盯着那行字看了很久，想起写它的那个夜晚——窗外下着雨，你没开灯，把所有焦虑都倒进了这张纸。现在你站在新房间里，阳光从窗户斜照进来，你突然明白了一件事：那个写下这句话的你，没有放弃，才有了现在的你。你把本子合上，放进抽屉最深处，像收藏一件出土文物。",
+    effects: { selfDoubt: -10, stress: 6, expression: 3 },
+    type: "positive",
+  },
+  {
+    id: "e67", title: "课程作业入选学院年展",
+    description: "系办走廊的布告栏贴出年展入选名单，你的名字在第三排。那一刻你正在路过，差点没敢抬头确认。入选的是你改到第八版的城市更新方案——那个曾被导师批'太理想主义'的方案。你站在布告栏前，身边走过一群大一新生，他们指着名单讨论'这位学长是谁'。你没有说话，只是把照片拍下来发给了妈，配文：'入选了。'她回了一个拥抱的表情，然后是一句：'什么时候回家吃饭？'",
+    effects: { arch: 8, expression: 5, selfDoubt: -7, network: 4 },
+    condition: ({ stats }) => stats.arch >= 70,
+    type: "positive",
+  },
+  {
+    id: "e68", title: "你组织的分享会来了 100 人",
+    description: "你在朋友圈发了一条'建筑转产品经验线下分享'，本以为最多来十几个人。结果报名链接第二天就破了 100。那天晚上，阶梯教室坐满了人，后排还有站着的。你站在台上，PPT 第一页是那张你改了十八版的城市设计图。你说：'我今天不是来教大家转行的，我是来告诉你们——那些你以为没用的过去，会在某一天突然变成你的武器。'台下响起掌声，你看到第三排有个女生在低头擦眼泪。你突然意识到，你已经走出了那个在出租屋崩溃的自己，而此刻，你正在成为别人的灯塔。",
+    effects: { network: 12, expression: 8, selfDoubt: -10, logic: 3 },
+    condition: ({ stats, semester }) => stats.network >= 70 && semester >= 5,
+    type: "positive",
+  },
 ];
 
 // ================================================================
@@ -1042,19 +1098,6 @@ function calculateEndingWithOffer(stats: Stats, selectedOfferId: string | null):
 
   // 如果按意向公司无法找到对应结局，则退回到数值优先的默认计算
   return calculateEnding(stats);
-}
-
-function getRandomEvent(
-  seenIds: Set<string>,
-  ctx: { stats: Stats; isOverseas: boolean; semester: number }
-): GameEvent | null {
-  const available = EVENTS.filter((e) => {
-    if (seenIds.has(e.id)) return false;
-    if (e.condition && !e.condition(ctx)) return false;
-    return true;
-  });
-  if (available.length === 0) return null;
-  return pick(available);
 }
 
 function checkQualifiedCompanies(
@@ -2774,52 +2817,276 @@ function ResumeView({
 // SECTION 10: 主游戏组件
 // ================================================================
 
+interface MentorProfileEntry {
+  label: string;
+  value: string;
+}
+interface MentorProfileSection {
+  title: string;
+  entries: MentorProfileEntry[];
+}
+interface MentorProfile {
+  personalInfo: MentorProfileEntry[];        // 个人信息
+  education: { period: string; desc: string }[];   // 教育背景
+  experience: { period: string; desc: string }[];  // 工作经历
+  research: string[];                        // 研究方向
+  works: string[];                           // 代表作品/课题
+  awards: string[];                          // 获奖
+  studentReviews: { stars: number; text: string }[]; // 学生评价
+  quote: string;                             // 一句名言
+  personality: string;                       // 性格标签描述
+}
+
 interface Mentor {
   id: string;
-  name: string;
+  name: string;          // 默认重组名（真实学者名重组，如"齐廷宝"=齐康×杨廷宝）
+  namePool: string[];    // 候选重组名池，每局随机命中其一
+  customName?: string;   // 玩家自定义名（可选，填了就用这个）
   title: string;
   description: string;
   bonuses: Partial<Record<StatKey, EffectValue>>;
   emoji: string;
   image: string;
+  profile: MentorProfile;
+}
+
+/** 显示用名字：优先 customName，否则默认 name */
+function mentorDisplayName(m: Mentor | null): string | null {
+  if (!m) return null;
+  return (m.customName && m.customName.trim()) ? m.customName.trim() : m.name;
 }
 
 const MENTORS: Mentor[] = [
   {
     id: "academic",
     image: "./assets/visuals/mentors/academic.webp",
-    name: "学术大牛",
+    // 名字池全部重组自东大/建筑学界院士级学者：
+    //   齐廷宝 = 齐康×杨廷宝 / 童敦桢 = 童寯×刘敦桢 / 葛慎康 = 葛明×齐康 / 朱薇亚 = 朱光亚×陈薇
+    name: "齐廷宝",
+    namePool: ["齐廷宝", "童敦桢", "葛慎康", "朱薇亚"],
     title: "国家级重点课题负责人",
     description: "专注学术深度与专业度，对图纸质量要求极高。能显著提升你的建筑底蕴，但由于其严苛性格，初始好感度较低且学术压力巨大。",
     emoji: "🏛️",
     bonuses: { arch: 15, logic: 5, stress: -10, mentorFavorability: -10 },
+    profile: {
+      personalInfo: [
+        { label: "出生年份", value: "1962" },
+        { label: "籍贯", value: "江苏南京" },
+        { label: "职称", value: "教授 / 博士生导师" },
+        { label: "所在单位", value: "东南大学建筑学院" },
+        { label: "办公室", value: "前工房 305（挂牌「请勿打扰」）" },
+        { label: "联系方式", value: "qi.tb@seu.arch.edu.cn" },
+      ],
+      education: [
+        { period: "1979 — 1983", desc: "南京工学院（现东南大学）建筑学本科" },
+        { period: "1983 — 1986", desc: "南京工学院 建筑历史与理论 硕士" },
+        { period: "1986 — 1990", desc: "南京工学院 建筑历史与理论 博士（导师：杨廷宝）" },
+        { period: "1991 — 1993", desc: "意大利罗马大学 访问学者" },
+      ],
+      experience: [
+        { period: "1993 — 2001", desc: "东南大学建筑系 讲师 → 副教授" },
+        { period: "2001 — 2010", desc: "东南大学建筑学院 教授、博士生导师" },
+        { period: "2010 — 至今", desc: "国家级重点课题《中国传统建筑形制流变研究》首席专家" },
+      ],
+      research: [
+        "中国传统建筑形制与法式制度",
+        "唐宋木构建筑营造体系",
+        "建筑遗产保护的理论与方法",
+        "东方建筑史比较研究",
+      ],
+      works: [
+        "《营造法式解读（修订版）》——商务印书馆，2018",
+        "《唐宋木构建筑形制流变研究》——中国建筑工业出版社，2015",
+        "国家级课题：中国传统建筑形制数据库建设（2010-2020）",
+        "南京某历史街区保护更新工程（主持设计）",
+      ],
+      awards: [
+        "全国优秀博士学位论文指导教师（2012、2015、2019）",
+        "中国建筑学会建筑教育奖（2016）",
+        "国家科技进步二等奖（2014，排名 3/10）",
+        "国务院政府特殊津贴专家",
+      ],
+      studentReviews: [
+        { stars: 1, text: "组会从下午两点开到晚上十一点。他说这是'思维的密度'。" },
+        { stars: 2, text: "画了三个月的图，他只说了两个字：'重画'。" },
+        { stars: 5, text: "真的跟他学到东西了，但代价是头发。我现在发际线和唐宋斗栱一样后退。" },
+        { stars: 4, text: "看似冷酷，其实半夜会给你发修改建议。只是语气依然像判决书。" },
+      ],
+      quote: "做学问要耐得住寂寞——但更重要的是，你要配得上寂寞。",
+      personality: "完美主义 / 严苛 / 慢热 / 极度护短 / 表面冷面实则深夜给学生发修改建议",
+    },
   },
   {
     id: "hands_off",
     image: "./assets/visuals/mentors/hands-off.webp",
-    name: "放养型导师",
+    // 名字池重组自东大建筑学院相关学者：
+    //   钱晓茜 = 钱锋×汪晓茜 / 沈剑葳 = 沈旸×张剑葳 / 李诸葛 = 李海清×诸葛净 / 旸葳 = 沈旸×张剑葳
+    name: "钱晓茜",
+    namePool: ["钱晓茜", "沈剑葳", "李诸葛", "旸葳"],
     title: "自由主义学术推崇者",
     description: "很少管学生，给了你极大的自我探索空间。适合发展人脉与逻辑思维，环境宽松，压力极小，但也需要你更自律地维持专业输出。",
     emoji: "🪁",
     bonuses: { network: 10, logic: 10, stress: 10, arch: -5 },
+    profile: {
+      personalInfo: [
+        { label: "出生年份", value: "1978" },
+        { label: "籍贯", value: "浙江杭州" },
+        { label: "职称", value: "副教授 / 硕士生导师" },
+        { label: "所在单位", value: "东南大学建筑学院" },
+        { label: "办公室", value: "中大院 212（门常年开着，里面没人）" },
+        { label: "联系方式", value: "q.xx@seu.arch.edu.cn（回复周期：3-14 个工作日）" },
+      ],
+      education: [
+        { period: "1996 — 2000", desc: "东南大学建筑学本科" },
+        { period: "2000 — 2003", desc: "东南大学 建筑历史与理论 硕士" },
+        { period: "2004 — 2007", desc: "瑞典皇家理工（KTH）建筑史 博士" },
+        { period: "2007 — 2009", desc: "瑞士苏黎世联邦理工（ETH）博士后" },
+      ],
+      experience: [
+        { period: "2009 — 2015", desc: "东南大学建筑学院 讲师 → 副教授" },
+        { period: "2015 — 至今", desc: "近代建筑史研究方向带头人之一（但很少开会）" },
+      ],
+      research: [
+        "中国近代建筑史与中西建筑交流",
+        "近代建筑师群体研究",
+        "江南近代城市形态演变",
+        "建筑史的叙事学与图像学方法",
+      ],
+      works: [
+        "《近代中国建筑师的海外经历研究》——中国建筑工业出版社，2019",
+        "《江南近代城市建筑形态（1840-1949）》——东南大学出版社，2017",
+        "策划：近代建筑师群体口述史展（2021，上海）",
+        "专栏「建筑史的边角料」（某建筑类公众号，月更，有时季更）",
+      ],
+      awards: [
+        "中国建筑学会青年学者奖（2014）",
+        "近代建筑史专业委员会理事",
+        "学生票选「最想请他喝茶」导师 Top 3（2018-2023 连续六年）",
+      ],
+      studentReviews: [
+        { stars: 5, text: "一个学期见三次面。每次见面他都说'你自己看着办'。但毕业论文他真的逐字看。" },
+        { stars: 4, text: "存在感约等于图书馆的猫——你知道他在，但你很少见到。" },
+        { stars: 3, text: "自由是真自由，但没人管的时候，你需要惊人的自律。我差点废了。" },
+        { stars: 5, text: "他不催你，但你会在某个深夜突然意识到：再不做就来不及了。这是一种高级的负罪感教育。" },
+      ],
+      quote: "我不需要管你——但你需要对你自己负责。做不到的话，门在那边。",
+      personality: "散漫 / 随性 / 表面不在乎实则暗中观察 / 学术品味极高 / 社交达人",
+    },
   },
   {
     id: "practice",
     image: "./assets/visuals/mentors/practice.webp",
-    name: "实践工程型",
+    // 名字池重组自院士级实践建筑师：
+    //   程恺 = 程泰宁×崔恺 / 何建民 = 何镜堂×孟建民 / 崔泰宁 = 崔恺×程泰宁 / 恺宁 = 崔恺×程泰宁
+    name: "程恺",
+    namePool: ["程恺", "何建民", "崔泰宁", "恺宁"],
     title: "大型院总建筑师/合伙人",
     description: "手头有大量落地的公建项目，极其关注就业与实务能力。能帮你积累丰厚的行业资源与执行力，有效缓解转行的不确定感。",
     emoji: "🏗️",
     bonuses: { structured: 12, money: 15, arch: 5, selfDoubt: -10 },
+    profile: {
+      personalInfo: [
+        { label: "出生年份", value: "1968" },
+        { label: "籍贯", value: "山东济南" },
+        { label: "职称", value: "教授级高级建筑师 / 院总建筑师" },
+        { label: "所在单位", value: "某大型建筑设计研究院（兼东大客座教授）" },
+        { label: "办公室", value: "院里 18 楼（桌上永远摊着七八个项目的图纸）" },
+        { label: "联系方式", value: "通过院办预约，或工地现场偶遇" },
+      ],
+      education: [
+        { period: "1986 — 1990", desc: "清华大学建筑学本科" },
+        { period: "1990 — 1993", desc: "清华大学 建筑设计及其理论 硕士" },
+        { period: "2002 — 2005", desc: "在职攻读工学博士" },
+      ],
+      experience: [
+        { period: "1993 — 2000", desc: "某大型院 建筑师 → 主任建筑师" },
+        { period: "2000 — 2010", desc: "某大型院 副总建筑师 / 设计所所长" },
+        { period: "2010 — 至今", desc: "某大型院 总建筑师 / 合伙人，东大客座教授" },
+      ],
+      research: [
+        "公共建筑的落地性与经济性",
+        "大型复杂项目的协同设计方法",
+        "建筑师的职业发展与行业生态",
+      ],
+      works: [
+        "某省美术馆（主持设计，建成 2012，获部优一等奖）",
+        "某市文化中心（主持设计，建成 2016）",
+        "某高铁站房（技术负责人，建成 2019）",
+        "《一个建筑师的工程笔记》——中国建筑工业出版社，2020",
+      ],
+      awards: [
+        "全国工程勘察设计大师（2018）",
+        "中国建筑学会青年建筑师奖（2005）",
+        "省科技进步一等奖（2013）",
+        "主持项目获国家级奖项 6 项、省部级 12 项",
+      ],
+      studentReviews: [
+        { stars: 5, text: "他直接把我推荐进了大院实习。简历上挂他名字，比什么都管用。" },
+        { stars: 4, text: "不会讲花哨的理论，但会告诉你'这根梁为什么不能这么做'。很实在。" },
+        { stars: 3, text: "常年不在学校，在工地。想见他得去现场，顺便被塞一顶安全帽。" },
+        { stars: 5, text: "他说：'学术是少数人的事，但吃饭是所有人的事。先把饭碗端稳。'" },
+      ],
+      quote: "推荐信没用——我直接给你介绍个人。你让他看看你的图。",
+      personality: "务实 / 直接 / 师傅做派 / 行业资源雄厚 / 不搞虚的 / 极其护学生就业",
+    },
   },
   {
     id: "overseas",
     image: "./assets/visuals/mentors/global-scholar.webp",
-    name: "海龟青年学者",
+    // 名字池重组自有海外背景的学者：
+    //   常彤 = 常青×张彤 / 张青 = 张彤×常青 / 庄惟 = 庄惟敏×常青 / 彤青 = 张彤×常青
+    name: "常彤",
+    namePool: ["常彤", "张青", "庄惟", "彤青"],
     title: "普林斯顿/AA 优秀归国博士",
     description: "带有鲜明的国际视野，关注叙事表达与跨学科研究。能极大提升你的英语水平与表达逻辑，并利用其海外背景缓解你的年龄焦虑。",
     emoji: "✈️",
     bonuses: { english: 15, expression: 12, network: 5, ageAnxiety: -5 },
+    profile: {
+      personalInfo: [
+        { label: "出生年份", value: "1985" },
+        { label: "籍贯", value: "上海" },
+        { label: "职称", value: "副教授 / 博士生导师" },
+        { label: "所在单位", value: "东南大学建筑学院（海归引进人才）" },
+        { label: "办公室", value: "建筑科研楼 1801（极简风，墙上挂一张威尼斯双年展海报）" },
+        { label: "联系方式", value: "c.t@seu.arch.edu.cn（中英文均可）" },
+      ],
+      education: [
+        { period: "2003 — 2007", desc: "同济大学建筑学本科（实验班）" },
+        { period: "2007 — 2009", desc: "英国 AA 建筑联盟学院 硕士" },
+        { period: "2009 — 2014", desc: "美国普林斯顿大学 建筑学博士" },
+        { period: "2014 — 2016", desc: "美国哈佛大学 GSD 访问学者" },
+      ],
+      experience: [
+        { period: "2016 — 2020", desc: "东南大学建筑学院 副教授（海归引进）" },
+        { period: "2020 — 至今", desc: "博导；主持跨学科研究组「Narrative × Space」" },
+      ],
+      research: [
+        "建筑叙事学与空间认知",
+        "跨学科设计方法论（建筑 × 电影 × 哲学）",
+        "当代中国建筑的国际化表达",
+        "数字人文与建筑批评",
+      ],
+      works: [
+        "Narrative Architecture: A Cross-Disciplinary Approach —— Routledge, 2021",
+        "《空间的叙事：当代中国建筑的国际化表达》——同济大学出版社，2020",
+        "策展：中国新生代建筑师巡展（2022，威尼斯、上海、北京）",
+        "TEDx 演讲：What Buildings Don't Say（2021，播放量 80 万+）",
+      ],
+      awards: [
+        "普林斯顿大学优秀博士论文奖（2014）",
+        "中国建筑学会青年建筑师学者奖（2019）",
+        "AD 100 中国新生代思想者榜单（2022）",
+        "入选国家级青年人才计划（2023）",
+      ],
+      studentReviews: [
+        { stars: 5, text: "英文组会，英文改论文，英文答辩。跟他三年，我雅思裸考 7.5。" },
+        { stars: 4, text: "说话像写论文，每句都带定语从句。习惯了之后发现自己也会这么说话。" },
+        { stars: 5, text: "他从不说'你应该'，只说'你可以尝试'。这种尊重让人很舒服。" },
+        { stars: 3, text: "太年轻了，走在校园里常被误认为博士生。学术品味偏先锋，传统方向慎选。" },
+      ],
+      quote: "建筑是一种语言——问题在于，你想说哪种方言？还是想学会世界语？",
+      personality: "温和 / 知性 / 国际视野 / 年轻有为 / 尊重学生 / 学术品味先锋",
+    },
   },
 ];
 
@@ -2865,7 +3132,7 @@ function DecisionStatusRail({
           <p className="mb-3 text-[10px] tracking-[0.22em]" style={{ color: textSecondary }}>CURRENT MENTOR</p>
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-full border text-xl" style={{ borderColor: border, background: "rgba(255,255,255,0.04)" }}>{mentor.emoji}</div>
-            <div className="min-w-0"><p className="text-[11px]" style={{ color: textSecondary }}>当前导师</p><p className="truncate text-[15px] font-semibold" style={{ color: textPrimary }}>{mentor.name}</p></div>
+            <div className="min-w-0"><p className="text-[11px]" style={{ color: textSecondary }}>当前导师</p><p className="truncate text-[15px] font-semibold" style={{ color: textPrimary }}>{mentorDisplayName(mentor)}</p></div>
           </div>
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs" style={{ color: textSecondary }}>好感度</span>
@@ -3273,6 +3540,7 @@ export function GamePage() {
   const [activeCampusEvent, setActiveCampusEvent] = useState<CampusEvent | null>(null);
   const [campusEventResult, setCampusEventResult] = useState<{ success: boolean; narrative: string } | null>(null);
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(new Set());
+  const [actionMemory, setActionMemory] = useState<ActionMemory>(createActionMemory);
   const [seenCampusIds, setSeenCampusIds] = useState<Set<string>>(new Set());
   const [chosenAction, setChosenAction] = useState<Action | null>(null);
   const [actionDelta, setActionDelta] = useState<Partial<Stats>>({});
@@ -3286,6 +3554,13 @@ export function GamePage() {
   const [desktopGameSection, setDesktopGameSection] = useState<DesktopGameSection>("map");
   const [playerNameInput, setPlayerNameInput] = useState("");
   const [playerNameError, setPlayerNameError] = useState("");
+  // 导师选择流程：选中后先确认名字，再正式进入游戏
+  const [pendingMentor, setPendingMentor] = useState<Mentor | null>(null);
+  const [mentorNameInput, setMentorNameInput] = useState("");
+  // 每次进入导师选择页时，为 4 个导师各随机抽一个名字（稳定到离开该页为止）
+  const [rolledMentorNames, setRolledMentorNames] = useState<Record<string, string>>({});
+  // 简历查看：存当前展开简历的 mentorId
+  const [resumeMentorId, setResumeMentorId] = useState<string | null>(null);
   const [selectedEventBranch, setSelectedEventBranch] = useState<EventBranchOption | null>(null);
   const [isCustomEventActionOpen, setIsCustomEventActionOpen] = useState(false);
   const [customEventAction, setCustomEventAction] = useState("");
@@ -3341,6 +3616,20 @@ export function GamePage() {
 
   useEffect(() => () => customEventEvaluationAbortRef.current?.abort(), []);
 
+  // 进入导师选择页时，为每个导师从 namePool 随机命中一个名字
+  useEffect(() => {
+    if (phase !== "mentor_choice") return;
+    const rolled: Record<string, string> = {};
+    for (const m of MENTORS) {
+      const pool = m.namePool.length > 0 ? m.namePool : [m.name];
+      rolled[m.id] = pool[Math.floor(Math.random() * pool.length)];
+    }
+    setRolledMentorNames(rolled);
+    // 清空上次的 pending
+    setPendingMentor(null);
+    setMentorNameInput("");
+  }, [phase]);
+
   // 兼容旧存档：同一轮投递只能接受一份实习 Offer。
   useEffect(() => {
     const accepted = currentInternshipUpdates.filter((item) => item.status === "accepted");
@@ -3389,6 +3678,7 @@ export function GamePage() {
     pastInternships, currentOfferedInternships, selectedInternshipIds, internshipChannel,
     internshipApplications, currentInternshipUpdates, internshipApplicationFeedback, offerBuffs,
     isResumeOpen, receivedOffers,
+    actionMemory,
   }), [
     phase, character, stats, mentor, semester, round,
     currentEvent, activeCampusEvent, campusEventResult,
@@ -3399,6 +3689,7 @@ export function GamePage() {
     pastInternships, currentOfferedInternships, selectedInternshipIds, internshipChannel,
     internshipApplications, currentInternshipUpdates, internshipApplicationFeedback, offerBuffs,
     isResumeOpen, receivedOffers,
+    actionMemory,
   ]);
 
   const restoreGameState = useCallback((data: Record<string, any>) => {
@@ -3423,6 +3714,7 @@ export function GamePage() {
     setActiveCampusEvent(CAMPUS_EVENTS.find((item) => item.id === data.activeCampusEvent?.id) ?? data.activeCampusEvent ?? null);
     setCampusEventResult(data.campusEventResult ?? null);
     setSeenEventIds(new Set(Array.isArray(data.seenEventIds) ? data.seenEventIds : []));
+    setActionMemory(data.actionMemory && typeof data.actionMemory === "object" ? data.actionMemory : createActionMemory());
     setSeenCampusIds(new Set(Array.isArray(data.seenCampusIds) ? data.seenCampusIds : []));
     setChosenAction(ACTIONS.find((item) => item.id === data.chosenAction?.id) ?? data.chosenAction ?? null);
     setActionDelta(data.actionDelta ?? {});
@@ -3526,6 +3818,37 @@ export function GamePage() {
     setLocalSaveSlots(readLocalSaveSlotSummaries());
     setLocalSaveFeedback(`存档 ${slotIndex + 1} 已删除`);
   }, []);
+
+  // === 埋点 game_quit：监听页面隐藏/关闭，记录退出点 ===
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        // 只在未到达结局时记录"中途退出"
+        if (phase !== "ending") {
+          const turnIndex = stats ? (semester - 1) * 4 + (round - 1) : null;
+          tracker.track("game_quit", {
+            last_phase: phase,
+            last_turn_index: turnIndex,
+            quit_reason: "tab_hidden",
+            stats_at_quit: stats,
+          }, {
+            turnIndex,
+            semester,
+            round,
+            phase,
+            statsSnapshot: stats,
+          });
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pagehide", handleVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pagehide", handleVisibility);
+    };
+  }, [phase, semester, round, stats]);
+
   // 监听结局状态，提交数据并获取统计
   useEffect(() => {
     if (phase === "ending" && ending && !hasSubmittedResult) {
@@ -3661,6 +3984,13 @@ export function GamePage() {
       return;
     }
     const { character: c, stats: s } = generateCharacter(normalizedName);
+    // === 埋点 game_start ===
+    tracker.startNewGame();
+    tracker.track("game_start", {
+      entry_source: document.referrer ? "external" : "direct",
+      is_returning_player: localStorage.getItem("tracker_anonymous_id") !== null,
+      name_length: normalizedName.length,
+    }, { phase: "intro" });
     setPlayerNameInput(normalizedName);
     setPlayerNameError("");
     setCharacter(c);
@@ -3669,12 +3999,27 @@ export function GamePage() {
     setRound(1);
     setSeenEventIds(new Set());
     setSeenCampusIds(new Set());
+    setActionMemory(createActionMemory());
     setPhase("chargen");
   }, [playerNameInput]);
 
   const confirmCharacter = useCallback(() => {
+    // === 埋点 character_confirm ===
+    if (character && stats) {
+      tracker.track("character_confirm", {
+        name_length: character.name.length,
+        tier: TIER_LABELS[character.masterTier] ?? `tier_${character.masterTier}`,
+        undergrad_school: character.undergradSchool,
+        master_school: character.masterSchool,
+        is_overseas: character.isOverseas,
+        init_stats: stats,
+      }, {
+        phase: "chargen",
+        statsSnapshot: stats,
+      });
+    }
     setPhase("mentor_choice");
-  }, []);
+  }, [character, stats]);
 
   const updateInternshipDetails = useCallback((internshipId: string, updates: InternshipEditableDetails) => {
     setPastInternships((previous) => previous.map((internship) => (
@@ -3696,32 +4041,52 @@ export function GamePage() {
         setPhase("action_choice");
         return;
       }
-      const availableEvents = EVENTS.filter(
-        (e) => !seen.has(e.id) && (!e.condition || e.condition({ stats: currentStats, isOverseas: character?.isOverseas || false, semester: sem }))
+      const causalStats: CausalStats = currentStats;
+      const ev = getCausalEvent(
+        EVENTS,
+        seen,
+        causalStats,
+        actionMemory,
+        { isOverseas: character?.isOverseas || false, semester: sem },
       );
-      if (availableEvents.length === 0) {
+      if (!ev) {
         setPhase("action_choice");
       } else {
-        const ev = pick(availableEvents);
         setCurrentEvent(ev);
         setPhase("event_view");
       }
     },
-    [character]
+    [character, actionMemory]
   );
 
   const selectMentor = useCallback(
-    (m: Mentor) => {
+    (m: Mentor, customName?: string) => {
       if (!stats) return;
-      setMentor(m);
+      const finalMentor: Mentor = { ...m };
+      if (customName && customName.trim()) {
+        finalMentor.customName = customName.trim().slice(0, 12);
+      }
+      // 把随机命中的名字落到 mentor.name，保证存档/显示一致
+      const rolled = rolledMentorNames[m.id];
+      if (rolled && !finalMentor.customName) {
+        finalMentor.name = rolled;
+      }
+      setMentor(finalMentor);
       const { newStats } = applyEffects(stats, m.bonuses);
       setStats(newStats);
       maybeShowEvent(newStats, 1, new Set());
       setShowTutorial(true);
       setTutorialStep(0);
       setDesktopGameSection("map");
+      // === 埋点 mentor_select ===
+      tracker.track("mentor_select", {
+        mentor_id: m.id,
+        mentor_name: finalMentor.name,
+        mentor_custom_name: finalMentor.customName ?? null,
+      }, { phase: "mentor_choice" });
+      tracker.setContext({ turnIndex: 0, semester: 1, round: 1, phase: "event_view" });
     },
-    [stats, maybeShowEvent]
+    [stats, maybeShowEvent, rolledMentorNames]
   );
 
   // 角色确认后，进入第一回合（先判断事件）
@@ -3742,6 +4107,18 @@ export function GamePage() {
     setStats(newStats);
     setEventDelta(delta);
     setSelectedEventBranch(branch);
+
+    // 行为记忆：记录事件结算（更新节奏因子 / 锁定必触发标记）
+    setActionMemory((prev) => {
+      const meta = EVENT_META[currentEvent.id];
+      const theme = meta?.theme ?? "growth";
+      const mood = meta?.mood ?? (currentEvent.type ?? "positive");
+      let next = recordEventOutcome(prev, currentEvent.id, theme, mood);
+      if (isGuaranteedHit(currentEvent.id, prev, newStats, semester)) {
+        next = markGuaranteedTriggered(next, currentEvent.id);
+      }
+      return next;
+    });
 
     // 特殊事件仍保留原有的名牌厂加成。
     if (currentEvent.id === "e45") {
@@ -3830,9 +4207,20 @@ export function GamePage() {
     const { newStats, delta } = applyEffects(stats, currentEvent.effects);
     setStats(newStats);
     setEventDelta(delta);
+    // 行为记忆：旧式无分支事件也要结算
+    setActionMemory((prev) => {
+      const meta = EVENT_META[currentEvent.id];
+      const theme = meta?.theme ?? "growth";
+      const mood = meta?.mood ?? (currentEvent.type ?? "positive");
+      let next = recordEventOutcome(prev, currentEvent.id, theme, mood);
+      if (isGuaranteedHit(currentEvent.id, prev, newStats, semester)) {
+        next = markGuaranteedTriggered(next, currentEvent.id);
+      }
+      return next;
+    });
     setPhase("action_choice");
     setDesktopGameSection("map");
-  }, [currentEvent, stats, seenEventIds, selectedEventBranch]);
+  }, [currentEvent, stats, seenEventIds, selectedEventBranch, semester]);
 
   // 玩家选择行动
   const chooseAction = useCallback(
@@ -3846,6 +4234,24 @@ export function GamePage() {
       }
       if (!stats) return;
       const { newStats, delta } = applyEffects(stats, action.effects);
+      // === 埋点 action_choose ===
+      const currentTurnIndex = (semester - 1) * 4 + (round - 1);
+      tracker.track("action_choose", {
+        action_id: action.id,
+        action_label: action.label,
+        stats_before: stats,
+      }, {
+        turnIndex: currentTurnIndex,
+        semester,
+        round,
+        phase: "action_choice",
+        statsSnapshot: stats,
+      });
+      // 行为记忆：记录玩家本次选择（用于事件权重）
+      setActionMemory((prev) => {
+        const next = recordAction(prev, action.id as ActionId);
+        return recordMentorBetrayal(next, stats.mentorFavorability, newStats.mentorFavorability);
+      });
       setStats(newStats);
       setChosenAction(action);
       setActionDelta(delta);
@@ -3949,6 +4355,13 @@ export function GamePage() {
     if (statsAfterPassive.mentorFavorability <= 0) {
       const expelledEnding = ENDINGS.find(e => e.id === "expelled");
       if (expelledEnding) setEnding(expelledEnding);
+      // === 埋点 ending_reach（提前结局：导师好感清零）===
+      tracker.track("ending_reach", {
+        ending_id: "expelled", ending_title: expelledEnding?.title ?? "退学",
+        is_early_ending: true, early_trigger_reason: "mentor_zero",
+        ending_turn_index: totalRound - 1, final_stats: statsAfterPassive,
+        offer_name: null, internship_count: internshipApplications.length,
+      }, { phase: "ending", statsSnapshot: statsAfterPassive });
       setPhase("ending");
       return;
     }
@@ -3956,6 +4369,13 @@ export function GamePage() {
     if (statsAfterPassive.selfDoubt >= 100) {
       const selfDoubtEnding = ENDINGS.find(e => e.id === "self_doubt_quit");
       if (selfDoubtEnding) setEnding(selfDoubtEnding);
+      // === 埋点 ending_reach（提前结局：自我怀疑爆表）===
+      tracker.track("ending_reach", {
+        ending_id: "self_doubt_quit", ending_title: selfDoubtEnding?.title ?? "自我怀疑",
+        is_early_ending: true, early_trigger_reason: "self_doubt_max",
+        ending_turn_index: totalRound - 1, final_stats: statsAfterPassive,
+        offer_name: null, internship_count: internshipApplications.length,
+      }, { phase: "ending", statsSnapshot: statsAfterPassive });
       setPhase("ending");
       return;
     }
@@ -3963,6 +4383,13 @@ export function GamePage() {
     if (statsAfterPassive.ageAnxiety >= 100) {
       const ageAnxietyEnding = ENDINGS.find(e => e.id === "age_anxiety_pivot");
       if (ageAnxietyEnding) setEnding(ageAnxietyEnding);
+      // === 埋点 ending_reach（提前结局：年龄焦虑爆表）===
+      tracker.track("ending_reach", {
+        ending_id: "age_anxiety_pivot", ending_title: ageAnxietyEnding?.title ?? "年龄焦虑",
+        is_early_ending: true, early_trigger_reason: "age_anxiety_max",
+        ending_turn_index: totalRound - 1, final_stats: statsAfterPassive,
+        offer_name: null, internship_count: internshipApplications.length,
+      }, { phase: "ending", statsSnapshot: statsAfterPassive });
       setPhase("ending");
       return;
     }
@@ -3970,6 +4397,13 @@ export function GamePage() {
     if (statsAfterPassive.stress <= 0) {
       const stressEnding = ENDINGS.find(e => e.id === "stress_breakdown");
       if (stressEnding) setEnding(stressEnding);
+      // === 埋点 ending_reach（提前结局：压力归零）===
+      tracker.track("ending_reach", {
+        ending_id: "stress_breakdown", ending_title: stressEnding?.title ?? "压力崩溃",
+        is_early_ending: true, early_trigger_reason: "stress_zero",
+        ending_turn_index: totalRound - 1, final_stats: statsAfterPassive,
+        offer_name: null, internship_count: internshipApplications.length,
+      }, { phase: "ending", statsSnapshot: statsAfterPassive });
       setPhase("ending");
       return;
     }
@@ -3982,10 +4416,28 @@ export function GamePage() {
 
     let nextSem = semester;
     let nextRd = round + 1;
-    if (nextRd > 4) { nextRd = 1; nextSem = semester + 1; }
+    if (nextRd > 4) {
+      nextRd = 1;
+      nextSem = semester + 1;
+      // 学期切换：清空本学期行为计数
+      setActionMemory((prev) => resetSemesterActions(prev));
+    }
     setSemester(nextSem);
     setRound(nextRd);
     setDesktopGameSection("map");
+
+    // === 埋点 round_complete（提前结局已由 return 分支处理，这里记录正常推进的回合）===
+    tracker.setContext({ turnIndex: nextRd - 1 + (nextSem - 1) * 4, semester: nextSem, round: nextRd });
+    tracker.track("round_complete", {
+      completed_turn_index: totalRound - 1, // 已完成的回合（0-based）
+      stats_snapshot: statsAfterPassive,
+    }, {
+      turnIndex: totalRound - 1,
+      semester,
+      round,
+      phase: "action_result",
+      statsSnapshot: statsAfterPassive,
+    });
 
     // 10% 概率弹出校招/特招事件 (不在第一学期)
     if (nextSem >= 2 && Math.random() < 0.15) {
@@ -4270,6 +4722,11 @@ export function GamePage() {
 
   // 重新开始
   const resetGame = useCallback(() => {
+    // === 埋点 game_reset ===
+    tracker.track("game_reset", {
+      reset_phase: "ending",
+      final_ending_id: ending?.id ?? null,
+    });
     localStorage.removeItem(STORAGE_KEY);
     setPhase("intro");
     setCharacter(null);
@@ -4290,6 +4747,7 @@ export function GamePage() {
     setCurrentEvent(null);
     setSeenEventIds(new Set());
     setSeenCampusIds(new Set());
+    setActionMemory(createActionMemory());
     setPastInternships([]);
     setCurrentOfferedInternships([]);
     setSelectedInternshipIds([]);
@@ -4322,7 +4780,8 @@ export function GamePage() {
     setLocalSaveUpdatedAt(null);
     setLocalSaveFeedback("");
     setDesktopGameSection("map");
-  }, []);
+    tracker.startNewGame();
+  }, [ending]);
 
   // ── 渲染：进度显示
   const totalRound = (semester - 1) * 4 + round;
@@ -4578,6 +5037,12 @@ export function GamePage() {
 
   // ── 导师选择页
   if (phase === "mentor_choice" && character && stats) {
+    const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+      <div>
+        <h4 className="text-[11px] uppercase tracking-[0.2em] mb-2.5" style={{ color: "#c9a84c" }}>{title}</h4>
+        {children}
+      </div>
+    );
     return (
       <div
         style={{
@@ -4596,27 +5061,51 @@ export function GamePage() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {MENTORS.map((m) => (
-              <button
+            {MENTORS.map((m) => {
+              const isSelected = pendingMentor?.id === m.id;
+              const rolledName = rolledMentorNames[m.id] ?? m.name;
+              return (
+              <div
                 key={m.id}
-                type="button"
-                onClick={() => selectMentor(m)}
-                className="group cursor-pointer overflow-hidden rounded-2xl p-0 text-left outline-none transition-all duration-300 hover:-translate-y-1 hover:border-[#c9a84c]/55 focus-visible:ring-2 focus-visible:ring-[#c9a84c]/55"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setPendingMentor(m);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setPendingMentor(m);
+                  }
+                }}
+                className="group relative cursor-pointer overflow-hidden rounded-2xl text-left outline-none transition-all duration-300 hover:-translate-y-1 hover:border-[#c9a84c]/55 focus-visible:ring-2 focus-visible:ring-[#c9a84c]/55"
                 style={{
                   backgroundColor: card,
-                  border: "1px solid " + border,
-                  boxShadow: "0 18px 45px rgba(0,0,0,0.28)",
+                  border: "1px solid " + (isSelected ? "#c9a84c" : border),
+                  boxShadow: isSelected ? "0 0 0 2px #c9a84c55, 0 18px 45px rgba(0,0,0,0.28)" : "0 18px 45px rgba(0,0,0,0.28)",
                 }}
               >
                 <div className="relative h-28 overflow-hidden">
                   <img src={m.image} alt="" className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-[1.025]" />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#070c1c]/25 to-[#070c1c]" />
+                  {isSelected && (
+                    <div className="absolute top-2 right-2 rounded-full bg-[#c9a84c] text-[#070c1c] text-[10px] font-bold px-2 py-0.5">已选中</div>
+                  )}
+                  {/* 查看简历按钮 */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setResumeMentorId(m.id); }}
+                    className="absolute bottom-2 right-2 rounded-full bg-black/50 backdrop-blur-sm text-white text-[10px] font-medium px-2.5 py-1 transition-colors hover:bg-[#c9a84c] hover:text-[#070c1c] flex items-center gap-1"
+                    title="查看导师简历"
+                  >
+                    📄 简历
+                  </button>
                 </div>
                 <div className="p-4">
                   <div className="mb-2.5 flex items-center gap-3">
                   <span className="text-2xl">{m.emoji}</span>
                   <div>
-                    <h3 className="text-[17px] font-bold" style={{ color: textPrimary }}>{m.name}</h3>
+                    <h3 className="text-[17px] font-bold" style={{ color: textPrimary }}>{rolledName}</h3>
                     <p className="text-[11px]" style={{ color: accent }}>{m.title}</p>
                   </div>
                 </div>
@@ -4636,9 +5125,197 @@ export function GamePage() {
                   })}
                   </div>
                 </div>
-              </button>
-            ))}
+              </div>
+              );
+            })}
           </div>
+
+          {/* 导师简历弹窗 */}
+          {resumeMentorId && (() => {
+            const m = MENTORS.find((x) => x.id === resumeMentorId);
+            if (!m) return null;
+            const displayName = rolledMentorNames[m.id] ?? m.name;
+            const p = m.profile;
+            return (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                style={{ backgroundColor: "rgba(0,0,0,0.72)" }}
+                onClick={() => setResumeMentorId(null)}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="relative w-full max-w-[560px] max-h-[88vh] overflow-y-auto rounded-2xl"
+                  style={{
+                    backgroundColor: "#0d1220",
+                    border: "1px solid #c9a84c44",
+                    boxShadow: "0 30px 80px rgba(0,0,0,0.6)",
+                  }}
+                >
+                  {/* 头部：封面 + 名字 */}
+                  <div className="relative h-28 overflow-hidden rounded-t-2xl">
+                    <img src={m.image} alt="" className="h-full w-full object-cover object-center opacity-70" />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0d1220] via-[#0d1220]/60 to-transparent" />
+                    <button
+                      type="button"
+                      onClick={() => setResumeMentorId(null)}
+                      className="absolute top-3 right-3 rounded-full bg-black/50 text-white w-8 h-8 flex items-center justify-center hover:bg-[#c9a84c] hover:text-[#070c1c] transition-colors"
+                    >
+                      ✕
+                    </button>
+                    <div className="absolute bottom-3 left-4 flex items-center gap-3">
+                      <span className="text-3xl">{m.emoji}</span>
+                      <div>
+                        <h2 className="text-xl font-bold" style={{ color: textPrimary }}>{displayName}</h2>
+                        <p className="text-[11px]" style={{ color: accent }}>{m.title}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 space-y-5">
+                    {/* 性格标签 */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] mt-0.5" style={{ color: textSecondary }}>性格</span>
+                      <p className="text-[12px] leading-relaxed flex-1" style={{ color: textPrimary }}>{p.personality}</p>
+                    </div>
+
+                    {/* 个人信息 */}
+                    <Section title="个人信息">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        {p.personalInfo.map((it) => (
+                          <div key={it.label} className="flex items-baseline gap-2 text-[12px]">
+                            <span className="shrink-0" style={{ color: textSecondary }}>{it.label}</span>
+                            <span className="text-right" style={{ color: textPrimary }}>{it.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+
+                    {/* 教育背景 */}
+                    <Section title="教育背景">
+                      <div className="space-y-2">
+                        {p.education.map((e, i) => (
+                          <div key={i} className="flex items-start gap-3 text-[12px]">
+                            <span className="shrink-0 font-mono text-[11px]" style={{ color: accent, minWidth: "92px" }}>{e.period}</span>
+                            <span style={{ color: textPrimary }}>{e.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+
+                    {/* 工作经历 */}
+                    <Section title="工作经历">
+                      <div className="space-y-2">
+                        {p.experience.map((e, i) => (
+                          <div key={i} className="flex items-start gap-3 text-[12px]">
+                            <span className="shrink-0 font-mono text-[11px]" style={{ color: accent, minWidth: "92px" }}>{e.period}</span>
+                            <span style={{ color: textPrimary }}>{e.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+
+                    {/* 研究方向 */}
+                    <Section title="研究方向">
+                      <div className="flex flex-wrap gap-1.5">
+                        {p.research.map((r, i) => (
+                          <span key={i} className="rounded-full px-2.5 py-1 text-[11px]" style={{ backgroundColor: "rgba(201,168,76,0.12)", color: "#e8d9a8", border: "1px solid rgba(201,168,76,0.2)" }}>
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                    </Section>
+
+                    {/* 代表作 */}
+                    <Section title="代表作品 / 课题">
+                      <ul className="space-y-1.5">
+                        {p.works.map((w, i) => (
+                          <li key={i} className="text-[12px] leading-relaxed pl-3 relative" style={{ color: textPrimary }}>
+                            <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#c9a84c" }} />
+                            {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </Section>
+
+                    {/* 获奖 */}
+                    <Section title="获奖与荣誉">
+                      <ul className="space-y-1.5">
+                        {p.awards.map((a, i) => (
+                          <li key={i} className="text-[12px] leading-relaxed pl-3 relative" style={{ color: textPrimary }}>
+                            <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#c9a84c" }} />
+                            {a}
+                          </li>
+                        ))}
+                      </ul>
+                    </Section>
+
+                    {/* 学生评价 */}
+                    <Section title="学生评价（匿名）">
+                      <div className="space-y-2.5">
+                        {p.studentReviews.map((r, i) => (
+                          <div key={i} className="rounded-lg p-3 text-[12px] leading-relaxed" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="flex items-center gap-1 mb-1.5">
+                              {[1,2,3,4,5].map((s) => (
+                                <span key={s} className={s <= r.stars ? "text-[#c9a84c]" : "text-[#444]"}>★</span>
+                              ))}
+                              <span className="ml-2 text-[10px]" style={{ color: textSecondary }}>匿名同学</span>
+                            </div>
+                            <p style={{ color: textPrimary }}>「{r.text}」</p>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+
+                    {/* 名言 */}
+                    <div className="rounded-xl p-4" style={{ backgroundColor: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.18)" }}>
+                      <p className="text-[13px] italic leading-relaxed text-center" style={{ color: "#e8d9a8", fontFamily: "'Noto Serif SC', serif" }}>
+                        「{p.quote}」
+                      </p>
+                      <p className="text-[10px] text-center mt-2" style={{ color: textSecondary }}>—— {displayName}</p>
+                    </div>
+
+                    {/* 底部操作 */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          selectMentor(m);
+                          setResumeMentorId(null);
+                        }}
+                        className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold transition-colors"
+                        style={{ backgroundColor: "#c9a84c", color: "#070c1c" }}
+                      >
+                        选这位导师 →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setResumeMentorId(null)}
+                        className="rounded-lg px-4 py-2.5 text-[13px] transition-colors"
+                        style={{ color: textSecondary, border: "1px solid " + border }}
+                      >
+                        关闭
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 选中后即时确认按钮 */}
+          {pendingMentor && (() => {
+            const rolledName = rolledMentorNames[pendingMentor.id] ?? pendingMentor.name;
+            return (
+              <button
+                type="button"
+                onClick={() => selectMentor(pendingMentor)}
+                className="mt-4 w-full rounded-xl py-3.5 text-[15px] font-bold transition-all hover:brightness-110"
+                style={{ backgroundColor: "#c9a84c", color: "#070c1c", boxShadow: "0 12px 36px rgba(201,168,76,0.35)" }}
+              >
+                确认选择「{rolledName}」→
+              </button>
+            );
+          })()}
           <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} />
         </div>
       </div>
@@ -4771,7 +5448,7 @@ export function GamePage() {
                   </div>
                   <div>
                     <p className="text-[11px] leading-none mb-1.5" style={{ color: textSecondary }}>当前导师</p>
-                    <p className="text-[14px] font-bold leading-none" style={{ color: textPrimary }}>{mentor.name}</p>
+                    <p className="text-[14px] font-bold leading-none" style={{ color: textPrimary }}>{mentorDisplayName(mentor)}</p>
                   </div>
                 </div>
                 <div>
@@ -5525,6 +6202,24 @@ export function GamePage() {
         }
       }
       const finalEnding = calculateEndingWithOffer(stats, selectedOfferId);
+      // === 埋点 ending_reach（正常结局，走 offer 选择）===
+      const selectedCompany = selectedOfferId ? COMPANIES.find((c) => c.id === selectedOfferId) : null;
+      tracker.track("ending_reach", {
+        ending_id: finalEnding.id,
+        ending_title: finalEnding.title,
+        is_early_ending: false,
+        early_trigger_reason: null,
+        ending_turn_index: 23,
+        final_stats: stats,
+        offer_name: selectedCompany?.name ?? null,
+        offer_id: selectedOfferId,
+        offer_level: selectedOfferId ? COMPANY_OFFER_META[selectedOfferId]?.level ?? null : null,
+        offer_count_total: qualified.length,
+        internship_count: internshipApplications.length,
+      }, {
+        phase: "offer_choice",
+        statsSnapshot: stats,
+      });
       setEnding(finalEnding);
       setPhase("ending");
     };
