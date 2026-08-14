@@ -3637,8 +3637,11 @@ export function GamePage() {
 
     const kept = accepted[0];
     const keptOption = INTERNSHIP_OPTIONS.find((item) => item.id === kept.internshipId);
+    // 只与「同一轮投递」的流程竞争，避免误伤其他学期/轮次已留痕的实习
     const competing = currentInternshipUpdates.filter((item) => (
-      item.id !== kept.id && (item.status === "accepted" || item.status === "offered" || item.status === "interview" || item.status === "interview_pending")
+      item.id !== kept.id
+      && item.submittedRound === kept.submittedRound
+      && (item.status === "accepted" || item.status === "offered" || item.status === "interview" || item.status === "interview_pending")
     ));
     if (competing.length === 0) return;
 
@@ -4630,11 +4633,15 @@ export function GamePage() {
     const option = application ? INTERNSHIP_OPTIONS.find((item) => item.id === application.internshipId) : null;
     if (!application || !option || application.status !== "offered") return;
 
-    const previouslyAccepted = internshipApplications.filter((item) => item.id !== applicationId && item.status === "accepted");
+    // 只与「同一轮投递」的其他流程竞争：不同学期/轮次接受的实习应全部留痕在简历
+    const sameRound = internshipApplications.filter(
+      (item) => item.id !== applicationId && item.submittedRound === application.submittedRound
+    );
+    const previouslyAccepted = sameRound.filter((item) => item.status === "accepted");
     const previouslyAcceptedInternshipIds = new Set(previouslyAccepted.map((item) => item.internshipId));
     const competingIds = new Set(
-      internshipApplications
-        .filter((item) => item.id !== applicationId && (
+      sameRound
+        .filter((item) => (
           item.status === "accepted"
           || item.status === "offered"
           || item.status === "interview"
