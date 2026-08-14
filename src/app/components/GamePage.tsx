@@ -32,6 +32,29 @@ import {
   type ComputerInterviewPreparation,
   type ComputerInterviewAnswer,
 } from "./DesktopGameSidebar";
+import type { SocialState, NPCReplyOption } from "../npc/types";
+import {
+  createEmptySocialState,
+  getBond,
+  pushNpcOpening,
+  applyPlayerReply,
+  markAllRead,
+  getMessagesFor,
+  unreadCountFor,
+  checkAllUnlocks,
+  greetNpc,
+  sendGreeting,
+  stageLabelFor,
+  // —— P0 对话树引擎 ——
+  getActiveReplyOptions,
+  advanceDialogue,
+  checkTreeTriggers,
+  resetChatsThisRound,
+} from "../npc/socialStore";
+import {
+  setProfessorDisplayName,
+  toneFromFavorability,
+} from "../npc/npcRegistry";
 
 // ================================================================
 // SECTION 1: 数据层（所有数组，方便后续扩展）
@@ -3541,6 +3564,11 @@ export function GamePage() {
   const [campusEventResult, setCampusEventResult] = useState<{ success: boolean; narrative: string } | null>(null);
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(new Set());
   const [actionMemory, setActionMemory] = useState<ActionMemory>(createActionMemory);
+  /** NPC 社交系统状态（本期新增，可独立清除而不影响其它存档） */
+  const [socialState, setSocialState] = useState<SocialState>(createEmptySocialState);
+  const [activeSocialNpcId, setActiveSocialNpcId] = useState<string>("professor");
+  const socialUnreadCount = unreadCountFor(socialState, activeSocialNpcId);
+  const socialMessages = getMessagesFor(socialState, activeSocialNpcId);
   const [seenCampusIds, setSeenCampusIds] = useState<Set<string>>(new Set());
   const [chosenAction, setChosenAction] = useState<Action | null>(null);
   const [actionDelta, setActionDelta] = useState<Partial<Stats>>({});
@@ -4075,6 +4103,46 @@ export function GamePage() {
         finalMentor.name = rolled;
       }
       setMentor(finalMentor);
+
+      // —— 社交系统初始化：同步 NPC 显示名 + 通过对话树触发开场白 ——
+      const displayName = (finalMentor.customName && finalMentor.customName.trim())
+        ? finalMentor.customName.trim()
+        : finalMentor.name;
+      setProfessorDisplayName(displayName);
+      setSocialState((prev) => {
+        // 初始化 professor bond，好感度沿用 bonuses 结算后的值
+        const { newStats } = applyEffects(stats, m.bonuses);
+        const initFavor = newStats.mentorFavorability ?? 30;
+        // 先建空 state + bond，然后用对话树引擎触发 prof_opening
+        const withBond: SocialState = {
+          ...prev,
+          bonds: {
+            ...prev.bonds,
+            professor: {
+              npcId: "professor",
+              favorability: initFavor,
+              messageIds: [],
+              anchorFlags: [],
+              lastInteractionRound: 0,
+              completedTreeIds: [],
+              activeTreeId: null,
+              activeNodeId: null,
+              pendingTreeIds: [],
+              chatsThisRound: 0,
+              milestoneFlags: [],
+              lastChatsResetRound: 0,
+            },
+          },
+        };
+        // 触发开场对话树（trigger.type="unlock" 会自动命中已解锁的 professor）
+        const triggered = checkTreeTriggers(withBond, {
+          semester: 1,
+          round: 1,
+          totalRound: 1,
+        });
+        return triggered.state;
+      });
+
       const { newStats } = applyEffects(stats, m.bonuses);
       setStats(newStats);
       maybeShowEvent(newStats, 1, new Set());
@@ -4091,6 +4159,64 @@ export function GamePage() {
     },
     [stats, maybeShowEvent, rolledMentorNames]
   );
+
+  /** 玩家在消息 Tab 选择回复当前 NPC —— 通过对话树引擎推进 */
+  const handleSocialReply = useCallback(
+    (option: NPCReplyOption) => {
+      const currentRound = (semester - 1) * 4 + round;
+      const targetNpcId = activeSocialNpcId;
+
+      // 应用 statEffects 的回调（对话树引擎会调用它）
+      const applyStatEffects = (effects: Record<string, number>) => {
+        setStats((prevStats) => {
+          if (!prevStats) return prevStats;
+          const next = { ...prevStats };
+          for (const [key, delta] of Object.entries(effects)) {
+            // 只更新 Stats 中存在的数值字段
+            if (key in next && typeof (next as Record<string, unknown>)[key] === "number") {
+              (next as Record<string, number>)[key] = Math.max(
+                0,
+                Math.min(100, ((next as Record<string, number>)[key] as number) + delta),
+              );
+            }
+          }
+          return next;
+        });
+      };
+
+      setSocialState((prev) =>
+        advanceDialogue(prev, targetNpcId, option.id, applyStatEffects, currentRound),
+      );
+
+      // 把好感度变化同步回 stats.mentorFavorability（仅对 professor）
+      if (targetNpcId === "professor" && option.favorDelta) {
+        setStats((prevStats) => {
+          if (!prevStats) return prevStats;
+          const currentFavor = socialState.bonds.professor?.favorability ?? prevStats.mentorFavorability;
+          const next = Math.max(0, Math.min(100, currentFavor + option.favorDelta));
+          return { ...prevStats, mentorFavorability: next };
+        });
+      }
+    },
+    [semester, round, activeSocialNpcId, socialState.bonds.professor?.favorability]
+  );
+
+  /** 进入消息 Tab 时标记当前 NPC 已读 */
+  const handleSocialMarkRead = useCallback(() => {
+    setSocialState((prev) => markAllRead(prev, activeSocialNpcId));
+  }, [activeSocialNpcId]);
+
+  /** 切换消息 Tab 中的 NPC */
+  const handleSocialSelectNpc = useCallback((npcId: string) => {
+    setActiveSocialNpcId(npcId);
+    setSocialState((prev) => markAllRead(prev, npcId));
+  }, []);
+
+  /** 在联系人 Tab 打招呼 */
+  const handleSocialGreeting = useCallback((npcId: string, customText?: string) => {
+    setSocialState((prev) => sendGreeting(prev, npcId, (semester - 1) * 4 + round, customText));
+    setActiveSocialNpcId(npcId);
+  }, [semester, round]);
 
   // 角色确认后，进入第一回合（先判断事件）
   const beginFirstRound = useCallback(() => {
@@ -4428,6 +4554,32 @@ export function GamePage() {
     setSemester(nextSem);
     setRound(nextRd);
     setDesktopGameSection("map");
+
+    // ── 社交系统：检查是否有新 NPC 解锁 + 对话树触发 ──
+    const nextTotalRound = (nextSem - 1) * 4 + nextRd;
+    setSocialState((prevSocial) => {
+      // 1. 先重置本回合聊天计数
+      let next = resetChatsThisRound(prevSocial, nextTotalRound);
+
+      // 2. 检查新解锁的 NPC
+      const newlyUnlocked = checkAllUnlocks(
+        { semester: nextSem, round: nextRd, totalRound: nextTotalRound },
+        next,
+      );
+      newlyUnlocked.forEach((npcId) => {
+        next = greetNpc(next, npcId, nextTotalRound);
+      });
+
+      // 3. 检查对话树触发（好感里程碑 + 按回合 + unlock 触发器）
+      const triggered = checkTreeTriggers(next, {
+        semester: nextSem,
+        round: nextRd,
+        totalRound: nextTotalRound,
+      });
+      next = triggered.state;
+
+      return next;
+    });
 
     // === 埋点 round_complete（提前结局已由 return 分支处理，这里记录正常推进的回合）===
     tracker.setContext({ turnIndex: nextRd - 1 + (nextSem - 1) * 4, semester: nextSem, round: nextRd });
@@ -6153,6 +6305,18 @@ export function GamePage() {
             onAcceptOffer={acceptInternshipOffer}
             onDeclineOffer={declineInternshipOffer}
             onClose={() => { setDesktopGameSection("map"); setActiveInterviewApplicationId(null); }}
+            socialState={socialState}
+            socialMessages={socialMessages}
+            socialReplyOptions={getActiveReplyOptions(socialState, activeSocialNpcId)}
+            activeNpcId={activeSocialNpcId}
+            professorName={mentorDisplayName(mentor)}
+            professorFavorability={socialState.bonds.professor?.favorability ?? stats?.mentorFavorability ?? 30}
+            socialUnlockContext={{ semester, round, totalRound: (semester - 1) * 4 + round }}
+            socialUnreadCount={socialUnreadCount}
+            onSocialReply={handleSocialReply}
+            onSocialMarkRead={handleSocialMarkRead}
+            onSocialSelectNpc={handleSocialSelectNpc}
+            onSocialGreeting={handleSocialGreeting}
           />
         )}
         {/* ─── 右侧：常驻简历 ─── */}

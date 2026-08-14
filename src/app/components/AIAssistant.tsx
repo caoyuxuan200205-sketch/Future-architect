@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from "react";
 import { X, Send, Bot, User, Loader2, Settings, Key, Monitor, MapPinned, BookOpenCheck, BriefcaseBusiness } from "lucide-react";
 import { searchKnowledge, localSearch } from "../../lib/knowledgeBase";
-import { askAssistant, ChatMessage } from "../../lib/llm";
+import { askAssistantStream, ChatMessage } from "../../lib/llm";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
 
 interface LocalChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
   retrievedSources?: any[];
+  /** 仅内部流式占位使用，不渲染 */
+  __streamId?: number;
 }
 
 interface AIAssistantProps {
@@ -165,7 +167,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
 
     const userQuery = input.trim();
     setInput("");
-    
+
     const currentMessages = activeTab === "game" ? gameMessages : realMessages;
     const setMessages = activeTab === "game" ? setGameMessages : setRealMessages;
 
@@ -173,31 +175,75 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
     setMessages(newMessages);
     setIsLoading(true);
 
+    // 用于流式过程中累积更新助手消息
+    const assistantPlaceholderId = Date.now();
+    let streamingText = "";
+    const updateStreamingAssistant = (text: string) => {
+      streamingText = text;
+      setMessages(prev => {
+        // 找到占位助手消息并替换
+        const idx = prev.findIndex(m => m.__streamId === assistantPlaceholderId);
+        if (idx < 0) return [...prev, { role: "assistant", content: text, __streamId: assistantPlaceholderId }];
+        const next = prev.slice();
+        next[idx] = { ...next[idx], content: text };
+        return next;
+      });
+    };
+
     try {
       let retrievedChunks = [];
       if (activeTab === "game") {
-        setLoadingText("建哥正在整理加点攻略...");
+        setLoadingText("🔍 正在检索游戏攻略知识库...");
         retrievedChunks = localSearch(userQuery, 10);
       } else {
-        setLoadingText("正在云端向量库检索避坑经验...");
+        setLoadingText("🔍 正在云端向量库检索避坑经验...");
         retrievedChunks = await searchKnowledge(userQuery, 10);
-        setLoadingText("建哥正在梳理真实的转行案例...");
+        setLoadingText("🔍 已检索到相关案例，正在准备提问...");
       }
-      
+
       // 2. 截取最近的几条历史记录传给大模型，避免上下文过长
       const chatHistoryForLLM = newMessages.slice(-5).map(m => ({
         role: m.role as "system" | "user" | "assistant",
         content: m.content
       }));
 
-      // 3. 请求大模型 (传入对应的 mode/tab)
-      const response = await askAssistant(userQuery, retrievedChunks, gameContext, chatHistoryForLLM, activeTab);
-      
-      setMessages(prev => [...prev, { role: "assistant", content: response, retrievedSources: retrievedChunks }]);
+      // 3. 请求大模型（流式）—— 首 token 到达后切换 loading 文案
+      setLoadingText("🧠 建哥正在思考...");
+      const abortController = new AbortController();
+      const response = await askAssistantStream(
+        userQuery,
+        retrievedChunks,
+        gameContext,
+        chatHistoryForLLM,
+        activeTab,
+        (token, fullText) => {
+          // 收到首 token 后切文案，提示用户正在输出
+          if (streamingText === "") setLoadingText("✍️ 建哥正在输出...");
+          updateStreamingAssistant(fullText);
+        },
+        abortController.signal,
+      );
+
+      // 流式结束后，把占位消息转成正式消息（清除 __streamId），并附加 retrievedSources
+      setMessages(prev => prev.map(m =>
+        m.__streamId === assistantPlaceholderId
+          ? { role: "assistant" as const, content: response || streamingText, retrievedSources: retrievedChunks }
+          : m
+      ));
     } catch (error) {
-      setMessages(prev => [...prev, { role: "assistant", content: "啊这...学长脑子突然短路了，稍后再试一下吧。" }]);
+      const errText = "啊这...学长脑子突然短路了，稍后再试一下吧。";
+      setMessages(prev => {
+        const idx = prev.findIndex(m => m.__streamId === assistantPlaceholderId);
+        if (idx >= 0) {
+          const next = prev.slice();
+          next[idx] = { role: "assistant" as const, content: errText };
+          return next;
+        }
+        return [...prev, { role: "assistant" as const, content: errText }];
+      });
     } finally {
       setIsLoading(false);
+      setLoadingText("");
     }
   };
 

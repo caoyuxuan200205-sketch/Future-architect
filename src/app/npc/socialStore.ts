@@ -1,0 +1,948 @@
+/**
+ * NPC 社交引擎：消息收发、话题触发、好感度结算
+ * 全部为纯函数，方便测试与回退
+ */
+import type {
+  SocialState,
+  NPCMessage,
+  NPCReplyOption,
+  NPCBondStatus,
+  UnlockContext,
+  DialogueTree,
+  DialogueOption,
+} from "./types";
+import {
+  NPC_REGISTRY,
+  toneFromFavorability,
+  PROFESSOR_FOLLOWUP_POOL,
+} from "./npcRegistry";
+import { DIALOGUE_TREES } from "./dialogueTrees";
+
+/**
+ * 打招呼彩蛋 · 冷却期文案（爆发后本回合再发 → 此回复）
+ * 每个 NPC 专属，体现角色个性。professor 文案保留原版。
+ */
+const GREETING_COOLDOWN_TEXT: Record<string, string> = {
+  professor:
+    "（导师没有回复。办公室的门关着，里面没有开灯。）",
+  lab_senior:
+    "（学姐把你的对话框关掉了。她在忙，显然没有再聊的意思。）",
+  peer:
+    "（张一帆没有回复。他大概在图书馆，没工夫理你。）",
+  college_friend:
+    "（顾小北没有回复。她可能觉得你今天有点不对劲。）",
+};
+
+/**
+ * 打招呼彩蛋 · 爆发前奏文案（第 5 次打招呼触发）
+ * professor 触发爆发对话树；其他 NPC 走通用愤怒表现但不触发对话树。
+ */
+const GREETING_STORM_START: Record<string, string> = {
+  professor:
+    "（导师没有回复。一分钟后，你收到了一条短信：「来我办公室。」）",
+  lab_senior:
+    "（学姐终于回复了，但只有三个字：「别发了。」接着她就再没出现过。）",
+  peer:
+    "（张一帆回了一句：「我今天不想说话，你别再发了。」说完直接把对话框关了。）",
+  college_friend:
+    "（顾小北发来一条语音，声音有点冷：「你今天怎么了？有事就说事，没事让我安静会儿好不好。」）",
+};
+
+let _msgCounter = 0;
+/** 生成全局唯一消息 id */
+function nextMsgId(): string {
+  _msgCounter += 1;
+  return `m_${Date.now().toString(36)}_${_msgCounter}`;
+}
+
+/** 生成 hh:mm 时间标签 */
+export function makeTimeLabel(date: Date = new Date()): string {
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+/** 创建一个空 SocialState */
+export function createEmptySocialState(): SocialState {
+  return {
+    bonds: {},
+    messages: {},
+    messageOrder: [],
+    firedOnce: {},
+  };
+}
+
+/** 取或初始化某个 NPC 的 bond status（纯函数，不突变 state） */
+export function getBond(
+  state: SocialState,
+  npcId: string,
+  initialFavorability = 30,
+  round = 0,
+): NPCBondStatus {
+  return state.bonds[npcId] ?? {
+    npcId,
+    favorability: initialFavorability,
+    messageIds: [],
+    anchorFlags: [],
+    lastInteractionRound: round,
+  };
+}
+
+/** 内部：插入一条消息并返回新 state（不可变更新） */
+function pushMessage(
+  state: SocialState,
+  msg: Omit<NPCMessage, "id">,
+): { state: SocialState; message: NPCMessage } {
+  const id = nextMsgId();
+  const message: NPCMessage = { ...msg, id };
+  const messages = { ...state.messages, [id]: message };
+  const messageOrder = [...state.messageOrder, id];
+  return {
+    state: { ...state, messages, messageOrder },
+    message,
+  };
+}
+
+/** 推一条 NPC 主动发起的消息（例如里程碑触发） */
+export function pushNpcOpening(
+  state: SocialState,
+  npcId: string,
+  text: string,
+  tone: NPCMessage["tone"],
+  round: number,
+): SocialState {
+  const bond = getBond(state, npcId);
+  const { state: next } = pushMessage(state, {
+    npcId,
+    from: "npc",
+    text,
+    tone,
+    round,
+    timeLabel: makeTimeLabel(),
+    read: false,
+  });
+  // 关联到 bond
+  const bondMsgIds = [...bond.messageIds, next.messageOrder[next.messageOrder.length - 1]];
+  return {
+    ...next,
+    bonds: {
+      ...next.bonds,
+      [npcId]: { ...bond, messageIds: bondMsgIds },
+    },
+  };
+}
+
+/**
+ * 玩家选择某个回复选项后的结算：
+ *   1. 推一条 player 消息
+ *   2. 结算好感度
+ *   3. （可选）推一条 NPC 回应消息
+ *   4. 标记已读
+ */
+export function applyPlayerReply(
+  state: SocialState,
+  npcId: string,
+  option: NPCReplyOption,
+  round: number,
+): SocialState {
+  const bond = getBond(state, npcId);
+  const newFavor = Math.max(0, Math.min(100, bond.favorability + option.favorDelta));
+
+  // 1. 玩家消息
+  const { state: s1, message: playerMsg } = pushMessage(state, {
+    npcId,
+    from: "player",
+    text: option.text,
+    round,
+    timeLabel: makeTimeLabel(),
+    read: true,
+  });
+
+  let next: SocialState = s1;
+
+  // 2. NPC 回应（如果有）
+  if (option.npcResponse) {
+    const tone = option.responseTone ?? toneFromFavorability(newFavor);
+    const { state: s2, message: npcMsg } = pushMessage(next, {
+      npcId,
+      from: "npc",
+      text: option.npcResponse,
+      tone,
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+    });
+    next = s2;
+  }
+
+  // 3. 更新 bond
+  const newMsgIds = [...bond.messageIds];
+  newMsgIds.push(playerMsg.id);
+  const lastMsgId = next.messageOrder[next.messageOrder.length - 1];
+  if (lastMsgId && !newMsgIds.includes(lastMsgId)) newMsgIds.push(lastMsgId);
+
+  return {
+    ...next,
+    bonds: {
+      ...next.bonds,
+      [npcId]: {
+        ...bond,
+        favorability: newFavor,
+        messageIds: newMsgIds,
+        lastInteractionRound: round,
+        anchorFlags: option.anchorFlag
+          ? [...new Set([...bond.anchorFlags, option.anchorFlag])]
+          : bond.anchorFlags,
+      },
+    },
+  };
+}
+
+/**
+ * 玩家主动发一条自由消息（不在选项里的"问候"）
+ * NPC 会根据当前好感返回一句日常消息
+ */
+export function pushFreeChat(
+  state: SocialState,
+  npcId: string,
+  text: string,
+  round: number,
+): SocialState {
+  const bond = getBond(state, npcId);
+  const tone = toneFromFavorability(bond.favorability);
+
+  // 玩家消息
+  const { state: s1, message: playerMsg } = pushMessage(state, {
+    npcId,
+    from: "player",
+    text,
+    round,
+    timeLabel: makeTimeLabel(),
+    read: true,
+  });
+
+  // NPC 日常回复（教授专用池；其他 NPC 用 awayText）
+  const pool = npcId === "professor" ? PROFESSOR_FOLLOWUP_POOL[tone] : undefined;
+  const reply = pool && pool.length > 0
+    ? pool[Math.floor(Math.random() * pool.length)]
+    : (NPC_REGISTRY[npcId]?.awayText ?? "…");
+
+  const { state: s2, message: npcMsg } = pushMessage(s1, {
+    npcId,
+    from: "npc",
+    text: reply,
+    tone,
+    round,
+    timeLabel: makeTimeLabel(),
+    read: false,
+  });
+
+  // 轻量好感扰动：±1
+  const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+  const newFavor = Math.max(0, Math.min(100, bond.favorability + drift));
+
+  return {
+    ...s2,
+    bonds: {
+      ...s2.bonds,
+      [npcId]: {
+        ...bond,
+        favorability: newFavor,
+        messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+        lastInteractionRound: round,
+      },
+    },
+  };
+}
+
+/** 把某个 NPC 的所有消息标为已读 */
+export function markAllRead(state: SocialState, npcId: string): SocialState {
+  const bond = getBond(state, npcId);
+  const messages = { ...state.messages };
+  for (const id of bond.messageIds) {
+    if (messages[id]) messages[id] = { ...messages[id], read: true };
+  }
+  return { ...state, messages };
+}
+
+/** 取某个 NPC 的所有消息（按时间顺序） */
+export function getMessagesFor(state: SocialState, npcId: string): NPCMessage[] {
+  const bond = state.bonds[npcId];
+  if (!bond) return [];
+  return bond.messageIds
+    .map((id) => state.messages[id])
+    .filter((m): m is NPCMessage => Boolean(m));
+}
+
+/** 统计某个 NPC 的未读消息数 */
+export function unreadCountFor(state: SocialState, npcId: string): number {
+  return getMessagesFor(state, npcId).filter((m) => !m.read && m.from === "npc").length;
+}
+
+/** 解锁条件注册表：npcId → 检查函数 */
+const UNLOCK_RULES: Record<string, (ctx: UnlockContext) => boolean> = {
+  peer: (ctx) => ctx.totalRound >= 2,
+  lab_senior: (ctx) => ctx.totalRound >= 3,
+  college_friend: (ctx) => ctx.totalRound >= 5,
+};
+
+/** 单个 NPC 是否已满足解锁条件（默认未配置的 NPC 视为不解锁） */
+export function checkNpcUnlock(npcId: string, ctx: UnlockContext): boolean {
+  const npc = NPC_REGISTRY[npcId];
+  if (!npc) return false;
+  if (npc.unlockedByDefault) return true;
+  const rule = UNLOCK_RULES[npcId];
+  return rule ? rule(ctx) : false;
+}
+
+/**
+ * 检查所有 NPC，返回**本次新解锁**的 npcId 列表
+ * 已存在于 socialState.bonds 中的 NPC 不会重复返回
+ */
+export function checkAllUnlocks(
+  ctx: UnlockContext,
+  state: SocialState,
+): string[] {
+  const newlyUnlocked: string[] = [];
+  for (const npcId of Object.keys(NPC_REGISTRY)) {
+    if (state.bonds[npcId]) continue; // 已经解锁过
+    if (checkNpcUnlock(npcId, ctx)) {
+      newlyUnlocked.push(npcId);
+    }
+  }
+  return newlyUnlocked;
+}
+
+/** 初始化某个 NPC 的 bond（用于解锁时） */
+export function initBond(
+  state: SocialState,
+  npcId: string,
+  initialFavorability = 30,
+  round = 0,
+): SocialState {
+  if (state.bonds[npcId]) return state;
+  return {
+    ...state,
+    bonds: {
+      ...state.bonds,
+      [npcId]: {
+        npcId,
+        favorability: initialFavorability,
+        messageIds: [],
+        anchorFlags: [],
+        lastInteractionRound: round,
+      },
+    },
+  };
+}
+
+/** 解锁 + 推送问候消息 */
+export function greetNpc(
+  state: SocialState,
+  npcId: string,
+  round: number,
+): SocialState {
+  const npc = NPC_REGISTRY[npcId];
+  if (!npc) return state;
+  const withBond = initBond(state, npcId, 30, round);
+  return pushNpcOpening(
+    withBond,
+    npcId,
+    npc.greeting,
+    toneFromFavorability(30),
+    round,
+  );
+}
+
+/** 玩家主动打招呼（轻量互动，+1 好感上限 30） */
+export function sendGreeting(
+  state: SocialState,
+  npcId: string,
+  round: number,
+  customText?: string,
+): SocialState {
+  const npc = NPC_REGISTRY[npcId];
+  if (!npc) return state;
+
+  const playerText = customText?.trim() || "（打了个招呼）";
+
+  const bond = getBond(state, npcId);
+  const totalRound = round;
+
+  // —— 本回合打招呼计数（每回合重置） ——
+  const greetingsThisRound =
+    bond.lastGreetingsResetRound === totalRound
+      ? (bond.greetingsThisRound ?? 0)
+      : 0;
+
+  // —— 激怒冷却：本回合已触发爆发，不再响应 ——
+  if (bond.enragedLocked && bond.lastGreetingsResetRound === totalRound) {
+    const { state: s1, message: playerMsg } = pushMessage(state, {
+      npcId,
+      from: "player",
+      text: playerText,
+      round,
+      timeLabel: makeTimeLabel(),
+      read: true,
+    });
+    const cooldownText = GREETING_COOLDOWN_TEXT[npcId] ?? GREETING_COOLDOWN_TEXT.professor;
+    const { state: s2 } = pushMessage(s1, {
+      npcId,
+      from: "npc",
+      text: cooldownText,
+      tone: "cold",
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+    });
+    return {
+      ...s2,
+      bonds: {
+        ...s2.bonds,
+        [npcId]: {
+          ...bond,
+          messageIds: [...bond.messageIds, playerMsg.id, s2.messageOrder[s2.messageOrder.length - 1]],
+        },
+      },
+    };
+  }
+
+  const nextCount = greetingsThisRound + 1;
+
+  // —— 阶梯式彩蛋反馈 ——
+  // 1-2 次：正常回复，+1 好感（上限 30）
+  // 3 次：不耐烦警告，不加好感
+  // 4 次：明确警告 -2 好感
+  // 5+ 次：触发爆发对话树，-10 好感，锁定
+
+  if (nextCount >= 5) {
+    // 触发爆发
+    const { state: s1, message: playerMsg } = pushMessage(state, {
+      npcId,
+      from: "player",
+      text: playerText,
+      round,
+      timeLabel: makeTimeLabel(),
+      read: true,
+    });
+
+    // 推一条 NPC 即时反应（爆发前的最后一根稻草）
+    const stormStart = GREETING_STORM_START[npcId] ?? GREETING_STORM_START.professor;
+    const { state: s2, message: npcMsg } = pushMessage(s1, {
+      npcId,
+      from: "npc",
+      text: stormStart,
+      tone: "cold",
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+    });
+
+    // -10 好感
+    const newFavor = Math.max(0, bond.favorability - 10);
+
+    // 更新 bond 并触发对话树
+    let next: SocialState = {
+      ...s2,
+      bonds: {
+        ...s2.bonds,
+        [npcId]: {
+          ...bond,
+          favorability: newFavor,
+          greetingsThisRound: nextCount,
+          lastGreetingsResetRound: totalRound,
+          enragedLocked: true,
+          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+          lastInteractionRound: round,
+        },
+      },
+    };
+
+    // 手动触发爆发对话树（目前只有 professor 有专属爆发树，其他 NPC 走通用冷淡文案）
+    if (npcId === "professor") {
+      next = triggerDialogueTree(next, "professor_storm_out", round);
+    }
+    return next;
+  }
+
+  // —— 4 次：明确警告 ——
+  if (nextCount === 4) {
+    const { state: s1, message: playerMsg } = pushMessage(state, {
+      npcId,
+      from: "player",
+      text: playerText,
+      round,
+      timeLabel: makeTimeLabel(),
+      read: true,
+    });
+    const stormText =
+      npcId === "professor"
+        ? "你又来？我现在手头有三个本子要看，没空陪你聊闲。有事说事，没事别再发了。"
+        : "（对方明显有点烦了：「你今天已经找过我好几次了，我在忙，改天再聊好吗？」）";
+    const { state: s2, message: npcMsg } = pushMessage(s1, {
+      npcId,
+      from: "npc",
+      text: stormText,
+      tone: "cold",
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+    });
+    const newFavor = Math.max(0, bond.favorability - 2);
+    return {
+      ...s2,
+      bonds: {
+        ...s2.bonds,
+        [npcId]: {
+          ...bond,
+          favorability: newFavor,
+          greetingsThisRound: nextCount,
+          lastGreetingsResetRound: totalRound,
+          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+          lastInteractionRound: round,
+        },
+      },
+    };
+  }
+
+  // —— 3 次：不耐烦警告 ——
+  if (nextCount === 3) {
+    const { state: s1, message: playerMsg } = pushMessage(state, {
+      npcId,
+      from: "player",
+      text: playerText,
+      round,
+      timeLabel: makeTimeLabel(),
+      read: true,
+    });
+    const annoyedText =
+      npcId === "professor"
+        ? "你今天找我几次了？有事就说，没事让我安静一会儿。"
+        : "（对方回得很敷衍：「嗯。」就没下文了。）";
+    const { state: s2, message: npcMsg } = pushMessage(s1, {
+      npcId,
+      from: "npc",
+      text: annoyedText,
+      tone: "cold",
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+    });
+    return {
+      ...s2,
+      bonds: {
+        ...s2.bonds,
+        [npcId]: {
+          ...bond,
+          greetingsThisRound: nextCount,
+          lastGreetingsResetRound: totalRound,
+          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+          lastInteractionRound: round,
+        },
+      },
+    };
+  }
+
+  // —— 1-2 次：正常回复 ——
+  const { state: s1, message: playerMsg } = pushMessage(state, {
+    npcId,
+    from: "player",
+    text: playerText,
+    round,
+    timeLabel: makeTimeLabel(),
+    read: true,
+  });
+
+  const reply = npc.awayText || "（对方已读，暂时没有回复。）";
+  const { state: s2, message: npcMsg } = pushMessage(s1, {
+    npcId,
+    from: "npc",
+    text: reply,
+    tone: toneFromFavorability(Math.min(bond.favorability, 30)),
+    round,
+    timeLabel: makeTimeLabel(),
+    read: false,
+  });
+
+  const newFavor = Math.min(30, bond.favorability + 1);
+  return {
+    ...s2,
+    bonds: {
+      ...s2.bonds,
+      [npcId]: {
+        ...bond,
+        favorability: newFavor,
+        greetingsThisRound: nextCount,
+        lastGreetingsResetRound: totalRound,
+        messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+        lastInteractionRound: round,
+      },
+    },
+  };
+}
+
+/** 根据好感度取关系阶段标签 */
+export function stageLabelFor(npcId: string, favorability: number): string {
+  const npc = NPC_REGISTRY[npcId];
+  if (!npc) return "陌生";
+  let label = npc.stageLabels[0]?.label ?? "陌生";
+  for (const stage of npc.stageLabels) {
+    if (favorability >= stage.min) label = stage.label;
+  }
+  return label;
+}
+
+// ================================================================
+// P0 对话树引擎（DialogueTree Engine）
+// ================================================================
+
+/** 取某 NPC 当前已挂载的对话树（可能在某个节点上等待玩家回复） */
+export function getActiveDialogue(state: SocialState, npcId: string): {
+  tree: DialogueTree | null;
+  node: DialogueTree["nodes"][string] | null;
+} {
+  const bond = state.bonds[npcId];
+  if (!bond || !bond.activeTreeId || !bond.activeNodeId) {
+    return { tree: null, node: null };
+  }
+  const tree = DIALOGUE_TREES[bond.activeTreeId];
+  if (!tree) return { tree: null, node: null };
+  const node = tree.nodes[bond.activeNodeId];
+  return { tree, node: node ?? null };
+}
+
+/** 取某 NPC 当前应该显示的回复选项（动态生成，不死循环） */
+export function getActiveReplyOptions(state: SocialState, npcId: string): NPCReplyOption[] {
+  const { node } = getActiveDialogue(state, npcId);
+  if (!node) return [];
+  // 将 DialogueOption 转换为兼容现有 UI 的 NPCReplyOption
+  return node.options.map((opt) => ({
+    id: opt.id,
+    text: opt.text,
+    favorDelta: opt.favorDelta ?? 0,
+    npcResponse: undefined, // 回应由 advanceDialogue 单独推一条消息
+    responseTone: opt.responseTone,
+    anchorFlag: opt.setAnchorFlags?.[0],
+  }));
+}
+
+/**
+ * 触发一棵对话树：推首节点 NPC 消息，设置 activeTreeId/activeNodeId
+ * 如果该 NPC 已有 activeTreeId，则挂入 pendingTreeIds（不覆盖进行中的对话）
+ */
+export function triggerDialogueTree(
+  state: SocialState,
+  treeId: string,
+  round: number,
+): SocialState {
+  const tree = DIALOGUE_TREES[treeId];
+  if (!tree) return state;
+
+  const npcId = tree.npcId;
+  let bond = getBond(state, npcId);
+
+  // oneShot 已完成则跳过
+  if (tree.oneShot !== false && (bond.completedTreeIds ?? []).includes(treeId)) {
+    return state;
+  }
+
+  // 已经是 active 树则跳过
+  if (bond.activeTreeId === treeId) return state;
+
+  // 如果当前 NPC 正在别的对话中，则放入 pending
+  if (bond.activeTreeId) {
+    const pending = bond.pendingTreeIds ?? [];
+    if (pending.includes(treeId)) return state;
+    return {
+      ...state,
+      bonds: {
+        ...state.bonds,
+        [npcId]: { ...bond, pendingTreeIds: [...pending, treeId] },
+      },
+    };
+  }
+
+  // 推首节点 NPC 消息
+  const startNode = tree.nodes[tree.startNodeId];
+  if (!startNode) return state;
+
+  const withBond = initBond(state, npcId, 30, round);
+  bond = getBond(withBond, npcId);
+
+  const { state: next, message } = pushMessage(withBond, {
+    npcId,
+    from: "npc",
+    text: startNode.npcMessage,
+    tone: startNode.tone,
+    round,
+    timeLabel: makeTimeLabel(),
+    read: false,
+  });
+
+  return {
+    ...next,
+    bonds: {
+      ...next.bonds,
+      [npcId]: {
+        ...bond,
+        activeTreeId: treeId,
+        activeNodeId: tree.startNodeId,
+        messageIds: [...bond.messageIds, message.id],
+        lastInteractionRound: round,
+      },
+    },
+  };
+}
+
+/**
+ * 玩家选择某个选项后推进对话：
+ *   1. 推玩家消息
+ *   2. 结算好感、设置 anchorFlags、应用 statEffects
+ *   3. 若有 nextNodeId → 推下一个节点的 NPC 发言，更新 activeNodeId
+ *   4. 若无 nextNodeId → 结束对话（清空 activeTreeId，加入 completedTreeIds）
+ *   5. 若对话结束且有 pendingTreeIds，自动挂载下一个
+ */
+export function advanceDialogue(
+  state: SocialState,
+  npcId: string,
+  optionId: string,
+  applyStatEffects: (effects: Record<string, number>) => void,
+  round: number,
+): SocialState {
+  const bond = getBond(state, npcId);
+  if (!bond.activeTreeId || !bond.activeNodeId) return state;
+
+  const tree = DIALOGUE_TREES[bond.activeTreeId];
+  if (!tree) return state;
+  const currentNode = tree.nodes[bond.activeNodeId];
+  if (!currentNode) return state;
+  const option = currentNode.options.find((o) => o.id === optionId);
+  if (!option) return state;
+
+  // 1. 推玩家消息
+  const { state: s1, message: playerMsg } = pushMessage(state, {
+    npcId,
+    from: "player",
+    text: option.text,
+    round,
+    timeLabel: makeTimeLabel(),
+    read: true,
+  });
+
+  // 2. 应用 statEffects
+  if (option.statEffects && Object.keys(option.statEffects).length > 0) {
+    applyStatEffects(option.statEffects);
+  }
+
+  // 3. 更新好感度
+  const newFavor = Math.max(
+    0,
+    Math.min(100, bond.favorability + (option.favorDelta ?? 0)),
+  );
+
+  // 4. 合并 anchorFlags
+  const newAnchors = option.setAnchorFlags
+    ? Array.from(new Set([...(bond.anchorFlags ?? []), ...option.setAnchorFlags]))
+    : (bond.anchorFlags ?? []);
+
+  // 5. 判断是否结束对话
+  let next: SocialState = s1;
+  let newActiveTreeId = bond.activeTreeId;
+  let newActiveNodeId: string | null = bond.activeNodeId;
+  let newCompleted = bond.completedTreeIds ?? [];
+
+  if (!option.nextNodeId) {
+    // 对话结束
+    newActiveTreeId = null;
+    newActiveNodeId = null;
+    if (tree.oneShot !== false) {
+      newCompleted = Array.from(new Set([...newCompleted, bond.activeTreeId!]));
+    }
+  } else {
+    // 推下一节点 NPC 消息
+    const nextNode = tree.nodes[option.nextNodeId];
+    if (nextNode) {
+      const { state: s2, message: npcMsg } = pushMessage(next, {
+        npcId,
+        from: "npc",
+        text: nextNode.npcMessage,
+        tone: nextNode.tone ?? option.responseTone,
+        round,
+        timeLabel: makeTimeLabel(),
+        read: false,
+      });
+      next = s2;
+      newActiveNodeId = option.nextNodeId;
+    } else {
+      // 配置错误：nextNodeId 指向不存在的节点，按结束处理
+      newActiveTreeId = null;
+      newActiveNodeId = null;
+    }
+  }
+
+  // 6. 更新 bond
+  const chatsThisRound = (bond.chatsThisRound ?? 0) + 1;
+  // 收集本轮新增的消息 id（玩家消息 + 可能的 NPC 下节点消息），按推送顺序
+  const existingIds = next.bonds[npcId]?.messageIds ?? [];
+  const appendedIds: string[] = [];
+  if (!existingIds.includes(playerMsg.id)) appendedIds.push(playerMsg.id);
+  // 若上面推过 NPC 下节点消息，那条消息 id 是 messageOrder 最后一条
+  const lastOrder = next.messageOrder[next.messageOrder.length - 1];
+  if (
+    option.nextNodeId &&
+    lastOrder &&
+    lastOrder !== playerMsg.id &&
+    !existingIds.includes(lastOrder) &&
+    !appendedIds.includes(lastOrder)
+  ) {
+    appendedIds.push(lastOrder);
+  }
+
+  next = {
+    ...next,
+    bonds: {
+      ...next.bonds,
+      [npcId]: {
+        ...next.bonds[npcId],
+        favorability: newFavor,
+        anchorFlags: newAnchors,
+        messageIds: [...existingIds, ...appendedIds],
+        activeTreeId: newActiveTreeId,
+        activeNodeId: newActiveNodeId,
+        completedTreeIds: newCompleted,
+        chatsThisRound,
+        lastInteractionRound: round,
+      },
+    },
+  };
+
+  // 7. 若对话结束且有 pending，自动触发第一个 pending
+  if (!newActiveTreeId && (next.bonds[npcId]?.pendingTreeIds ?? []).length > 0) {
+    const pending = [...(next.bonds[npcId]!.pendingTreeIds ?? [])];
+    const nextTreeId = pending.shift()!;
+    // 清掉 pending 的第一个
+    next = {
+      ...next,
+      bonds: {
+        ...next.bonds,
+        [npcId]: { ...next.bonds[npcId]!, pendingTreeIds: pending },
+      },
+    };
+    next = triggerDialogueTree(next, nextTreeId, round);
+  }
+
+  return next;
+}
+
+/** 检查好感度是否刚刚跨过某个里程碑（一次性触发） */
+export function checkMilestone(
+  bond: NPCBondStatus,
+  thresholds: number[] = [40, 60, 80],
+): number | null {
+  const flags = bond.milestoneFlags ?? [];
+  for (const t of thresholds) {
+    if (bond.favorability >= t && !flags.includes(t)) {
+      return t;
+    }
+  }
+  return null;
+}
+
+/** 取一棵对话树触发条件是否满足（不含 oneShot 判定） */
+export function isTreeTriggered(
+  tree: DialogueTree,
+  ctx: UnlockContext,
+  bond: NPCBondStatus | undefined,
+): boolean {
+  const t = tree.trigger;
+  if (t.type === "round") {
+    return ctx.totalRound === (t.round ?? -1);
+  }
+  if (t.type === "milestone" && bond) {
+    return (
+      bond.favorability >= (t.milestoneFavor ?? Number.MAX_SAFE_INTEGER) &&
+      !(bond.milestoneFlags ?? []).includes(t.milestoneFavor!)
+    );
+  }
+  if (t.type === "unlock") {
+    return Boolean(bond); // 只要解锁过就触发
+  }
+  return false;
+}
+
+/**
+ * 批量检查所有对话树，触发满足条件的（通常在 nextRound 里调用）
+ * 返回新 state 和被触发的 tree id 列表
+ */
+export function checkTreeTriggers(
+  state: SocialState,
+  ctx: UnlockContext,
+): { state: SocialState; triggeredTreeIds: string[] } {
+  const triggered: string[] = [];
+  let next = state;
+
+  for (const tree of Object.values(DIALOGUE_TREES)) {
+    // 解锁检查：NPC 未解锁（无 bond）则跳过
+    const bond = next.bonds[tree.npcId];
+    if (tree.trigger.type !== "unlock" && !bond) continue;
+
+    // oneShot 已完成则跳过
+    if (tree.oneShot !== false && (bond?.completedTreeIds ?? []).includes(tree.id)) {
+      continue;
+    }
+
+    // minTotalRound 检查
+    if (tree.minTotalRound !== undefined && ctx.totalRound < tree.minTotalRound) {
+      continue;
+    }
+
+    if (isTreeTriggered(tree, ctx, bond)) {
+      next = triggerDialogueTree(next, tree.id, ctx.totalRound);
+      triggered.push(tree.id);
+
+      // 标记里程碑已触发（防止下次又触发）
+      if (tree.trigger.type === "milestone" && tree.trigger.milestoneFavor !== undefined) {
+        const b = next.bonds[tree.npcId];
+        if (b) {
+          next = {
+            ...next,
+            bonds: {
+              ...next.bonds,
+              [tree.npcId]: {
+                ...b,
+                milestoneFlags: [
+                  ...(b.milestoneFlags ?? []),
+                  tree.trigger.milestoneFavor,
+                ],
+              },
+            },
+          };
+        }
+      }
+    }
+  }
+
+  return { state: next, triggeredTreeIds: triggered };
+}
+
+/** 重置所有 NPC 的本回合聊天计数（每回合开始时调用） */
+export function resetChatsThisRound(state: SocialState, totalRound: number): SocialState {
+  const bonds = { ...state.bonds };
+  for (const npcId of Object.keys(bonds)) {
+    const b = bonds[npcId];
+    let updated = b;
+    if (b.lastChatsResetRound !== totalRound) {
+      updated = {
+        ...updated,
+        chatsThisRound: 0,
+        lastChatsResetRound: totalRound,
+      };
+    }
+    // 解锁激怒冷却（新回合允许再次打招呼）
+    if (b.enragedLocked && b.lastGreetingsResetRound !== totalRound) {
+      updated = { ...updated, enragedLocked: false };
+    }
+    bonds[npcId] = updated;
+  }
+  return { ...state, bonds };
+}
