@@ -6237,6 +6237,7 @@ export function GamePage() {
                   {currentOfferedInternships.map((option) => {
                     const selected = selectedInternshipIds.includes(option.id);
                     const fit = getInternshipFitInfo(option, stats);
+                    const cardLogo = option.companyId ? COMPANY_LOGOS[option.companyId] : undefined;
                     return (
                       <button
                         key={option.id}
@@ -6255,7 +6256,17 @@ export function GamePage() {
                         className={`rounded-xl border p-3 text-left transition-all ${selected ? "border-[#c9a84c] bg-[#c9a84c]/12 shadow-[0_0_0_1px_rgba(201,168,76,0.14)]" : "border-blue-300/15 bg-[#0a1224] hover:border-blue-300/30 hover:bg-[#0d172b]"}`}
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div><p className="text-[11px] text-slate-500">{option.companyName}</p><p className="mt-0.5 text-[14px] font-medium text-white">{option.title}</p></div>
+                          <div className="flex items-start gap-2 min-w-0">
+                            {cardLogo && (
+                              <span className="mt-0.5 shrink-0 flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow-sm">
+                                <img src={cardLogo} alt={option.companyName} className="h-full w-full object-contain" />
+                              </span>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-[11px] text-slate-500">{option.companyName}</p>
+                              <p className="mt-0.5 text-[14px] font-medium text-white leading-tight">{option.title}</p>
+                            </div>
+                          </div>
                           <span className="shrink-0 rounded-full border px-2 py-0.5 text-[9px]" style={{ color: fit.color, borderColor: `${fit.color}55`, background: `${fit.color}12` }}>{fit.label}</span>
                         </div>
                         <p className="mt-1.5 text-[11px] text-[#dec678]">{option.stipend}</p>
