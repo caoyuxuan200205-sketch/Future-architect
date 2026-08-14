@@ -792,11 +792,15 @@ function WeChatStyleMessagesPanel(props: WeChatStyleMessagesPanelProps) {
         {/* 头像 */}
         <div className="relative shrink-0">
           <span
-            className={`flex h-11 w-11 items-center justify-center rounded-[10px] text-xl ${
+            className={`flex h-11 w-11 items-center justify-center overflow-hidden rounded-[10px] text-xl ${
               locked ? "bg-white/[0.03] grayscale" : isActive ? "bg-[#c9a84c]/20" : "bg-white/[0.05]"
             }`}
           >
-            {npc.emoji}
+            {npc.avatar && !locked ? (
+              <img src={npc.avatar} alt={npc.name} className="h-full w-full object-cover" />
+            ) : (
+              npc.emoji
+            )}
           </span>
           {!locked && unread > 0 && (
             <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
@@ -1031,8 +1035,12 @@ function ChatDetail({
         >
           <ChevronLeft size={18} />
         </button>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] border border-[#c9a84c]/25 bg-[#c9a84c]/12 text-base">
-          {npc.emoji}
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[9px] border border-[#c9a84c]/25 bg-[#c9a84c]/12 text-base">
+          {npc.avatar ? (
+            <img src={npc.avatar} alt={npc.name} className="h-full w-full object-cover" />
+          ) : (
+            npc.emoji
+          )}
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[14px] font-semibold text-white">{displayName}</p>
@@ -1068,8 +1076,18 @@ function ChatDetail({
                 : "rgba(201, 168, 76, 0.18)";
               const toneLabel = isNpc && msg.tone ? TONE_LABEL[msg.tone] : null;
               return (
-                <div key={msg.id} className={`flex animate-[fadein_0.28s_ease-out] ${isNpc ? "justify-start" : "justify-end"}`}>
-                  <div className="max-w-[78%]">
+                <div key={msg.id} className={`flex animate-[fadein_0.28s_ease-out] items-end gap-2 ${isNpc ? "justify-start" : "justify-end"}`}>
+                  {/* NPC 头像（仅 NPC 消息显示，且在气泡左侧底部对齐） */}
+                  {isNpc && (
+                    <span className="mb-4 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.05] text-sm">
+                      {npc.avatar ? (
+                        <img src={npc.avatar} alt={npc.name} className="h-full w-full object-cover" />
+                      ) : (
+                        npc.emoji
+                      )}
+                    </span>
+                  )}
+                  <div className="max-w-[70%]">
                     {toneLabel && (
                       <p className={`mb-0.5 text-[11px] tracking-[0.16em] ${isNpc ? "text-left text-slate-500" : "text-right text-slate-600"}`}>
                         {toneLabel}

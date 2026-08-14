@@ -28,6 +28,8 @@ export interface NPC {
   stageLabels: { min: number; label: string }[];
   /** 玩家可发送的快捷招呼语池（按好感度区间可选不同风格） */
   playerGreetings?: { min?: number; text: string }[];
+  /** 头像图片路径（可选，无则退回 emoji） */
+  avatar?: string;
 }
 
 /** 单条消息 */
