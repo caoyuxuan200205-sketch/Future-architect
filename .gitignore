@@ -129,3 +129,8 @@ public/insert_knowledge_chunks.sql
 # WorkBuddy workspace data
 .workbuddy/
 
+# 策划文档（保留 README.md，忽略其它根目录策划 .md）
+NPC*.md
+事件系统_*.md
+小程序改造方案.md
+
