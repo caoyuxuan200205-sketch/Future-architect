@@ -116,8 +116,10 @@ export interface DetailedStatsPanelProps {
     displayName?: string;
     title?: string;
     emoji?: string;
+    id?: string;
     favorability?: number;
   } | null;
+  onViewResume?: () => void;
   semester?: number;
   round?: number;
   totalRound?: number;
@@ -244,10 +246,10 @@ export function DetailedStatsPanel({
   eventDelta = {},
   pastInternships = [],
   onUpdateInternshipDetails,
+  onViewResume,
 }: DetailedStatsPanelProps) {
   const [activeSubTab, setActiveSubTab] = useState<"overview" | "resume">("overview");
   const [selectedTrackCode, setSelectedTrackCode] = useState<string>("PM");
-  const [hoveredKey, setHoveredKey] = useState<StatusKey | null>(null);
 
   const safeStats = useMemo(() => ({ ...DEFAULT_FALLBACK_STATS, ...(stats || {}) }), [stats]);
 
@@ -414,12 +416,18 @@ export function DetailedStatsPanel({
               </div>
 
               <div className="my-4 flex flex-col items-center text-center">
-                <div className="relative w-16 h-16 rounded-full bg-white/[.03] border border-white/10 flex items-center justify-center text-3xl mb-2">
+                <button
+                  type="button"
+                  onClick={onViewResume}
+                  disabled={!onViewResume}
+                  className={`group relative w-16 h-16 rounded-full bg-white/[.03] border border-white/10 flex items-center justify-center text-3xl mb-2 transition ${onViewResume ? "hover:border-amber-400/55 hover:bg-amber-400/[.06] cursor-pointer" : "cursor-default"}`}
+                  title={onViewResume ? "查看导师简历" : undefined}
+                >
                   <span>{mentor?.emoji || "📐"}</span>
                   <span className="absolute -bottom-1 right-0 text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-600/90 text-white font-medium">
                     {getEvaluationLabel(ovr)}
                   </span>
-                </div>
+                </button>
                 <h3 className="text-[14.5px] font-bold text-white tracking-wide">{playerName}</h3>
                 <p className="text-xs text-slate-400 mt-0.5">{playerSchool}</p>
               </div>
@@ -430,9 +438,22 @@ export function DetailedStatsPanel({
                   <span className="text-slate-400">市场估值期望</span>
                   <span className="font-mono font-bold text-amber-300 text-[13px]">{marketSalary}</span>
                 </div>
-                <div className="flex justify-between py-2">
+                <div className="flex items-center justify-between py-2">
                   <span className="text-slate-400">指导导师</span>
-                  <span className="text-slate-200 font-medium text-[12.5px]">{mentorName}</span>
+                  <button
+                    type="button"
+                    onClick={onViewResume}
+                    disabled={!onViewResume}
+                    className={`flex items-center gap-1 text-slate-200 font-medium text-[12.5px] transition rounded px-1 -mx-1 ${onViewResume ? "hover:text-amber-300 hover:bg-amber-400/[.06] cursor-pointer" : "cursor-default"}`}
+                    title={onViewResume ? "查看导师简历" : undefined}
+                  >
+                    {mentorName}
+                    {onViewResume && (
+                      <svg className="text-amber-400/80 opacity-70 group-hover:opacity-100" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 7h10v10"/><path d="M7 17 17 7"/>
+                      </svg>
+                    )}
+                  </button>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-400">流动储蓄</span>
@@ -505,8 +526,6 @@ export function DetailedStatsPanel({
                     return (
                       <div
                         key={key}
-                        onMouseEnter={() => setHoveredKey(key)}
-                        onMouseLeave={() => setHoveredKey(null)}
                         className={`flex items-center justify-between px-1.5 py-1 rounded transition-colors ${
                           isKeyForSelectedTrack
                             ? "bg-sky-500/15 text-sky-200 font-semibold"
@@ -546,8 +565,6 @@ export function DetailedStatsPanel({
                     return (
                       <div
                         key={key}
-                        onMouseEnter={() => setHoveredKey(key)}
-                        onMouseLeave={() => setHoveredKey(null)}
                         className={`flex items-center justify-between px-1.5 py-1 rounded transition-colors ${
                           isKeyForSelectedTrack
                             ? "bg-emerald-500/15 text-emerald-200 font-semibold"
@@ -587,8 +604,6 @@ export function DetailedStatsPanel({
                     return (
                       <div
                         key={key}
-                        onMouseEnter={() => setHoveredKey(key)}
-                        onMouseLeave={() => setHoveredKey(null)}
                         className={`flex items-center justify-between px-1.5 py-1 rounded transition-colors ${
                           isKeyForSelectedTrack
                             ? "bg-amber-500/15 text-amber-200 font-semibold"
@@ -614,13 +629,6 @@ export function DetailedStatsPanel({
                   })}
                 </div>
               </div>
-
-              {hoveredKey && (
-                <div className="mt-2.5 pt-2 border-t border-white/[.05] text-xs text-amber-200 flex items-center gap-2">
-                  <span className="font-bold text-[12.5px]">💡 {META[hoveredKey].label}:</span>
-                  <span className="text-slate-300 text-[11.5px]">{META[hoveredKey].desc}</span>
-                </div>
-              )}
             </div>
 
             {/* ─── 目标赛道匹配 ─── */}

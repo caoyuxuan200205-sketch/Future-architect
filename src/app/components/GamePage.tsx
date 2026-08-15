@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, type CSSProperties } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, type CSSProperties } from "react";
 import { RefreshCw, ChevronRight, ChevronDown, Zap, TrendingUp, TrendingDown, BookOpen, TriangleAlert, BriefcaseBusiness, CheckCircle2, Pencil, Check, X, Share2, Save, FolderOpen, Trash2, Settings, CircleHelp } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { evaluateCustomEventAction } from "../../lib/llm";
@@ -4041,6 +4041,16 @@ function CriticalWarningBar({
   );
 }
 
+// 导师简历弹窗的小节标题组件（顶层声明，供角色创建阶段与游戏中简历 Modal 共用）
+function ResumeSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h4 className="text-[11px] uppercase tracking-[0.2em] mb-2.5" style={{ color: "#c9a84c" }}>{title}</h4>
+      {children}
+    </div>
+  );
+}
+
 function DecisionStatusRail({
   stats,
   mentor,
@@ -4592,6 +4602,11 @@ export function GamePage() {
   // 简历查看：存当前展开简历的 mentorId
   const [resumeMentorId, setResumeMentorId] = useState<string | null>(null);
   const [isMentorOfficeOpen, setIsMentorOfficeOpen] = useState(false);
+  // 稳定 mentor prop 引用，避免 MentorOfficeModal 因每次重渲染拿到新对象触发 useEffect 重置
+  const mentorOfficeMentorProp = useMemo(
+    () => (mentor ? { id: mentor.id, name: mentorDisplayName(mentor), title: mentor.title, image: mentor.image } : null),
+    [mentor?.id, mentor?.title, mentor?.image, mentor]
+  );
   const [financeState, setFinanceState] = useState<FinanceState>(() => createInitialFinance(38, false));
   const [monthlySettlement, setMonthlySettlement] = useState<MonthlySettlement | null>(null);
   const [selectedEventBranch, setSelectedEventBranch] = useState<EventBranchOption | null>(null);
@@ -6250,12 +6265,6 @@ export function GamePage() {
 
   // ── 导师选择页
   if (phase === "mentor_choice" && character && stats) {
-    const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-      <div>
-        <h4 className="text-[11px] uppercase tracking-[0.2em] mb-2.5" style={{ color: "#c9a84c" }}>{title}</h4>
-        {children}
-      </div>
-    );
     return (
       <div
         style={{
@@ -6342,179 +6351,6 @@ export function GamePage() {
               );
             })}
           </div>
-
-          {/* 导师简历弹窗 */}
-          {resumeMentorId && (() => {
-            const m = MENTORS.find((x) => x.id === resumeMentorId);
-            if (!m) return null;
-            const displayName = rolledMentorNames[m.id] ?? m.name;
-            const p = m.profileByName?.[displayName] ?? m.profile;
-            return (
-              <div
-                className="fixed inset-0 z-50 flex items-center justify-center p-4"
-                style={{ backgroundColor: "rgba(0,0,0,0.72)" }}
-                onClick={() => setResumeMentorId(null)}
-              >
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="relative w-full max-w-[560px] max-h-[88vh] overflow-y-auto rounded-2xl"
-                  style={{
-                    backgroundColor: "#0d1220",
-                    border: "1px solid #c9a84c44",
-                    boxShadow: "0 30px 80px rgba(0,0,0,0.6)",
-                  }}
-                >
-                  {/* 头部：封面 + 名字 */}
-                  <div className="relative h-28 overflow-hidden rounded-t-2xl">
-                    <img src={m.image} alt="" className="h-full w-full object-cover object-center opacity-70" />
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0d1220] via-[#0d1220]/60 to-transparent" />
-                    <button
-                      type="button"
-                      onClick={() => setResumeMentorId(null)}
-                      className="absolute top-3 right-3 rounded-full bg-black/50 text-white w-8 h-8 flex items-center justify-center hover:bg-[#c9a84c] hover:text-[#070c1c] transition-colors"
-                    >
-                      ✕
-                    </button>
-                    <div className="absolute bottom-3 left-4 flex items-center gap-3">
-                      <span className="text-3xl">{m.emoji}</span>
-                      <div>
-                        <h2 className="text-xl font-bold" style={{ color: textPrimary }}>{displayName}</h2>
-                        <p className="text-[11px]" style={{ color: accent }}>{m.title}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-5 space-y-5">
-                    {/* 性格标签 */}
-                    <div className="flex items-start gap-2">
-                      <span className="text-[11px] mt-0.5" style={{ color: textSecondary }}>性格</span>
-                      <p className="text-[12px] leading-relaxed flex-1" style={{ color: textPrimary }}>{p.personality}</p>
-                    </div>
-
-                    {/* 个人信息 */}
-                    <Section title="个人信息">
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                        {p.personalInfo.map((it) => (
-                          <div key={it.label} className="flex items-baseline gap-2 text-[12px]">
-                            <span className="shrink-0" style={{ color: textSecondary }}>{it.label}</span>
-                            <span className="text-right" style={{ color: textPrimary }}>{it.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </Section>
-
-                    {/* 教育背景 */}
-                    <Section title="教育背景">
-                      <div className="space-y-2">
-                        {p.education.map((e, i) => (
-                          <div key={i} className="flex items-start gap-3 text-[12px]">
-                            <span className="shrink-0 font-mono text-[11px]" style={{ color: accent, minWidth: "92px" }}>{e.period}</span>
-                            <span style={{ color: textPrimary }}>{e.desc}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </Section>
-
-                    {/* 工作经历 */}
-                    <Section title="工作经历">
-                      <div className="space-y-2">
-                        {p.experience.map((e, i) => (
-                          <div key={i} className="flex items-start gap-3 text-[12px]">
-                            <span className="shrink-0 font-mono text-[11px]" style={{ color: accent, minWidth: "92px" }}>{e.period}</span>
-                            <span style={{ color: textPrimary }}>{e.desc}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </Section>
-
-                    {/* 研究方向 */}
-                    <Section title="研究方向">
-                      <div className="flex flex-wrap gap-1.5">
-                        {p.research.map((r, i) => (
-                          <span key={i} className="rounded-full px-2.5 py-1 text-[11px]" style={{ backgroundColor: "rgba(201,168,76,0.12)", color: "#e8d9a8", border: "1px solid rgba(201,168,76,0.2)" }}>
-                            {r}
-                          </span>
-                        ))}
-                      </div>
-                    </Section>
-
-                    {/* 代表作 */}
-                    <Section title="代表作品 / 课题">
-                      <ul className="space-y-1.5">
-                        {p.works.map((w, i) => (
-                          <li key={i} className="text-[12px] leading-relaxed pl-3 relative" style={{ color: textPrimary }}>
-                            <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#c9a84c" }} />
-                            {w}
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-
-                    {/* 获奖 */}
-                    <Section title="获奖与荣誉">
-                      <ul className="space-y-1.5">
-                        {p.awards.map((a, i) => (
-                          <li key={i} className="text-[12px] leading-relaxed pl-3 relative" style={{ color: textPrimary }}>
-                            <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#c9a84c" }} />
-                            {a}
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-
-                    {/* 学生评价 */}
-                    <Section title="学生评价（匿名）">
-                      <div className="space-y-2.5">
-                        {p.studentReviews.map((r, i) => (
-                          <div key={i} className="rounded-lg p-3 text-[12px] leading-relaxed" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                            <div className="flex items-center gap-1 mb-1.5">
-                              {[1,2,3,4,5].map((s) => (
-                                <span key={s} className={s <= r.stars ? "text-[#c9a84c]" : "text-[#444]"}>★</span>
-                              ))}
-                              <span className="ml-2 text-[10px]" style={{ color: textSecondary }}>匿名同学</span>
-                            </div>
-                            <p style={{ color: textPrimary }}>「{r.text}」</p>
-                          </div>
-                        ))}
-                      </div>
-                    </Section>
-
-                    {/* 名言 */}
-                    <div className="rounded-xl p-4" style={{ backgroundColor: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.18)" }}>
-                      <p className="text-[13px] italic leading-relaxed text-center" style={{ color: "#e8d9a8", fontFamily: "'Noto Serif SC', serif" }}>
-                        「{p.quote}」
-                      </p>
-                      <p className="text-[10px] text-center mt-2" style={{ color: textSecondary }}>—— {displayName}</p>
-                    </div>
-
-                    {/* 底部操作 */}
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          selectMentor(m);
-                          setResumeMentorId(null);
-                        }}
-                        className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold transition-colors"
-                        style={{ backgroundColor: "#c9a84c", color: "#070c1c" }}
-                      >
-                        选这位导师 →
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setResumeMentorId(null)}
-                        className="rounded-lg px-4 py-2.5 text-[13px] transition-colors"
-                        style={{ color: textSecondary, border: "1px solid " + border }}
-                      >
-                        关闭
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
           {/* 选中后即时确认按钮 */}
           {pendingMentor && (() => {
             const rolledName = rolledMentorNames[pendingMentor.id] ?? pendingMentor.name;
@@ -6646,6 +6482,7 @@ export function GamePage() {
               eventDelta={eventDelta}
               pastInternships={pastInternships}
               onUpdateInternshipDetails={updateInternshipDetails}
+              onViewResume={mentor ? () => setResumeMentorId(mentor.id) : undefined}
             />
           ) : (
           <>
@@ -7288,11 +7125,186 @@ export function GamePage() {
           </>
         )}
 
+        {/* 导师简历弹窗（全局，角色创建与游戏中都可触发） */}
+        {resumeMentorId && (() => {
+            const m = MENTORS.find((x) => x.id === resumeMentorId);
+            if (!m) return null;
+            const displayName = rolledMentorNames[m.id] ?? m.name;
+            const p = m.profileByName?.[displayName] ?? m.profile;
+            const inCharacterCreation = !mentor;
+            return (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                style={{ backgroundColor: "rgba(0,0,0,0.72)" }}
+                onClick={() => setResumeMentorId(null)}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  className="relative w-full max-w-[560px] max-h-[88vh] overflow-y-auto rounded-2xl"
+                  style={{
+                    backgroundColor: "#0d1220",
+                    border: "1px solid #c9a84c44",
+                    boxShadow: "0 30px 80px rgba(0,0,0,0.6)",
+                  }}
+                >
+                  {/* 头部：封面 + 名字 */}
+                  <div className="relative h-28 overflow-hidden rounded-t-2xl">
+                    <img src={m.image} alt="" className="h-full w-full object-cover object-center opacity-70" />
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0d1220] via-[#0d1220]/60 to-transparent" />
+                    <button
+                      type="button"
+                      onClick={() => setResumeMentorId(null)}
+                      className="absolute top-3 right-3 rounded-full bg-black/50 text-white w-8 h-8 flex items-center justify-center hover:bg-[#c9a84c] hover:text-[#070c1c] transition-colors"
+                    >
+                      ✕
+                    </button>
+                    <div className="absolute bottom-3 left-4 flex items-center gap-3">
+                      <span className="text-3xl">{m.emoji}</span>
+                      <div>
+                        <h2 className="text-xl font-bold" style={{ color: textPrimary }}>{displayName}</h2>
+                        <p className="text-[11px]" style={{ color: accent }}>{m.title}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-5 space-y-5">
+                    {/* 性格标签 */}
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] mt-0.5" style={{ color: textSecondary }}>性格</span>
+                      <p className="text-[12px] leading-relaxed flex-1" style={{ color: textPrimary }}>{p.personality}</p>
+                    </div>
+
+                    {/* 个人信息 */}
+                    <ResumeSection title="个人信息">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        {p.personalInfo.map((it) => (
+                          <div key={it.label} className="flex items-baseline gap-2 text-[12px]">
+                            <span className="shrink-0" style={{ color: textSecondary }}>{it.label}</span>
+                            <span className="text-right" style={{ color: textPrimary }}>{it.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </ResumeSection>
+
+                    {/* 教育背景 */}
+                    <ResumeSection title="教育背景">
+                      <div className="space-y-2">
+                        {p.education.map((e, i) => (
+                          <div key={i} className="flex items-start gap-3 text-[12px]">
+                            <span className="shrink-0 font-mono text-[11px]" style={{ color: accent, minWidth: "92px" }}>{e.period}</span>
+                            <span style={{ color: textPrimary }}>{e.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </ResumeSection>
+
+                    {/* 工作经历 */}
+                    <ResumeSection title="工作经历">
+                      <div className="space-y-2">
+                        {p.experience.map((e, i) => (
+                          <div key={i} className="flex items-start gap-3 text-[12px]">
+                            <span className="shrink-0 font-mono text-[11px]" style={{ color: accent, minWidth: "92px" }}>{e.period}</span>
+                            <span style={{ color: textPrimary }}>{e.desc}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </ResumeSection>
+
+                    {/* 研究方向 */}
+                    <ResumeSection title="研究方向">
+                      <div className="flex flex-wrap gap-1.5">
+                        {p.research.map((r, i) => (
+                          <span key={i} className="rounded-full px-2.5 py-1 text-[11px]" style={{ backgroundColor: "rgba(201,168,76,0.12)", color: "#e8d9a8", border: "1px solid rgba(201,168,76,0.2)" }}>
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                    </ResumeSection>
+
+                    {/* 代表作 */}
+                    <ResumeSection title="代表作品 / 课题">
+                      <ul className="space-y-1.5">
+                        {p.works.map((w, i) => (
+                          <li key={i} className="text-[12px] leading-relaxed pl-3 relative" style={{ color: textPrimary }}>
+                            <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#c9a84c" }} />
+                            {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </ResumeSection>
+
+                    {/* 获奖 */}
+                    <ResumeSection title="获奖与荣誉">
+                      <ul className="space-y-1.5">
+                        {p.awards.map((a, i) => (
+                          <li key={i} className="text-[12px] leading-relaxed pl-3 relative" style={{ color: textPrimary }}>
+                            <span className="absolute left-0 top-2 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#c9a84c" }} />
+                            {a}
+                          </li>
+                        ))}
+                      </ul>
+                    </ResumeSection>
+
+                    {/* 学生评价 */}
+                    <ResumeSection title="学生评价（匿名）">
+                      <div className="space-y-2.5">
+                        {p.studentReviews.map((r, i) => (
+                          <div key={i} className="rounded-lg p-3 text-[12px] leading-relaxed" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="flex items-center gap-1 mb-1.5">
+                              {[1,2,3,4,5].map((s) => (
+                                <span key={s} className={s <= r.stars ? "text-[#c9a84c]" : "text-[#444]"}>★</span>
+                              ))}
+                              <span className="ml-2 text-[10px]" style={{ color: textSecondary }}>匿名同学</span>
+                            </div>
+                            <p style={{ color: textPrimary }}>「{r.text}」</p>
+                          </div>
+                        ))}
+                      </div>
+                    </ResumeSection>
+
+                    {/* 名言 */}
+                    <div className="rounded-xl p-4" style={{ backgroundColor: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.18)" }}>
+                      <p className="text-[13px] italic leading-relaxed text-center" style={{ color: "#e8d9a8", fontFamily: "'Noto Serif SC', serif" }}>
+                        「{p.quote}」
+                      </p>
+                      <p className="text-[10px] text-center mt-2" style={{ color: textSecondary }}>—— {displayName}</p>
+                    </div>
+
+                    {/* 底部操作：角色创建阶段才显示"选这位导师"按钮 */}
+                    <div className="flex gap-2 pt-1">
+                      {inCharacterCreation && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            selectMentor(m);
+                            setResumeMentorId(null);
+                          }}
+                          className="flex-1 rounded-lg py-2.5 text-[13px] font-semibold transition-colors"
+                          style={{ backgroundColor: "#c9a84c", color: "#070c1c" }}
+                        >
+                          选这位导师 →
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setResumeMentorId(null)}
+                        className={`rounded-lg py-2.5 text-[13px] transition-colors ${inCharacterCreation ? "px-4" : "flex-1"}`}
+                        style={{ color: textSecondary, border: "1px solid " + border }}
+                      >
+                        关闭
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
         {/* 导师办公室沉浸式面谈（带导师人物立绘与学术请教对话系统） */}
         <MentorOfficeModal
           isOpen={isMentorOfficeOpen}
           onClose={() => setIsMentorOfficeOpen(false)}
-          mentor={mentor ? { id: mentor.id, name: mentorDisplayName(mentor), title: mentor.title, image: mentor.image } : null}
+          mentor={mentorOfficeMentorProp}
           favorability={stats?.mentorFavorability ?? 30}
           money={stats?.money ?? 38}
           stats={{
@@ -7301,12 +7313,58 @@ export function GamePage() {
             stress: stats?.stress ?? 50,
           }}
           canChooseAction={phase === "action_choice"}
-          onExecuteOption={(option) => {
-            if (option.statDeltas && stats) {
-              const { newStats, delta } = applyEffects(stats, option.statDeltas);
-              setStats(newStats);
-              setActionDelta(delta);
+          onExecuteOption={(option, rejected) => {
+            if (!stats) return;
+            const effectiveDeltas = option.statDeltas ?? {};
+            const { newStats, delta } = applyEffects(stats, effectiveDeltas);
+
+            // 行为记忆：记录本次选择（用 gifts 这个已有 ActionId 覆盖所有礼物分支）
+            setActionMemory((prev) => {
+              const next = recordAction(prev, "gifts");
+              return recordMentorBetrayal(next, stats.mentorFavorability, newStats.mentorFavorability);
+            });
+
+            // 埋点
+            const currentTurnIndex = (semester - 1) * 4 + (round - 1);
+            tracker.track("mentor_office_action", {
+              action_id: option.id,
+              action_category: option.category,
+              rejected,
+              stats_before: stats,
+            }, {
+              turnIndex: currentTurnIndex,
+              semester,
+              round,
+              phase: "action_choice",
+              statsSnapshot: stats,
+            });
+
+            // 应用数值变化（拒收时数值已是 money:0、好感微跌、stress 微升）
+            setStats(newStats);
+            setActionDelta(delta);
+
+            // 拒收：不消耗本回合行动，不进入 action_result 阶段 —— 玩家可以继续选择其他行动
+            if (rejected) {
+              // 只埋点记录这次失败的送礼尝试，不切换 phase、不挂 chosenAction
+              return;
             }
+
+            // 收下：把剧情文案同步给主界面
+            setActionNarrative(option.resultNarrative);
+
+            // 构造一个"虚拟 Action"挂到 chosenAction，让主界面 action_result 阶段识别为本轮已行动
+            const stubAction: Action = {
+              id: "gifts",
+              label: option.label,
+              emoji: option.emoji,
+              description: option.description,
+              effects: effectiveDeltas as Action["effects"],
+              narratives: [option.resultNarrative],
+            };
+            setChosenAction(stubAction);
+
+            // 关键：进入 action_result 阶段，玩家本轮行动被消耗，且主面板会显示属性 delta 反馈
+            setPhase("action_result");
           }}
         />
 

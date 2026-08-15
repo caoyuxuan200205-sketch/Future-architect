@@ -38,6 +38,514 @@ export interface OfficeDialogueOption {
   mentorReply: string;
   replyTone: ToneTier;
   resultNarrative: string;
+  /** 送礼类选项专属：被导师拒收时的备选数据 */
+  rejection?: {
+    statDeltas: {
+      money?: number;
+      mentorFavorability?: number;
+      stress?: number;
+    };
+    mentorReply: string;
+    replyTone: ToneTier;
+    resultNarrative: string;
+    /** 拒收剧情对话序列 */
+    dialogueSequence?: GiftDialogueLine[];
+  };
+  /** 送礼被收下时的剧情对话序列 */
+  acceptanceDialogue?: GiftDialogueLine[];
+}
+
+/**
+ * 送礼剧情对话序列中的一条消息
+ * - speaker: "player" | "mentor" | "narration"
+ * - 借鉴视觉小说/交互叙事游戏：每条横向长气泡推动剧情，明确呈现"递礼物→反应→结果"
+ */
+export interface GiftDialogueLine {
+  speaker: "player" | "mentor" | "narration";
+  /** 显示的说话人名（导师用导师名，玩家用"你"，旁白为空） */
+  name?: string;
+  /** 说话时的微表情/动作描述（例如"目光落在包装上"、"尴尬地收回手"） */
+  action?: string;
+  /** 台词正文 */
+  content: string;
+  /** 对话气泡的情绪色调（仅 mentor 需要指定） */
+  tone?: ToneTier;
+}
+
+// ================================================================
+// 送礼拒收概率机制（策划数据表）
+// 行：导师类型；列：好感区间 [<15, 15-30, 30-45, 45-65, ≥65]
+// ================================================================
+export const GIFT_REJECTION_RATES: Record<string, number[]> = {
+  practice:  [0.07, 0.08, 0.10, 0.12, 0.15], // 实践派
+  hands_off: [0.09, 0.11, 0.13, 0.15, 0.19], // 放养派
+  academic:  [0.08, 0.12, 0.20, 0.37, 0.60], // 学术派
+  overseas:  [0.11, 0.17, 0.30, 0.53, 0.75], // 海归派（含 global_scholar）
+};
+
+/** 把任意 mentorId 规约到拒收概率表的四个类型之一 */
+function normalizeMentorType(mentorId: string): keyof typeof GIFT_REJECTION_RATES {
+  if (mentorId === "global_scholar") return "overseas";
+  if (GIFT_REJECTION_RATES[mentorId]) return mentorId as keyof typeof GIFT_REJECTION_RATES;
+  return "academic";
+}
+
+/** 按好感度取区间索引 */
+function giftFavorBucket(favorability: number): number {
+  if (favorability < 15) return 0;
+  if (favorability < 30) return 1;
+  if (favorability < 45) return 2;
+  if (favorability < 65) return 3;
+  return 4;
+}
+
+/** 判定本次送礼是否会被导师拒收 */
+export function rollGiftRejection(mentorId: string, favorability: number): boolean {
+  const type = normalizeMentorType(mentorId);
+  const rate = GIFT_REJECTION_RATES[type][giftFavorBucket(favorability)];
+  return Math.random() < rate;
+}
+
+/** 按导师类型构造拒收事件的文案、数值影响与剧情对话序列 */
+function buildGiftRejection(
+  mentorId: string,
+  mentorName: string
+): NonNullable<OfficeDialogueOption["rejection"]> {
+  const type = normalizeMentorType(mentorId);
+  const base = {
+    statDeltas: { money: 0, mentorFavorability: -1, stress: 3 },
+  };
+
+  switch (type) {
+    case "practice":
+      return {
+        ...base,
+        mentorReply: `「你这心意我领了，但这玩意儿真没必要。我跟甲方打了这么多年交道，送的东西比这贵重多了我都退回去——咱们之间，把活干漂亮比啥都强。」`,
+        replyTone: "neutral",
+        resultNarrative: `${mentorName} 婉拒了你的礼物，语气温和却坚定。你尴尬地把东西收回背包，意识到在实务派导师这里，作品和态度比礼物更有说服力。`,
+        dialogueSequence: [
+          {
+            speaker: "narration",
+            content: `你从包里取出一个素雅的礼盒，里面是家乡带来的明前龙井与一盒润喉糖。茶香在 ${mentorName} 办公室的通风口下隐隐飘散，与桌上摊开的总平面图、红蓝铅笔屑混在一起，显得格格不入。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "双手递过礼盒，尽量让自己的语气听起来随意",
+            content: `老师，这周回老家顺道带了点茶，不算什么值钱东西，您尝尝鲜——最近项目汇报这么密，润喉糖也放您桌上备用。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "抬眼瞥了一下礼盒，又低头继续圈图",
+            tone: "neutral",
+            content: `嗯？放那儿吧。你这心意我领了，但这玩意儿真没必要。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "搁下红铅笔，往椅背一靠",
+            tone: "neutral",
+            content: `跟你说句实在话——我跟甲方打了这么多年交道，甲方送的东西比这贵重十倍我都退回去。咱们师生之间，把活儿干漂亮、把节点盯紧，比啥都强。你这一盒茶，反倒让我觉得你最近是不是心虚？`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "愣了一下，下意识把礼盒往回收了半寸",
+            content: `没、没有的事老师，就是顺路……那我拿回去？`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "摆摆手，重新拿起红铅笔",
+            tone: "neutral",
+            content: `拿回去吧。下次想把心思花在该花的地方——周三那个文化中心的中期汇报，你自己心里有数。行了，回去忙吧。`,
+          },
+          {
+            speaker: "narration",
+            content: `你把礼盒默默塞回背包，拉链声在安静的办公室里格外刺耳。${mentorName} 已经重新俯身在总图上，再没抬头。出门时你回头看了一眼——那盒润喉糖也被一并带走了。`,
+          },
+        ],
+      };
+    case "hands_off":
+      return {
+        ...base,
+        mentorReply: `「哎呀你这孩子客气啥，自己留着用。咱们组不兴这些，你把项目做出来就是给我最好的礼物——行了行了，赶紧回去忙吧。」`,
+        replyTone: "neutral",
+        resultNarrative: `${mentorName} 挥挥手把礼物推了回来，态度倒是不生硬，但你明显感觉到放养派导师对形式化的东西兴致缺缺。`,
+        dialogueSequence: [
+          {
+            speaker: "narration",
+            content: `你敲了敲 ${mentorName} 办公室半开的门。屋里只开着一盏台灯，导师正戴着监听耳机调整一段城市声景的波形，桌上摊着半张没画完的剖面图。你把礼盒放在波形图旁边，茶香立刻被音箱散发的热量冲淡了。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "摘下耳机那一侧的话筒，试探性地开口",
+            content: `老师，打扰了——家里寄了点茶，给您留一份，不算什么。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "摘下一只耳机，眯眼看了看礼盒",
+            tone: "neutral",
+            content: `哎呀，你这孩子客气啥。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "直接把礼盒往你这边一推，动作意外地干脆",
+            tone: "neutral",
+            content: `自己留着喝。咱们组不兴这些虚的，你又不是不知道。你要真想孝敬我——把项目做出来，把毕业论文写明白，比啥都强。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "站在原地有点尴尬，礼盒被推回面前",
+            content: `……那好吧。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "重新戴上那只耳机，眼神已经飘回屏幕",
+            tone: "neutral",
+            content: `行了行了，赶紧回去忙吧。下周那个跨界沙龙你要是有兴趣就来旁听，别带东西，带耳朵就行。`,
+          },
+          {
+            speaker: "narration",
+            content: `${mentorName} 已经重新沉浸回声波的世界里。你抱着礼盒退出办公室，门在身后轻轻合上，走廊里只剩下空调外机的低鸣。你想起放养派导师的规矩——他们要的不是你的"心意"，是你的独立。`,
+          },
+        ],
+      };
+    case "academic":
+      return {
+        ...base,
+        mentorReply: `「我说多少次了，做学问的不搞这些虚的。你要真想感谢我，把下次的开题报告写扎实了，把那几篇罕见文献的出处一个个核对清楚——比送什么茶都强。东西拿回去。」`,
+        replyTone: "neutral",
+        resultNarrative: `${mentorName} 皱着眉头把礼物推了回来。空气里有几秒钟的尴尬沉默，你意识到学术派导师对学生的"心思"几乎天然排斥，他们要的是你的课题，不是你的伴手礼。`,
+        dialogueSequence: [
+          {
+            speaker: "narration",
+            content: `${mentorName} 的办公室堆满了德法原版理论书与一摞未批改的开题报告。黑胶唱机里巴赫的无伴奏大提琴正放 to 第三乐章。你把礼盒放在唯一一块还算空白的桌角，茶香立刻被旧书页的霉味吞没了。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "屏住呼吸，尽量不打断那段巴赫",
+            content: `老师，家乡带了点明前茶，放在您这里——润喉糖也在里面，您讲课多。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "没有抬头，红笔在一份开题报告上划了一道长长的红线",
+            tone: "neutral",
+            content: `嗯。放那儿吧。`,
+          },
+          {
+            speaker: "narration",
+            content: `你以为这就收下了，正准备告辞——${mentorName} 却突然停下笔，把眼镜往鼻梁上一推，抬起头直视你。那种眼神让你想起开题答辩时被追问文献出处的瞬间。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "把礼盒往你面前一推，动作不重，却很坚决",
+            tone: "neutral",
+            content: `我说多少次了，做学问的不搞这些虚的。你要真想感谢我——`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "用红笔点了点桌上那摞开题报告",
+            tone: "neutral",
+            content: `把下次的开题报告写扎实了。把那几篇罕见文献的出处一个个核对清楚。把你的论证逻辑捋顺，别让我在答辩现场替你圆场——比送什么茶都强。东西拿回去。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "脸颊发烫，伸手把礼盒收回",
+            content: `……好的老师，我记住了。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "重新低下头，红笔已经落在下一份报告上",
+            tone: "neutral",
+            content: `去吧。下周三把第二章的修订稿发我，别再让我看到"据学者研究"这种糊弄人的表述。`,
+          },
+          {
+            speaker: "narration",
+            content: `巴赫的第三乐章恰好结束。你抱起礼盒退出办公室，门轻轻合上的瞬间，下一段萨拉班德舞曲开始流淌。空气里有几秒钟的尴尬沉默沉淀下来——你意识到，学术派导师对学生的"心意"几乎天然排斥，他们要的是你的课题，不是你的伴手礼。`,
+          },
+        ],
+      };
+    case "overseas":
+      return {
+        ...base,
+        statDeltas: { money: 0, mentorFavorability: -2, stress: 4 },
+        mentorReply: `「Hmm…thanks, but we don't really do this in my group. 我比较习惯就事论事，你把研究做好我就很欣慰了——这个你拿回去吧，别让我为难。」`,
+        replyTone: "neutral",
+        resultNarrative: `${mentorName} 用一种近乎礼貌却疏离的方式拒绝了你的礼物。你想起海归派导师对师生边界感格外敏感，这种"心意"在他们眼里反而是一种越界。`,
+        dialogueSequence: [
+          {
+            speaker: "narration",
+            content: `${mentorName} 的办公室是极简黑白灰，墙上挂着威尼斯双年展海报与一张包豪斯手稿复印件。MacBook 旁边放着一杯喝了一半的 flat white。你把礼盒放在_guest table_上——这是屋里唯一不带学术符号的家具。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "尽量让自己的英语听起来自然",
+            content: `Professor, 我家人从老家寄了点茶——这是中国传统的"一点心意"，希望您别介意。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "从屏幕后抬起头，表情有一瞬间的不知所措",
+            tone: "neutral",
+            content: `Oh— wow, thanks. That's... very thoughtful of you.`,
+          },
+          {
+            speaker: "narration",
+            content: `${mentorName} 站起身，却没有去碰那个礼盒。他绕到 guest table 另一侧，双手插在口袋里，像在斟酌怎么开口。窗外是科研楼下沉式广场的傍晚，远处有学生在练萨克斯。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "斟酌着用中文继续，语速比平时慢",
+            tone: "neutral",
+            content: `Look, 我真的 appreciate 你的心意——但在我们组，we don't really do this. 我比较习惯就事论事，你把研究做好，就是对我最大的尊重。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "把礼盒轻轻推回你这一侧",
+            tone: "neutral",
+            content: `这个你拿回去吧，别让我为难。I mean it — 不是针对你，是我对所有人都是这样。我不想让组里的同学觉得，跟我相处需要走这些"关系"。你懂我意思吗？`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "点头，喉咙里像卡了什么",
+            content: `I understand. 抱歉 professor，是我考虑不周。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "温和地笑了一下，但眼神依然是疏离的",
+            tone: "neutral",
+            content: `No worries at all — 你不是第一个，也不会是最后一个。下周我们接着讨论那个 spatial topology 的章节，OK？ 把心思放那儿。`,
+          },
+          {
+            speaker: "narration",
+            content: `你抱起礼盒退出办公室。走廊里贴满了 visiting scholars 的合影与各国大学的交换海报。你想起海归派导师对师生边界感格外敏感——这种"心意"在他们眼里反而是一种越界。下楼梯时你把礼盒塞回包里，茶盒的边角硌着后背，一路陪你走到地铁站。`,
+          },
+        ],
+      };
+  }
+}
+
+/** 按导师类型构造"礼物被收下"的剧情对话序列 */
+function buildGiftAcceptance(
+  mentorId: string,
+  mentorName: string
+): GiftDialogueLine[] {
+  const type = normalizeMentorType(mentorId);
+
+  switch (type) {
+    case "practice":
+      return [
+        {
+          speaker: "narration",
+          content: `你把礼盒放在 ${mentorName} 的画图桌上，紧挨着一摞刚从工地寄回的节点洽商单。茶香与墨水味、铝板样品的金属味混在一起，反倒让这间忙乱的办公室多了点人情味。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "把礼盒往导师手边推了推",
+          content: `老师，老家寄了点茶——您最近跑工地多，嗓子容易哑，润喉糖也放这儿了。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "停下红铅笔，把礼盒拿起来掂了掂",
+          tone: "warm",
+          content: `哟，明前的？ 你这孩子倒是有心。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "打开盒盖闻了闻，难得露出一点松弛的表情",
+          tone: "warm",
+          content: `行，这个我收着——正好这两天跟甲方扯皮扯得嗓子疼。我跟你说，做实务这一行，最缺的就是这种"有人想着你"的感觉。你懂吧？`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "松了口气",
+          content: `那您留着喝，下次我从家再给您带点别的。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "摆摆手，重新拿起红铅笔",
+          tone: "warm",
+          content: `别老带东西啊，又不是走亲戚——哎对，下周三那个文化中心中期汇报，你跟着我来，让你看看甲方是怎么"温柔地"撕方案的。`,
+        },
+        {
+          speaker: "narration",
+          content: `${mentorName} 把茶盒挪到桌角一个显然是"私人领地"的位置——那里还摆着一张他孩子的照片。你知道，在这位实务派导师这里，礼物从来不等于讨好，而是"这个人值得我信任"的信号。`,
+        },
+      ];
+    case "hands_off":
+      return [
+        {
+          speaker: "narration",
+          content: `${mentorName} 的办公室门永远半开着。你进去时，导师正盘腿坐在椅子上看一本人类学田野笔记，桌上放着一杯手冲。你把礼盒放在那杯手冲旁边——这是屋里唯一能放下东西的空地。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "把礼盒轻轻放下",
+          content: `老师，家里寄了点茶，给您留一份。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "合上书，把礼盒拿起来端详了一下",
+          tone: "warm",
+          content: `嚯，这包装挺讲究啊。你这孩子倒是会挑——行，我收了，正好今天这杯手冲冲砸了。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "起身去角落的小茶水台，开始烧水",
+          tone: "warm",
+          content: `坐一会儿？ 我刚煮上水，咱俩一起喝一杯。你最近那个跨学科的方向想得怎么样了？别跟我客气，自己找地方坐——地上也行，我这儿本来就没什么规矩。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "在书堆里找了块还算干净的地方坐下",
+          content: `方向有点眉目了，但还在犹豫要不要加一个城市社会学的视角……`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "把茶汤倒进两个完全不配套的杯子里，递给你一杯",
+          tone: "warm",
+          content: `加。当然加。你以为我做放养型是因为懒？ 是因为我知道你们这一代人要做的建筑，不能再只靠类型学和功能流线了——你得自己去找交叉点。你今天的茶，换这杯 talk，值。`,
+        },
+        {
+          speaker: "narration",
+          content: `你和导师在落地窗边聊了将近一个小时，从田野方法聊到项飙的"附近"，从城市更新聊到 AI 生成空间的伦理。离开时天已经黑透了。你意识到，放养派导师的"收下礼物"，本质上是收下了一段不带绩效压力的真实对话。`,
+        },
+      ];
+    case "academic":
+      return [
+        {
+          speaker: "narration",
+          content: `${mentorName} 的办公室飘着铁观音的茶气。你把礼盒放在那张堆满《营造法式》石印本的长桌上——这张桌子见证过无数开题与答辩，但很少接待过"礼物"。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "双手递过礼盒",
+          content: `老师，这周回老家带的茶，给您尝尝鲜。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "停下手中正在校对的法式模数表，摘下老花镜",
+          tone: "warm",
+          content: `嗯？ 明前的？ 难为你想着。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "打开盒盖看了看叶底，轻轻点头",
+          tone: "warm",
+          content: `叶底匀整，是正经东西。行，这个我收着——你知道我不轻易收学生的东西，但你这孩子做事向来踏实，这份心意我领了。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "把礼盒小心地放在书架旁一个专门的格子里——那里显然是「学生心意」专区",
+          tone: "warm",
+          content: `我跟你说，做学问这条路上，真正能坚持下去的人不多。你近期那篇关于明代官式形制流变的稿子我看了——比半年前有长进，尤其是柱础雕饰那段的分析，开始有自己的判断了。继续保持。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "没料到会被点名表扬，有点受宠若惊",
+          content: `谢谢老师……那段我也是反复改了五六版。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "重新戴上老花镜，准备回到法式模数表",
+          tone: "warm",
+          content: `改七八版才对。回去把参考文献再核一遍，下周给我看终稿——对了，下次别带东西了，把稿子带好就行。`,
+        },
+        {
+          speaker: "narration",
+          content: `${mentorName} 把茶盒放在了书架旁一个专门的格子里——那里已经有几盒往届学生送的茶，有的拆过，有的原封不动，但都被保留着。你意识到，学术派导师拒收的是"形式"，收下的永远是"心意背后的努力"。`,
+        },
+      ];
+    case "overseas":
+      return [
+        {
+          speaker: "narration",
+          content: `${mentorName} 的办公室挂满威尼斯双年展海报。你把礼盒放在 guest table 上——这是屋里唯一不带学术符号的家具。导师正用 iPad 比对一组城市纹理地图，听见你进来，摘下一只 AirPods。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "把礼盒往前推了推，有些忐忑",
+          content: `Professor, 家里寄了点中国茶——这是中国传统的"一点心意"，希望您愿意收下。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "放下 iPad，认真地看了看礼盒，又看了看你",
+          tone: "warm",
+          content: `Oh— 这个我得好好想想。`,
+        },
+        {
+          speaker: "narration",
+          content: `有那么几秒钟你心跳加速——你以为又要被拒。但 ${mentorName} 这次却没有推回来，而是伸手轻轻把礼盒拿到自己那侧。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "认真地，但带着笑意",
+          tone: "warm",
+          content: `好。我收下。 不是因为这是一盒茶——是因为你愿意跨过那种"师生边界感"来跟我表达尊重。我知道这对你来说不容易，我也知道在中国语境里这意味着什么。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "把礼盒放在 MacBook 旁边",
+          tone: "warm",
+          content: `下次我请组里同学一起喝茶——我来煮，你来讲讲你家乡的茶文化怎么样？I'm serious, 这可以是我们下次 studio 的一个 warm-up。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "没想到会被这样接住",
+          content: `那……那我下次准备一下，讲得不好您别嫌弃。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "笑出声，重新戴上 AirPods",
+          tone: "warm",
+          content: `Welcome to my group — 我们这里最不缺的就是"讲得不好"的尝试。去吧，下周见。`,
+        },
+        {
+          speaker: "narration",
+          content: `你退出办公室时，导师已经开始在 iPad 上查找"中国茶礼仪"。你意识到，海归派导师的"收下"，不是对中国式人情世故的妥协，而是主动选择跨过那条边界，把你真正纳入了他的学术社区。`,
+        },
+      ];
+  }
 }
 
 /** 获取导师的场景与办公室配置 */
@@ -300,6 +808,8 @@ export function generateOfficeDialogueOptions(
 
   // 3. 送礼关怀与心意（无论余额多少都展示，但若钱不够则标注 disabled）
   const canAffordGift = money >= 1;
+  const giftRejection = buildGiftRejection(mentor.mentorId, mentor.name);
+  const giftAcceptance = buildGiftAcceptance(mentor.mentorId, mentor.name);
   options.push({
     id: "gift_tea",
     label: "敬赠一盒家乡清茶与润喉伴手礼",
@@ -313,6 +823,8 @@ export function generateOfficeDialogueOptions(
     mentorReply: `「你这孩子，心意我领了。平时做科研用脑多，自己也多注意身体。下次组会别空着肚子来，我办公室常备着点心。」`,
     replyTone: "warm",
     resultNarrative: `导师收下了清茶，眼神中流露出一丝欣慰的笑意。他特意嘱咐你在高强度的改图与文献攻坚中也要保重身体。`,
+    rejection: giftRejection,
+    acceptanceDialogue: giftAcceptance,
   });
 
   // 4. 高好感度专属：打探资源与推荐信

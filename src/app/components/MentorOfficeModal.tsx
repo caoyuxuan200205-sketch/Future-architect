@@ -7,21 +7,26 @@ import {
   Gift,
   Award,
   ChevronRight,
+  ChevronDown,
   X,
   Heart,
   Quote,
   CheckCircle2,
+  XCircle,
   AlertCircle,
+  MessageSquare,
   Compass,
 } from "lucide-react";
 import {
   getMentorOfficeProfile,
   generateOfficeDialogueOptions,
   rollMentorPresence,
+  rollGiftRejection,
   getMentorAwayScene,
   type OfficeDialogueOption,
   type MentorOfficeProfile,
   type MentorAwayScene,
+  type GiftDialogueLine,
 } from "../npc/mentorEncounterData";
 import { TONE_LABEL, TONE_BUBBLE_COLOR, toneFromFavorability } from "../npc/npcRegistry";
 import { moneyToBalance, formatYuan } from "../economy/finance";
@@ -39,7 +44,8 @@ interface MentorOfficeModalProps {
     stress: number;
   };
   canChooseAction: boolean;
-  onExecuteOption: (option: OfficeDialogueOption) => void;
+  /** 当玩家确认执行一项办公室互动时触发；rejected 标记仅对送礼类选项有效 */
+  onExecuteOption: (option: OfficeDialogueOption, rejected: boolean) => void;
 }
 
 export function MentorOfficeModal({
@@ -52,6 +58,7 @@ export function MentorOfficeModal({
   canChooseAction,
   onExecuteOption,
 }: MentorOfficeModalProps) {
+  // ===== 所有 Hooks 必须在早期 return 之前声明（React Hook 规则） =====
   const [activeTab, setActiveTab] = useState<"dialogue" | "profile">("dialogue");
   const [selectedOption, setSelectedOption] = useState<OfficeDialogueOption | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -62,10 +69,22 @@ export function MentorOfficeModal({
   const [currentMoodIndex, setCurrentMoodIndex] = useState(0);
   const [isAway, setIsAway] = useState(false);
   const [awayScene, setAwayScene] = useState<MentorAwayScene | null>(null);
+  // 送礼被拒收时的醒目提示
+  const [giftRejected, setGiftRejected] = useState(false);
+  // 送礼剧情对话序列播放器
+  const [dialogueSequence, setDialogueSequence] = useState<GiftDialogueLine[]>([]);
+  const [dialogueIndex, setDialogueIndex] = useState(0);
+  const [dialogueComplete, setDialogueComplete] = useState(false);
+  // 暂存送礼结算数据，等对话序列播完再触发外部回调
+  const pendingExecutionRef = React.useRef<{ option: OfficeDialogueOption; rejected: boolean } | null>(null);
+
+  const isDialoguePlaying = dialogueSequence.length > 0 && !dialogueComplete;
 
   const profile: MentorOfficeProfile = getMentorOfficeProfile(mentor);
   const currentTone = toneFromFavorability(favorability);
   const options = generateOfficeDialogueOptions(profile, favorability, money, canChooseAction);
+
+  const mentorId = mentor?.id;
 
   useEffect(() => {
     if (isOpen) {
@@ -73,13 +92,18 @@ export function MentorOfficeModal({
       setHasExecuted(false);
       setCurrentNarrative(null);
       setCurrentReply(null);
+      setGiftRejected(false);
+      setDialogueSequence([]);
+      setDialogueIndex(0);
+      setDialogueComplete(false);
       setCurrentMoodIndex(Math.floor(Math.random() * profile.currentMoods.length));
       // 判定导师是否在办公室（放养型导师扑空概率大）
       const present = rollMentorPresence(profile.mentorId);
       setIsAway(!present);
       setAwayScene(present ? null : getMentorAwayScene(profile));
     }
-  }, [isOpen, mentor]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mentorId]);
 
   if (!isOpen) return null;
 
@@ -181,14 +205,70 @@ export function MentorOfficeModal({
     }
 
     setIsExecuting(true);
-    setCurrentReply(selectedOption.mentorReply);
-    setReplyTone(selectedOption.replyTone);
-    setCurrentNarrative(selectedOption.resultNarrative);
+
+    // 送礼类选项：按导师类型 + 好感区间做拒收判定，并启动剧情对话序列
+    let isRejected = false;
+    let displayOption = selectedOption;
+    let sequence: GiftDialogueLine[] | undefined;
+
+    if (selectedOption.category === "gift") {
+      isRejected = rollGiftRejection(profile.mentorId, favorability);
+      if (isRejected && selectedOption.rejection) {
+        displayOption = {
+          ...selectedOption,
+          statDeltas: selectedOption.rejection.statDeltas,
+          mentorReply: selectedOption.rejection.mentorReply,
+          replyTone: selectedOption.rejection.replyTone,
+          resultNarrative: selectedOption.rejection.resultNarrative,
+        };
+        sequence = selectedOption.rejection.dialogueSequence;
+      } else {
+        sequence = selectedOption.acceptanceDialogue;
+      }
+    }
+
+    // 立即设置标记与文案（让玩家看到第一条反馈）
+    setCurrentReply(displayOption.mentorReply);
+    setReplyTone(displayOption.replyTone);
+    setCurrentNarrative(displayOption.resultNarrative);
+    setGiftRejected(isRejected);
     setHasExecuted(true);
 
-    // 回调外部更新游戏数值与回合
-    onExecuteOption(selectedOption);
+    // 送礼：启动剧情对话序列播放器；序列播完后由 advanceDialogue / skipDialogue 触发外部回调
+    if (sequence && sequence.length > 0) {
+      setDialogueSequence(sequence);
+      setDialogueIndex(0);
+      setDialogueComplete(false);
+      // 暂存结算数据，等对话结束再触发
+      pendingExecutionRef.current = { option: displayOption, rejected: isRejected };
+    } else {
+      // 非送礼选项：立即回调外部
+      onExecuteOption(displayOption, isRejected);
+    }
     setIsExecuting(false);
+  };
+
+  const advanceDialogue = () => {
+    if (dialogueIndex < dialogueSequence.length - 1) {
+      setDialogueIndex(dialogueIndex + 1);
+    } else {
+      // 序列播放完毕：触发外部结算
+      setDialogueComplete(true);
+      const pending = pendingExecutionRef.current;
+      if (pending) {
+        onExecuteOption(pending.option, pending.rejected);
+        pendingExecutionRef.current = null;
+      }
+    }
+  };
+
+  const skipDialogue = () => {
+    setDialogueComplete(true);
+    const pending = pendingExecutionRef.current;
+    if (pending) {
+      onExecuteOption(pending.option, pending.rejected);
+      pendingExecutionRef.current = null;
+    }
   };
 
   return (
@@ -332,7 +412,8 @@ export function MentorOfficeModal({
 
           {/* 右侧：多维剧情对话与互动面板 */}
           <div className="flex flex-col overflow-y-auto lg:col-span-7 bg-[#07101d]/95 p-6 lg:p-8">
-            {/* 对话回响区域（AVG 对白气泡） */}
+            {/* 对话回响区域（AVG 对白气泡）—— 送礼剧情播放期间隐藏，把空间让给剧情播放器 */}
+            {!isDialoguePlaying && (
             <div className="mb-6 flex-1 rounded-2xl border border-white/10 bg-[#0c172a]/70 p-5 shadow-inner backdrop-blur-md">
               <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
                 <div className="flex items-center gap-2">
@@ -370,17 +451,28 @@ export function MentorOfficeModal({
                   </div>
                 </div>
 
-                {/* 执行后的剧情叙述 */}
+                {/* 执行后的剧情叙述（拒收用红色警示风，正常用绿色确认风） */}
                 {currentNarrative && (
-                  <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-3.5 text-xs leading-relaxed text-emerald-200 animate-in fade-in duration-300">
-                    <CheckCircle2 size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <div
+                    className={`mt-3 flex items-start gap-2.5 rounded-xl border p-3.5 text-xs leading-relaxed animate-in fade-in duration-300 ${
+                      giftRejected
+                        ? "border-rose-500/40 bg-rose-950/30 text-rose-200"
+                        : "border-emerald-500/20 bg-emerald-950/20 text-emerald-200"
+                    }`}
+                  >
+                    {giftRejected ? (
+                      <XCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <CheckCircle2 size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                    )}
                     <span>{currentNarrative}</span>
                   </div>
                 )}
               </div>
             </div>
+            )}
 
-            {/* 互动选项池 */}
+            {/* 状态分支：① 选择互动 ② 送礼剧情对话播放中 ③ 完成结算 */}
             {!hasExecuted ? (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -423,7 +515,6 @@ export function MentorOfficeModal({
                           </p>
                         </div>
 
-                        {/* 收益预告 */}
                         {opt.statDeltas && (
                           <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-2 text-[10px]">
                             {opt.statDeltas.arch && (
@@ -474,19 +565,164 @@ export function MentorOfficeModal({
                   </button>
                 </div>
               </div>
+            ) : isDialoguePlaying ? (
+              /* === 送礼剧情对话播放器 === */
+              <div className="mt-auto flex flex-col gap-3 border-t border-white/10 pt-4">
+                {/* 序列顶部标识：进度 + 类型 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare size={14} className={giftRejected ? "text-rose-400" : "text-emerald-400"} />
+                    <span className={`text-[11px] font-semibold uppercase tracking-wider ${giftRejected ? "text-rose-300" : "text-emerald-300"}`}>
+                      {giftRejected ? "拒收剧情 · 对话进行中" : "收下剧情 · 对话进行中"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={skipDialogue}
+                    className="text-[11px] text-slate-400 transition hover:text-white"
+                  >
+                    跳过 ⏩
+                  </button>
+                </div>
+
+                {/* 当条对话气泡（横向长大字幕风格，参考交互叙事游戏） */}
+                {(() => {
+                  const line = dialogueSequence[dialogueIndex];
+                  if (!line) return null;
+
+                  if (line.speaker === "narration") {
+                    return (
+                      <div className="w-full animate-in fade-in slide-in-from-bottom-1 duration-300">
+                        <div className={`mx-auto rounded-2xl border px-5 py-4 text-[13px] leading-[1.9] italic backdrop-blur-md ${
+                          giftRejected
+                            ? "border-rose-500/25 bg-rose-950/25 text-rose-100/85"
+                            : "border-white/10 bg-black/30 text-slate-300"
+                        }`}>
+                          <div className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-wider opacity-60">
+                            <Sparkles size={10} />
+                            <span>场景叙述</span>
+                          </div>
+                          {line.content}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const isPlayer = line.speaker === "player";
+                  const bubbleTone = (!isPlayer && line.tone) || (giftRejected ? "neutral" : "warm");
+
+                  return (
+                    <div
+                      className={`w-full flex ${isPlayer ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-1 duration-300`}
+                    >
+                      <div className={`flex items-start gap-3 max-w-[92%] ${isPlayer ? "flex-row-reverse" : ""}`}>
+                        {/* 头像 */}
+                        <img
+                          src={isPlayer ? "" : profile.avatarImage}
+                          alt=""
+                          className={`h-11 w-11 shrink-0 rounded-xl border object-cover ${
+                            isPlayer
+                              ? "border-sky-400/40 bg-gradient-to-br from-sky-500/30 to-indigo-500/30"
+                              : "border-white/20"
+                          }`}
+                          style={isPlayer ? { display: "none" } : undefined}
+                        />
+                        {isPlayer && (
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-400/40 bg-gradient-to-br from-sky-500/30 to-indigo-500/30 text-base">
+                            🧑‍🎓
+                          </div>
+                        )}
+
+                        {/* 气泡主体 */}
+                        <div
+                          className={`rounded-2xl px-5 py-4 shadow-md min-w-[280px] ${
+                            isPlayer ? "rounded-tr-sm" : "rounded-tl-sm"
+                          }`}
+                          style={{
+                            backgroundColor: isPlayer
+                              ? "rgba(56, 132, 255, 0.18)"
+                              : TONE_BUBBLE_COLOR[bubbleTone as ToneTier],
+                            border: `1px solid ${isPlayer ? "rgba(125, 211, 252, 0.25)" : "rgba(255,255,255,0.1)"}`,
+                          }}
+                        >
+                          {/* 说话人 + 动作 */}
+                          <div className={`mb-1.5 flex items-baseline gap-2 ${isPlayer ? "justify-end" : ""}`}>
+                            <span className={`text-xs font-bold ${isPlayer ? "text-sky-300" : "text-[#d7bb66]"}`}>
+                              {line.name || (isPlayer ? "你" : profile.name)}
+                            </span>
+                            {line.action && (
+                              <span className="text-[10px] italic text-slate-300/70">
+                                （{line.action}）
+                              </span>
+                            )}
+                          </div>
+
+                          {/* 台词正文 */}
+                          <p className="text-[13.5px] leading-[1.85] text-slate-100">
+                            {line.content}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 底部推进控制 */}
+                <div className="flex items-center justify-end gap-2 pt-1">
+
+                  <button
+                    type="button"
+                    onClick={advanceDialogue}
+                    className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 active:scale-95 ${
+                      giftRejected
+                        ? "bg-gradient-to-r from-rose-600 to-rose-500"
+                        : "bg-gradient-to-r from-emerald-700 to-emerald-600"
+                    }`}
+                  >
+                    <span>
+                      {dialogueIndex < dialogueSequence.length - 1 ? "继续" : "完成本场对话"}
+                    </span>
+                    {dialogueIndex < dialogueSequence.length - 1 ? <ChevronDown size={14} /> : <CheckCircle2 size={14} />}
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div className="mt-auto flex items-center justify-between border-t border-white/10 pt-5">
-                <span className="text-xs text-emerald-300">
-                  ✨ 本轮交流圆满结束，相关属性与好感度已同步更新。
-                </span>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex items-center gap-2 rounded-xl border border-[#c9a84c]/60 bg-[#c9a84c] px-6 py-2.5 text-xs font-bold text-black shadow-lg transition hover:brightness-110"
-                >
-                  <span>确认并返回地图</span>
-                  <ChevronRight size={14} />
-                </button>
+              /* === 完成结算 === */
+              <div className="mt-auto space-y-3 border-t border-white/10 pt-5">
+                {/* 拒收醒目横幅（仅在被拒收时显示） */}
+                {giftRejected ? (
+                  <div className="flex items-center gap-3 rounded-2xl border border-rose-500/40 bg-rose-950/40 px-4 py-3 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
+                    <XCircle size={22} className="text-rose-400 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-rose-200">
+                        🚫 礼物被导师婉拒
+                      </p>
+                      <p className="text-[11px] leading-relaxed text-rose-300/90 mt-0.5">
+                        钱未扣除，好感度略受影响——这位导师不吃这一套，换个方式拉近关系吧。
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-emerald-300">
+                    <CheckCircle2 size={14} />
+                    <span>✨ 本轮交流圆满结束，相关属性与好感度已同步更新。</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold text-black shadow-lg transition hover:brightness-110 ${
+                      giftRejected
+                        ? "border border-rose-400/60 bg-rose-400"
+                        : "border border-[#c9a84c]/60 bg-[#c9a84c]"
+                    }`}
+                  >
+                    <span>{giftRejected ? "知难而退 · 返回地图" : "确认并返回地图"}</span>
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
             )}
           </div>

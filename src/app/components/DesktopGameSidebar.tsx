@@ -27,6 +27,7 @@ import {
   Mic,
   Monitor,
   Sparkles,
+  Clock,
   Users,
   Video,
   Wifi,
@@ -224,6 +225,12 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
         .filter((action): action is DesktopMapAction => Boolean(action))
     : [];
 
+  // 时间轴进度计算
+  const TOTAL_TURNS = 24;
+  const currentTurn = (semester - 1) * 4 + round; // 1..24
+  const completedTurns = currentTurn - 1;
+  const progressFraction = completedTurns / TOTAL_TURNS;
+
   return (
     <section className="mx-auto hidden w-full max-w-6xl flex-1 p-5 pb-24 xl:p-8 lg:block">
       <header className="mb-5 flex items-end justify-between">
@@ -341,6 +348,51 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
             <span className="rounded-full border border-white/10 bg-[#07101d]/72 px-3 py-1.5 text-slate-300 backdrop-blur-md">地图负责发起行动 · “本回合”用于快速操作与结算</span>
             <span className="rounded-full border border-[#c9a84c]/20 bg-[#07101d]/72 px-3 py-1.5 text-[#d7bb66] backdrop-blur-md">校园 · 职业探索区</span>
           </div>
+        </div>
+      </div>
+
+      {/* ===== 简洁时间轴 ===== */}
+      <div className="mt-4 overflow-hidden rounded-2xl border border-[#c9a84c]/22 bg-[#07101d] px-5 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+        {/* 进度条行 */}
+        <div className="flex items-center gap-4">
+          <Clock size={14} className="shrink-0 text-[#d7bb66]" />
+          <span className="shrink-0 text-[11px] font-medium text-slate-300">{semesterLabel} · 第 {round} 回合</span>
+
+          <div className="relative h-1.5 flex-1">
+            <div className="absolute inset-0 overflow-hidden rounded-full bg-[#0d1a2e]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#8a6d2b] via-[#c9a84c] to-[#e6c567] transition-all duration-700 ease-out"
+                style={{ width: `${Math.max(progressFraction * 100, 2)}%` }}
+              />
+            </div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span key={i} className="absolute top-1/2 h-2.5 w-px -translate-y-1/2 bg-[#1e2e48]" style={{ left: `${((i + 1) / 6) * 100}%` }} />
+            ))}
+            <span
+              className="absolute top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#07101d] bg-[#e6c567] shadow-[0_0_8px_rgba(201,168,76,0.65)] transition-all duration-700 ease-out"
+              style={{ left: `${Math.max((currentTurn - 0.5) / TOTAL_TURNS * 100, 3)}%` }}
+            />
+          </div>
+
+          <span className="shrink-0 font-mono text-[11px] font-semibold tabular-nums text-[#d7bb66]">
+            {completedTurns}<span className="text-slate-500"> / {TOTAL_TURNS}</span>
+          </span>
+        </div>
+
+        {/* 学年标注行 */}
+        <div className="mt-2 flex items-center justify-between pl-7 text-[10px] tracking-wider">
+          {[
+            { label: "研一", active: semester <= 2 },
+            { label: "研二", active: semester >= 3 && semester <= 4 },
+            { label: "研三", active: semester >= 5 },
+          ].map((y) => (
+            <span
+              key={y.label}
+              className={`flex-1 text-center font-medium transition-colors ${y.active ? "text-[#e6c567]" : "text-slate-700"}`}
+            >
+              {y.label}
+            </span>
+          ))}
         </div>
       </div>
     </section>
