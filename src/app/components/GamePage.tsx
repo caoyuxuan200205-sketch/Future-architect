@@ -2881,16 +2881,60 @@ function mentorDisplayName(m: Mentor | null): string | null {
 
 function mentorAvatar(m: Mentor | null): string {
   if (!m) return "/assets/visuals/npcs/professor_academic.jpg";
-  switch (m.id) {
-    case "hands_off":
-      return "/assets/visuals/npcs/professor_hands_off.jpg";
-    case "practice":
-      return "/assets/visuals/npcs/professor_practice.jpg";
-    case "overseas":
-      return "/assets/visuals/npcs/professor_overseas.jpg";
-    case "academic":
-    default:
+  const actualName = (m.customName && m.customName.trim()) ? m.customName.trim() : m.name;
+  switch (actualName) {
+    // 传统学术型 (academic)
+    case "齐廷宝":
       return "/assets/visuals/npcs/professor_academic.jpg";
+    case "童敦桢":
+      return "/assets/visuals/npcs/professor_academic_tong.jpg"; // 海浪画
+    case "葛慎康":
+      return "/assets/visuals/npcs/professor_academic.jpg";
+    case "朱薇亚":
+      return "/assets/visuals/npcs/professor_academic.jpg";
+
+    // 放养自由型 (hands_off)
+    case "钱晓茜":
+      return "/assets/visuals/npcs/professor_hands_off.jpg";
+    case "沈剑葳":
+      return "/assets/visuals/npcs/professor_hands_off_shen.jpg"; // 红发卡通
+    case "李诸葛":
+      return "/assets/visuals/npcs/professor_hands_off.jpg";
+    case "旸葳":
+      return "/assets/visuals/npcs/professor_hands_off.jpg";
+
+    // 实践工程型 (practice)
+    case "程恺":
+      return "/assets/visuals/npcs/professor_practice.jpg";
+    case "何建民":
+      return "/assets/visuals/npcs/professor_practice_he.jpg"; // 鲸鱼雕塑
+    case "崔泰宁":
+      return "/assets/visuals/npcs/professor_practice.jpg";
+    case "恺宁":
+      return "/assets/visuals/npcs/professor_practice.jpg";
+
+    // 海归前沿型 (overseas)
+    case "常彤":
+      return "/assets/visuals/npcs/professor_overseas.jpg";
+    case "张青":
+      return "/assets/visuals/npcs/professor_overseas_zhang.jpg"; // 城市夜景
+    case "庄惟":
+      return "/assets/visuals/npcs/professor_overseas.jpg";
+    case "彤青":
+      return "/assets/visuals/npcs/professor_overseas.jpg";
+
+    default:
+      switch (m.id) {
+        case "hands_off":
+          return "/assets/visuals/npcs/professor_hands_off.jpg";
+        case "practice":
+          return "/assets/visuals/npcs/professor_practice.jpg";
+        case "overseas":
+          return "/assets/visuals/npcs/professor_overseas.jpg";
+        case "academic":
+        default:
+          return "/assets/visuals/npcs/professor_academic.jpg";
+      }
   }
 }
 
