@@ -5,6 +5,19 @@ import { evaluateCustomEventAction } from "../../lib/llm";
 import { AIAssistant } from "./AIAssistant";
 import { tracker } from "../services/tracker";
 import { StatusAnalysisPanel } from "./StatusAnalysisPanel";
+import { DetailedStatsPanel } from "./DetailedStatsPanel";
+import { ActionBadgeIcon } from "./ActionIcon";
+import { MentorOfficeModal } from "./MentorOfficeModal";
+import { MonthlyBillModal } from "./MonthlyBillModal";
+import {
+  createInitialFinance,
+  settleMonth,
+  scholarshipByArch,
+  inferCompanyCity,
+  applyCityToFinance,
+  type FinanceState,
+  type MonthlySettlement,
+} from "../economy/finance";
 import { MobileGameShell, MobileMapView } from "./mobile/MobileGameShell";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
 import { EVENT_BRANCHES, type EventBranchOption } from "../eventBranches";
@@ -113,22 +126,61 @@ interface Stats {
   selfDoubt: number;   // 自我怀疑（越低越好）
   ageAnxiety: number;  // 年龄焦虑（越低越好）
   mentorFavorability: number; // 导师好感度
+  // 扩展属性
+  dataSense?: number;
+  visualTaste?: number;
+  writingDepth?: number;
+  codeBasic?: number;
+  commercial?: number;
+  negotiation?: number;
+  leadership?: number;
+  empathy?: number;
+  execution?: number;
+  reputation?: number;
+  health?: number;
+  riskTolerance?: number;
+  aestheticTheory?: number;
+  industryResearch?: number;
+  fastLearning?: number;
+  alignment?: number;
+  infoChannels?: number;
 }
 
 type StatKey = keyof Stats;
 
-const STAT_META: Record<StatKey, { label: string; positive: boolean; color: string }> = {
-  arch: { label: "建筑专业力", positive: true, color: "#64b5f6" },
-  logic: { label: "逻辑力", positive: true, color: "#4a9eff" },
-  expression: { label: "表达力", positive: true, color: "#81c784" },
-  english: { label: "英语能力", positive: true, color: "#4dd0e1" },
-  structured: { label: "结构化思维", positive: true, color: "#7986cb" },
-  stress: { label: "抗压值", positive: true, color: "#4caf50" },
-  network: { label: "人脉值", positive: true, color: "#ffb74d" },
-  money: { label: "金钱", positive: true, color: "#ffd54f" },
-  selfDoubt: { label: "自我怀疑", positive: false, color: "#ef5350" },
-  ageAnxiety: { label: "年龄焦虑", positive: false, color: "#e53935" },
-  mentorFavorability: { label: "导师好感度", positive: true, color: "#f0c040" },
+const STAT_META: Record<StatKey, { label: string; positive: boolean; color: string; yuanScale?: number }> = {
+  // 核心
+  arch:               { label: "建筑专业力", positive: true,  color: "#64b5f6" },
+  logic:              { label: "逻辑推理",   positive: true,  color: "#4a9eff" },
+  expression:         { label: "口头表达",   positive: true,  color: "#81c784" },
+  english:            { label: "外语能力",   positive: true,  color: "#4dd0e1" },
+  structured:         { label: "结构化思维", positive: true,  color: "#7986cb" },
+  stress:             { label: "心理抗压",   positive: true,  color: "#4caf50" },
+  network:            { label: "人脉资源",   positive: true,  color: "#ffb74d" },
+  money:              { label: "储蓄资金",   positive: true,  color: "#ffd54f", yuanScale: 500 },
+  selfDoubt:          { label: "自我怀疑",   positive: false, color: "#ef5350" },
+  ageAnxiety:         { label: "同辈焦虑",   positive: false, color: "#e53935" },
+  mentorFavorability: { label: "导师认可度", positive: true,  color: "#f0c040" },
+  // 扩展硬技能
+  dataSense:          { label: "数据分析",   positive: true,  color: "#26c6da" },
+  codeBasic:          { label: "代码基础",   positive: true,  color: "#388e3c" },
+  visualTaste:        { label: "审美直觉",   positive: true,  color: "#ec407a" },
+  writingDepth:       { label: "文档能力",   positive: true,  color: "#5c6bc0" },
+  aestheticTheory:    { label: "美学理论",   positive: true,  color: "#d81b60" },
+  commercial:         { label: "商业嗅觉",   positive: true,  color: "#f9a825" },
+  industryResearch:   { label: "行业研判",   positive: true,  color: "#00acc1" },
+  // 扩展软实力
+  negotiation:        { label: "谈判博弈",   positive: true,  color: "#a78bfa" },
+  leadership:         { label: "组织领导",   positive: true,  color: "#f06292" },
+  empathy:            { label: "共情感知",   positive: true,  color: "#4db6ac" },
+  execution:          { label: "交付执行",   positive: true,  color: "#8d6e63" },
+  fastLearning:       { label: "跨界学习力", positive: true,  color: "#26a69a" },
+  alignment:          { label: "跨职能拉通", positive: true,  color: "#ab47bc" },
+  // 扩展状态与资源
+  health:             { label: "身体健康",   positive: true,  color: "#9ccc65" },
+  riskTolerance:      { label: "风险偏好",   positive: true,  color: "#7c8aff" },
+  reputation:         { label: "行业声望",   positive: true,  color: "#ff8a65" },
+  infoChannels:       { label: "信息渠道",   positive: true,  color: "#ffa726" },
 };
 
 interface CharacterInfo {
@@ -206,12 +258,13 @@ interface GameResultDistributionRow {
 // ================================================================
 
 const ACTIONS: Action[] = [
+  // ─── 建筑学院 ───
   {
     id: "revise",
-    label: "改图",
+    label: "课题改图",
     emoji: "📐",
-    description: "死磕图纸，建筑专业力大幅提升，但消耗精力",
-    effects: { arch: 8, stress: -6, selfDoubt: 3, ageAnxiety: 2, mentorFavorability: [2, 5] },
+    description: "死磕方案图纸与空间工程，建筑专业力大幅提升，但极其消耗抗压与体能",
+    effects: { arch: 8, execution: 4, stress: -6, selfDoubt: 3, ageAnxiety: 2, mentorFavorability: [2, 5] },
     narratives: [
       "你又开了一夜的图。天亮前保存文件的那一刻，有一种说不清是成就感还是麻木的东西。",
       "导师说线条不够干净，你删掉重画了三遍。最后一遍完成时，窗外已经开始堵车了。",
@@ -219,88 +272,203 @@ const ACTIONS: Action[] = [
     ],
   },
   {
+    id: "thesis",
+    label: "撰写学位论文",
+    emoji: "📑",
+    description: "潜心撰写毕业学术论文与方法论，提升文档能力、结构化思维与美学理论，防延毕基石",
+    effects: { writingDepth: 7, structured: 5, aestheticTheory: 6, mentorFavorability: 4, health: -4, stress: -3 },
+    narratives: [
+      "你在Word里敲下了绪论的第二万字，把建筑空间句法与现代性批判框架串联起来。导师在批注里破天荒打了个勾。",
+      "知网与Avery建筑索引里下载了两百篇英文文献，你把它们分类归档进Zotero，感觉自己的框架思维越发清晰。",
+      "论文盲审的压力悬在头顶，你一遍遍校对图表引用与脚注格式，这是你在研究生阶段留下的最严密的方法论资产。",
+    ],
+  },
+  {
+    id: "portfolio",
+    label: "重构跨界作品集",
+    emoji: "🎨",
+    description: "将建筑排版升级为科技与数字座舱美学，大幅提升审美直觉、文档与行业声望",
+    effects: { visualTaste: 7, writingDepth: 4, reputation: 3, execution: 3, money: -6 },
+    narratives: [
+      "你把过往笨重的CAD平立剖重构为极具UI/UX美感的概念信息图，上传到Behance后获得了几个大厂设计总监的赞同。",
+      "花钱买了最新的三维渲染贴图与科技字体库，把建筑空间推演改造成智能座舱交互原型，视觉冲击力拉满。",
+      "你反复调试作品集PDF的色彩微调与网格系统，简历初筛的通过率肉眼可见地提升了。",
+    ],
+  },
+
+  // ─── 图书馆 ───
+  {
     id: "product",
-    label: "学产品",
+    label: "自研产品PRD",
     emoji: "💡",
-    description: "系统学习产品思维，逻辑力与结构化思维显著提升",
-    effects: { logic: 7, structured: 7, expression: 2, arch: -2, mentorFavorability: -1 },
+    description: "系统拆解大厂业务，撰写产品需求文档，提升逻辑推理、共情感知与跨职能拉通",
+    effects: { logic: 6, empathy: 5, alignment: 5, structured: 5, mentorFavorability: -2 },
     narratives: [
       "你读完了《用户体验要素》，开始觉得PRD和建筑图纸其实有点像——都是在帮别人建造一个他们说不清楚想要的东西。",
       "你把产品课和建筑课放在一起比较，发现空间动线分析和用户流程图可以用同一套语言描述。这让你安心了一些。",
-      "你在图书馆看了四十个产品案例分析，第一次感觉脑子里的齿轮开始咬合。",
+      "你在图书馆写出了一份30页的AI空间交互PRD，从用户旅程到异常边界case推演严丝合缝。",
     ],
   },
   {
-    id: "internship",
-    label: "投实习",
-    emoji: "📮",
-    description: "筛选岗位、选择渠道并投出简历，结果将在下一回合更新",
-    effects: { expression: 2, network: 1, stress: -2, selfDoubt: 2, mentorFavorability: [-4, -2] },
+    id: "industry_research",
+    label: "行研与商业建模",
+    emoji: "📊",
+    description: "专攻金融与咨询：宏观研报拆解、TAM市场空间测算与财务估值建模，行业研判核心",
+    effects: { industryResearch: 8, structured: 6, logic: 5, commercial: 5, mentorFavorability: -2 },
     narratives: [
-      "你在Boss直聘上刷新了二十七次，最终投出了八份简历，然后等待。等待的感觉像是把自己折叠成纸飞机，扔进黑暗里。",
-      "你修改了第十七版简历，把建筑项目经历改得更像互联网的语言，心里有一种说不清是进化还是失去的感觉。",
-      "你参加了一轮视频面试，面试官盯着你的教育背景问了好几次为什么转行。你挂掉电话后不知道自己说了什么。",
+      "你下载了50份券商与MBB行研报告，在Excel里一行行搭建DCF估值模型与敏感性分析表，看懂了产业资本的流向。",
+      "自上而下推演新能源产业链与AI算力基建的市场空间（TAM/SAM/SOM），在咨询面试模拟中逻辑无懈可击。",
+      "你发现商业模型的底层和建筑结构荷载计算一样严谨——没有数字支撑的方案，终究只是空中楼阁。",
     ],
   },
   {
-    id: "campus",
-    label: "参加校招",
-    emoji: "🏢",
-    description: "踏入秋招的战场，表达力在每一次群面中锤炼，但年龄焦虑像背景噪音，随着每一次失败逐渐放大。",
-    effects: { expression: 6, network: 3, selfDoubt: -5, ageAnxiety: 4 },
+    id: "code_learning",
+    label: "刷算法与代码",
+    emoji: "💻",
+    description: "专攻技术美术TA与AI工程：从Python、数据结构与LeetCode破壁技术认知门槛",
+    effects: { codeBasic: 9, logic: 6, fastLearning: 5, health: -4, selfDoubt: 2 },
     narratives: [
-      "你排在面试队伍里，发现周围的CS同学都比你年轻三岁，他们说话时提到的技术栈像外星语一样在你耳边嗡嗡作响。你低头看了看自己的简历，上面'建筑学硕士'五个字像一道无形的墙，把你和他们隔开。你突然想起三年前，你还在为了一张图纸的细节和同学争论到深夜，而现在，你在这里，像一个走错片场的演员，连台词都背不熟。",
-      "你穿着正装站在宣讲会的角落，布料摩擦皮肤的感觉像一种温柔的刑罚。听着HR介绍公司文化，那些'扁平化管理'、'快速迭代'的词汇像雨点一样打在你身上，你却感觉不到任何湿润。你想到自己的建筑图纸，那些精心绘制的线条和阴影，和这个场景毫无关联。你开始怀疑，自己是不是在用一个错误的坐标系，测量一个不属于你的世界。",
-      "群面结束，小组里有个本科就开始做产品的同学全程侃侃而谈，他的每一个观点都像一把精准的手术刀，切开问题的核心。你努力在他说话的间隙插进自己的观点，声音却像被吸进了黑洞，连回音都没有。散场时，你看着他被HR留下单独交谈的背影，突然明白了一件事：在这个赛道上，你不仅起跑晚了，连跑道都是自己临时画的。",
+      "在LeetCode上刷完了前100道热题，指针、动态规划和二叉树在脑海里逐渐具象化为空间节点。",
+      "自学了Python与三维Shader图形引擎API，写出了第一个自动化批量生成空间模型的脚本，成就感爆棚。",
+      "面对Terminal终端里的一行行报错，你终于学会了像程序员一样用二分法排查Bug，不再对代码心存恐惧。",
+    ],
+  },
+  {
+    id: "data_analysis",
+    label: "SQL与数据分析",
+    emoji: "📈",
+    description: "刷题掌握SQL、AB实验与指标异动分析，大幅增强数据分析与商业敏感度",
+    effects: { dataSense: 8, structured: 5, commercial: 4, stress: -2 },
+    narratives: [
+      "写了整整一天的SQL窗口函数与多表JOIN，把几十万条模拟用户行为日志清洗得条理分明。",
+      "拆解了电商与短视频大厂的留存漏斗与转化归因模型，你对大盘指标波动的归因敏感度大幅提升。",
+      "用Tableau和Python绘制出了极具说服力的数据看板，面试官夸你'量化感觉比一般纯文科或设计生好太多'。",
     ],
   },
   {
     id: "ielts",
     label: "准备雅思",
     emoji: "📚",
-    description: "投入英语备考，英语能力大幅提升，消耗金钱和抗压值",
-    effects: { english: 9, money: -6, stress: -3, mentorFavorability: -4 },
+    description: "全英文文献与口语冲刺，外语能力大幅提升，锁定外企科技与顶级外资门槛",
+    effects: { english: 9, execution: 3, money: -6, stress: -3, mentorFavorability: -3 },
     narratives: [
-      "你在图书馆背完了一整本单词书，耳机里循环着BBC新闻，那些标准的英音像一条冰冷的河流，冲刷着你的耳膜。背到'desolate'的时候突然停住了，这个单词的发音让你想到了某种心情——那种荒芜的、被遗弃的感觉，像极了你看待自己建筑梦想时的眼神。你盯着书页上那个单词，它的释义是'荒凉的，无人烟的'，你突然想，是不是你的未来也会这样，被某种看不见的力量遗弃在时间的荒野里。",
-      "你报了雅思培训班，每周六早八点上课。教室里的空气混合着咖啡和青春的气息，周围大多是准备出国的大三学生，他们谈论着GPA和推荐信，眼神里闪烁着你对未来已经失去的那种光芒。你感觉自己像一个时间线错乱的人，明明应该在这个年纪规划职业，却在这里重新学习一门语言，为了一个可能根本不存在的海外岗位。课间休息时，你看着窗外飞过的鸽子，突然想知道，它们是不是也觉得自己飞错了方向。",
-      "模拟考成绩出来，比上次高了0.5分。你盯着那个数字，它像一个小小的嘲讽，悬在屏幕上。你不确定它是进展还是讽刺——花了整整一个月，每天六点起床背单词，换来的只是这0.5分的进步。你想起建筑系馆门口那句'安得广厦千万间'，现在你连一个雅思6.5都'安得'如此艰难。这种对比像一根细小的刺，扎进你心里最柔软的地方，让你连呼吸都带着痛感。",
+      "你在图书馆背完了一整本红宝书，耳机里循环着BBC与Bloomberg播客，全英口语流利度稳步上升。",
+      "模拟考成绩终于拿到了7.5，看着屏幕上的分数，你知道外企科技与外资投行的网申英语门槛已经稳稳跨过。",
+      "练习全英文Case面试的即兴陈述，用英语自如地拆解商业战略，不再有词不达意的尴尬。",
     ],
   },
+
+  // ─── 就业中心 ───
+  {
+    id: "internship",
+    label: "投实习",
+    emoji: "📮",
+    description: "海投各赛道实习，与HR谈薪博弈，若面试通过将在个人简历中沉淀高含金量实战经历",
+    effects: { expression: 4, negotiation: 5, fastLearning: 4, stress: -3, selfDoubt: 2, mentorFavorability: [-4, -2] },
+    narratives: [
+      "你在求职平台刷新了上百个岗位，精准投递了八份量身定制的简历，等待HR的面试邀约。",
+      "与HR在电话里巧妙沟通每周到岗天数与远程打卡政策，在导师眼皮底下争取最大的实习自由度。",
+      "通过了业务终面！你不仅拿到了大厂工牌，还把第一段高含金量的转行实战经历写进了简历中。",
+    ],
+  },
+  {
+    id: "mock_interview",
+    label: "模拟群面演练",
+    emoji: "🗣️",
+    description: "高强度宝洁八大问与无领导小组讨论，大幅提升口头表达、跨职能拉通与自信心",
+    effects: { expression: 7, alignment: 6, logic: 4, selfDoubt: -4, ageAnxiety: 2 },
+    narratives: [
+      "参加了跨校求职社团的群面模拟，你在讨论陷入僵局时主动站出来担任Timer和框架梳理者，获得全场最高分。",
+      "对着镜子把'你为什么从建筑转行做产品'的故事讲了50遍，逻辑闭环，眼神坚定，不再有一丝心虚。",
+      "在压力面试演练中顶住了面试官的三连追问，从容自如地给出量化拆解方案，自信心大幅建立。",
+    ],
+  },
+  {
+    id: "campus",
+    label: "参加校招",
+    emoji: "🏢",
+    description: "踏入秋招宣讲会与终面战场，表达与人脉显著提升（研三学年开启）",
+    effects: { expression: 6, network: 3, selfDoubt: -5, ageAnxiety: 4 },
+    narratives: [
+      "穿着正装穿梭在各大名企的秋招宣讲会，你清晰自信地向业务总监展示你的跨界作品集与实习成果。",
+      "在终面环节与大厂VP相谈甚欢，你的建筑空间素养与严密商业逻辑给评委留下了极深印象。",
+      "群面结束，多位跨专业竞争对手主动加你微信，你已经成长为求职场上面面俱到的成熟候选人。",
+    ],
+  },
+
+  // ─── 咖啡馆 ───
   {
     id: "sidejob",
     label: "做副业",
     emoji: "💰",
-    description: "接外包赚生活费，金钱+10，顺带积累人脉和逻辑力",
-    effects: { money: 10, network: 3, logic: 2, mentorFavorability: [-5, -2] },
+    description: "接商业设计/行研外包赚生活费，副业到手约 ¥5,000，增强商业嗅觉与交付执行",
+    effects: { money: 10, commercial: 5, execution: 4, health: -4, mentorFavorability: [-5, -2] },
     narratives: [
-      "你接了几个CAD图纸的外包，钱不多，但够下个月的房租。在接单平台上你的头像是一张没有人脸的建筑剖面图，那些复杂的线条和标注像一座迷宫，把你和真实的自己隔开。你画着别人的梦想之家，手指在鼠标上滑动，心里却想着，什么时候能画一张属于自己的平面图，哪怕只是一间十平米的出租屋。夜深了，你保存文件，收到平台打款的提示音，那声音清脆得像一个耳光，提醒你这是你用建筑技能换来的生存，而不是生活。",
-      "你帮一个小公司做了竞品分析报告，他们说你'思路很清晰'。你不知道这算不算夸你，还是夸你脱离了建筑。你盯着那封邮件，感觉每一个字都在轻轻摇晃你的身份认同——你曾经是那个为了一个窗洞比例纠结三天的人，现在却因为'思路清晰'被称赞。这种转变像一场安静的叛变，你背叛了过去的自己，却不知道新的自己到底是谁。",
-      "你开了一个建筑转行经验分享的公众号，断断续续写了几篇，有个留言说：'终于看到有人写出了我的感受。'你盯着那条留言看了很久，屏幕的光映在你脸上，像在举行某种秘密的仪式。你突然意识到，你的痛苦不是孤独的，它像一种传染病，在无数建筑生之间无声蔓延。你回复了一个'抱抱'的表情，然后关掉页面，因为你不知道除了抱抱，你还能给他们什么——你连自己的出路都还没找到。",
+      "接了几个商业空间概念与PPT美化外包，约五千元生活费到账，有效缓解了下个季度的房租与经济压力。",
+      "帮新消费初创品牌做了线下快闪店空间策划，对方爽快结清尾款，你的商业变现嗅觉进一步敏锐。",
+      "在接单平台上你的交付好评率达到100%，不仅赚到了生活资金，还锻炼了端到端的商业交付能力。",
+    ],
+  },
+  {
+    id: "networking",
+    label: "校友猎头局",
+    emoji: "🤝",
+    description: "请转行大厂/车企的学长学姐喝咖啡约 ¥2,500，撬动人脉资源、信息渠道与内部HC直推码",
+    effects: { network: 8, infoChannels: 7, commercial: 4, money: -5 },
+    narratives: [
+      "约了在字节做商业化总监的同系师兄喝手冲，师兄不仅帮你内推了部门核心岗位，还透露了即将开放的HC。",
+      "参加了科技行业青年校友聚会，加上了三位一线猎头的微信，掌握了市场上多个高薪岗位的真实薪酬底牌。",
+      "在咖啡馆与车企智能座舱的资深专家畅聊三小时，对方对你的空间跨界背景非常认可，答应随时帮你内推。",
+    ],
+  },
+  {
+    id: "insider_intel",
+    label: "潜水挖内推",
+    emoji: "🔍",
+    description: "深挖牛客、小红书与脉脉一手招聘情报，大幅提升信息渠道、风险偏好与跨界学习",
+    effects: { infoChannels: 8, riskTolerance: 4, fastLearning: 4, ageAnxiety: 3 },
+    narratives: [
+      "潜水搜集了今年各大厂各部门的HC盘点与面试真题库，精准避开了几个正在裁员锁HC的边缘业务线。",
+      "在脉脉和牛客上挖掘到了几个刚成立的AI应用早期团队招聘贴，第一时间内推投递，抢占信息差红利。",
+      "掌握了各家公司的暗线薪资范围与面试偏好风格，在求职信息对称性上彻底占据了主动权。",
+    ],
+  },
+
+  // ─── 宿舍 ───
+  {
+    id: "fitness",
+    label: "健身长跑",
+    emoji: "🏃",
+    description: "规律作息、长跑与力量训练，大幅恢复身体健康与心理抗压，有效驱散焦虑",
+    effects: { health: 12, stress: 5, ageAnxiety: -6, selfDoubt: -2 },
+    narratives: [
+      "在操场刷了五公里夜跑，大汗淋漓地冲了个热水澡，久坐改图带来的腰背酸痛得到了明显舒缓。",
+      "坚持早睡早起与力量训练，体脂率下降，精力和气色焕然一新，抗疲劳与高压承重能力大幅提升。",
+      "运动多巴胺有效冲刷掉了连日来的内耗与同辈焦虑，你发现自己的头脑变得格外清醒从容。",
+    ],
+  },
+  {
+    id: "slack",
+    label: "彻底摆烂",
+    emoji: "🛋️",
+    description: "彻底躺平一学期休整回血，心理抗压大幅回复，自我怀疑与同辈焦虑瞬间清空",
+    effects: { stress: 10, selfDoubt: -5, ageAnxiety: -10, arch: -2, logic: -2, structured: -2, mentorFavorability: [-5, -2] },
+    narratives: [
+      "关掉所有微信群消息，睡到自然醒，追完了两部高分美剧，让紧绷了几个月的神经彻底松弛下来。",
+      "告诉自己这叫'战略性休整'。在宿舍放空发呆一整周，精神承重墙得到了深度的修养与回血。",
+      "吃了一顿热气腾腾的火锅，不再去想任何求职与图纸的烦心事，虽然技能有些许生锈，但内心重归平静。",
     ],
   },
   {
     id: "gifts",
     label: "送礼献殷勤",
     emoji: "🎁",
-    description: "给导师送点特产或小礼物，试图缓和关系，但钱包会痛。",
-    effects: { money: -10, ageAnxiety: [-8, -5], selfDoubt: [-5, -2], mentorFavorability: 5 },
+    description: "花约 ¥5,000 给导师送特产或小礼物，大幅拉升导师认可度，为后续请假实习铺路",
+    effects: { money: -10, ageAnxiety: [-8, -5], selfDoubt: [-5, -2], mentorFavorability: 6 },
     narratives: [
-      "你给导师带了一盒家乡的茶叶，包装纸沙沙作响，像你此刻的心跳。他笑着收下了，说了句'有心了'，那三个字轻飘飘的，却在你心里砸出一个坑。你感觉他看你的眼神温和了一些，那种温和像冬日的阳光，看起来温暖，实则隔着厚厚的玻璃。你走出办公室，手里攥着空了的茶叶盒，突然想起这盒茶叶是你妈特意寄来的，她说'给导师带点心意'，你没告诉她，这盒茶叶花了你一周的饭钱。",
-      "你趁着教师节给导师发了个红包，金额不大，但足够让你心疼。他没收，那个红色的'已拒绝'像一个小小的羞辱，烙在聊天界面上。但第二天组会上，他对你的论文提了几条中肯的建议，每一条都像一把钥匙，打开了你卡住很久的锁。你一边记录一边想，这算不算一种交易——用尊严换指导，用焦虑换进步。",
-      "你送了一本导师最近在研究的领域的原版书，书很厚，价格也很厚。他翻了翻说'这书不错'，手指在封面上停留了几秒，那几秒里你感觉时间被拉长了，像一根橡皮筋。你感觉到他对你的好感似乎增加了，那种增加像温度计上上升的水银柱，缓慢但可见。你走出书店，看着银行卡余额，突然想，原来好感度是可以量化的，就像建筑图纸上的尺寸，多一毫米少一毫米，结果完全不同。",
-      "你请导师在学校附近的咖啡馆喝了一杯，聊了一个小时的人生。他谈到他年轻时的学术理想，你谈到你对未来的迷茫，两种话题像两条平行线，永远无法相交。结账时你抢着付了钱，虽然有点心疼，但焦虑似乎减轻了。走出咖啡馆，你看着他的背影消失在夜色里，突然明白，这场对话就像这杯咖啡——昂贵，提神，但终究会凉。",
-    ],
-  },
-  {
-    id: "slack",
-    label: "摆烂",
-    emoji: "🛋️",
-    description: "彻底躺平一学期，短期抗压回复，但自我怀疑和焦虑激增",
-    effects: { stress: 8, selfDoubt: -4, ageAnxiety: -10, arch: -2, logic: -2, expression: -2, structured: -2, mentorFavorability: [-5, -2] },
-    narratives: [
-      "你关上电脑，躺平了整整一个学期，刷短视频，睡到自然醒，什么都不想。你像一株被连根拔起的植物，暂时搁置在水泥地上，假装自己还能活。到了期末，你发现什么都没变，除了你的焦虑变得更具体了——它不再是一种模糊的恐惧，而是一张张待付的账单、一封封未回的邮件、一条条越来越近的截止日期。你看着镜子里那个眼神涣散的人，突然想，这算不算一种慢性自杀，用懒惰当刀，用时间当砧板。",
-      "你告诉自己这叫'战略性休整'。你刷完了三部剧，无数条关于'转行'的知乎回答。屏幕的光像毒品一样喂进你的眼睛，你贪婪地吸收那些别人的故事，试图在里面找到自己的影子。你没有找到答案，只找到更多的问题——为什么他们都看起来那么坚定，为什么只有你在原地打转？你关掉页面，房间里一片漆黑，只有路由器上的小红灯像一只眼睛，冷冷地看着你。",
-      "你发了一条朋友圈说'顺其自然'，配图是一张窗外的云。然后你在凌晨两点盯着天花板思考人生，那些石膏线条像一道道数学题，你解不开。你想起本科时，你曾经为了一个设计概念熬夜查资料，那时候的你相信'努力就有回报'。现在你连努力的方向都找不到，只能'顺其自然'，而这四个字像一块遮羞布，盖住你所有的无力感。你拿起手机，删掉了那条朋友圈，因为你知道，有些伤口不适合展览。",
+      "给导师带了一盒家乡的特产新茶，导师笑着收下了，后续在课题组里对你的态度明显宽容温和了许多。",
+      "趁着教师节给导师送了定制学术纪念品，导师在组会上对你的期中进展给予了公开表扬。",
+      "请导师在校外安静的茶室坐了坐，虚心请教并汇报近况，导师好感度稳步提升，不再阻挠你外出探索。",
     ],
   },
 ];
@@ -986,23 +1154,52 @@ function clamp(v: number): number {
   return Math.max(0, Math.min(100, Math.round(v)));
 }
 
+const DEFAULT_EXTENDED_STATS = {
+  health: 75,
+  dataSense: 30,
+  codeBasic: 20,
+  visualTaste: 60,
+  writingDepth: 40,
+  aestheticTheory: 55,
+  commercial: 25,
+  industryResearch: 20,
+  negotiation: 30,
+  leadership: 30,
+  empathy: 50,
+  execution: 50,
+  riskTolerance: 40,
+  fastLearning: 40,
+  alignment: 30,
+  reputation: 20,
+  infoChannels: 20,
+};
+
+function normalizeStats(stats: Partial<Stats> | null | undefined): Stats | null {
+  if (!stats) return null;
+  return {
+    ...DEFAULT_EXTENDED_STATS,
+    ...stats,
+  } as Stats;
+}
+
 function applyEffects(stats: Stats, effects: Record<string, number | [number, number]>): { newStats: Stats; delta: Partial<Stats> } {
   const delta: Partial<Stats> = {};
-  const newStats = { ...stats };
+  const newStats = { ...DEFAULT_EXTENDED_STATS, ...stats };
   Object.keys(effects).forEach((k) => {
     const key = k as StatKey;
     const effect = effects[k];
-    const old = newStats[key];
+    const old = typeof (newStats as any)[key] === "number" && !isNaN((newStats as any)[key])
+      ? (newStats as any)[key]
+      : (DEFAULT_EXTENDED_STATS as any)[key] ?? 30;
 
     let change = 0;
     if (Array.isArray(effect)) {
       const [min, max] = effect;
-      // 保证能够处理增量和减量
       const realMin = Math.min(min, max);
       const realMax = Math.max(min, max);
       change = Math.floor(Math.random() * (realMax - realMin + 1)) + realMin;
     } else {
-      change = effect as number;
+      change = typeof effect === "number" ? effect : 0;
     }
 
     newStats[key] = clamp(old + change);
@@ -1048,6 +1245,24 @@ function generateCharacter(name: string): { character: CharacterInfo; stats: Sta
     selfDoubt: clamp(32 - tb * 0.4 + (isOverseas ? 5 : 0) + rng()),
     ageAnxiety: clamp(18 - tb * 0.3 + rng()),
     mentorFavorability: Math.floor(Math.random() * (60 - 10 + 1)) + 10,
+    // 扩展全部属性
+    health: clamp(75 + rng()),
+    dataSense: clamp(25 + tb * 0.5 + rng()),
+    codeBasic: clamp(15 + tb * 0.3 + rng()),
+    visualTaste: clamp(55 + tb * 0.4 + rng()),
+    writingDepth: clamp(35 + tb * 0.5 + rng()),
+    aestheticTheory: clamp(50 + tb * 0.4 + rng()),
+    commercial: clamp(20 + tb * 0.4 + rng()),
+    industryResearch: clamp(18 + tb * 0.4 + rng()),
+    negotiation: clamp(25 + tb * 0.3 + rng()),
+    leadership: clamp(25 + tb * 0.3 + rng()),
+    empathy: clamp(45 + tb * 0.3 + rng()),
+    execution: clamp(45 + tb * 0.4 + rng()),
+    riskTolerance: clamp(40 + rng()),
+    fastLearning: clamp(35 + tb * 0.4 + rng()),
+    alignment: clamp(25 + tb * 0.3 + rng()),
+    reputation: clamp(15 + tb * 0.3 + rng()),
+    infoChannels: clamp(15 + tb * 0.3 + (isOverseas ? 8 : 0) + rng()),
   };
 
   return { character: { name, undergradTier, undergradSchool, masterTier, masterSchool, isOverseas }, stats };
@@ -2583,6 +2798,8 @@ function StatBar({ statKey, value, delta }: { statKey: StatKey; value: number; d
 
 function DeltaBadge({ statKey, value }: { statKey: StatKey; value: EffectValue }) {
   const meta = STAT_META[statKey];
+  const scale = meta.yuanScale ?? 1;
+  const isYuan = !!meta.yuanScale;
 
   let numericValue = 0;
   let displayValue = "";
@@ -2590,10 +2807,25 @@ function DeltaBadge({ statKey, value }: { statKey: StatKey; value: EffectValue }
   if (Array.isArray(value)) {
     const [min, max] = value;
     numericValue = (min + max) / 2;
-    displayValue = min > 0 ? `+${min}~${max}` : `${min}~${max}`;
+    if (isYuan) {
+      const minY = min * scale;
+      const maxY = max * scale;
+      displayValue = min > 0
+        ? `+¥${minY.toLocaleString("zh-CN")}~¥${maxY.toLocaleString("zh-CN")}`
+        : `-¥${Math.abs(minY).toLocaleString("zh-CN")}~¥${Math.abs(maxY).toLocaleString("zh-CN")}`;
+    } else {
+      displayValue = min > 0 ? `+${min}~${max}` : `${min}~${max}`;
+    }
   } else {
     numericValue = value as number;
-    displayValue = numericValue > 0 ? `+${numericValue}` : `${numericValue}`;
+    if (isYuan) {
+      const yuan = numericValue * scale;
+      displayValue = yuan > 0
+        ? `+¥${yuan.toLocaleString("zh-CN")}`
+        : `-¥${Math.abs(yuan).toLocaleString("zh-CN")}`;
+    } else {
+      displayValue = numericValue > 0 ? `+${numericValue}` : `${numericValue}`;
+    }
   }
 
   const positive = meta.positive ? numericValue > 0 : numericValue < 0;
@@ -2608,7 +2840,7 @@ function DeltaBadge({ statKey, value }: { statKey: StatKey; value: EffectValue }
       }}
     >
       {numericValue > 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-      {displayValue} {meta.label}
+      {displayValue}{!isYuan && ` ${meta.label}`}
     </span>
   );
 }
@@ -3726,6 +3958,89 @@ const MENTORS: Mentor[] = [
   },
 ];
 
+/** 危险指标条形显示组件 —— 专用于会导致游戏结局的临界属性 */
+function CriticalWarningBar({
+  label,
+  value,
+  delta,
+  max,
+  dangerBelow,
+  warningBelow,
+  dangerHint,
+  invertDanger,
+}: {
+  label: string;
+  value: number;
+  delta?: EffectValue;
+  max: number;
+  /** 低于此值(正向指标)或高于此值(反向指标)变红 */
+  dangerBelow: number;
+  warningBelow: number;
+  dangerHint: string;
+  /** 反向危险：值越高越危险(如自我怀疑、年龄焦虑) */
+  invertDanger: boolean;
+}) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  const isDanger = invertDanger ? value >= dangerBelow : value <= dangerBelow;
+  const isWarning = !isDanger && (invertDanger ? value >= warningBelow : value <= warningBelow + 20);
+
+  const barColor = isDanger ? "#ef5350" : isWarning ? "#ff9800" : "#4ade80";
+  const labelColor = isDanger ? "#f87171" : isWarning ? "#ffb74d" : "rgba(198,207,234,0.72)";
+
+  // delta badge
+  let deltaNum = 0;
+  let deltaDisplay = "";
+  if (delta !== undefined && delta !== null) {
+    if (Array.isArray(delta)) {
+      deltaNum = (delta[0] + delta[1]) / 2;
+      deltaDisplay = deltaNum > 0 ? `+${delta[0]}~${delta[1]}` : `${delta[0]}~${delta[1]}`;
+    } else {
+      deltaNum = delta as number;
+      deltaDisplay = deltaNum > 0 ? `+${deltaNum}` : `${deltaNum}`;
+    }
+  }
+  const showDelta = delta !== undefined && delta !== null && deltaNum !== 0;
+  // 对反向指标，delta 增加是危险的
+  const deltaBad = invertDanger ? deltaNum > 0 : deltaNum < 0;
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-1">
+        <span className="text-[12px] font-medium" style={{ color: labelColor }}>
+          {label}
+        </span>
+        <div className="flex items-center gap-1.5">
+          {showDelta && (
+            <span
+              className="text-[10px] tabular-nums px-1.5 py-0.5 rounded"
+              style={{
+                color: deltaBad ? "#f87171" : "#4ade80",
+                background: deltaBad ? "rgba(248,113,113,0.1)" : "rgba(74,222,128,0.1)",
+              }}
+            >
+              {deltaDisplay}
+            </span>
+          )}
+          <span className="font-mono text-[13px] font-bold tabular-nums" style={{ color: isDanger ? "#f87171" : "rgba(241,243,251,0.85)" }}>
+            {value}
+          </span>
+        </div>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.06)" }}>
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, background: barColor }}
+        />
+      </div>
+      {isDanger && (
+        <p className="mt-1 text-[9px] tabular-nums" style={{ color: "#f87171" }}>
+          ⚠ {dangerHint}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function DecisionStatusRail({
   stats,
   mentor,
@@ -3738,6 +4053,7 @@ function DecisionStatusRail({
   eventDelta,
   tutorialActive = false,
   onViewResume,
+  balance,
 }: {
   stats: Stats;
   mentor: Mentor | null;
@@ -3750,9 +4066,8 @@ function DecisionStatusRail({
   eventDelta: Partial<Stats>;
   tutorialActive?: boolean;
   onViewResume?: () => void;
+  balance?: number;
 }) {
-  const [skillsExpanded, setSkillsExpanded] = useState(true);
-  const [mentalStateExpanded, setMentalStateExpanded] = useState(true);
   const border = "rgba(201,168,76,0.2)";
   const textPrimary = "#f1f3fb";
   const textSecondary = "rgba(198,207,234,0.68)";
@@ -3815,54 +4130,97 @@ function DecisionStatusRail({
         <p className="text-sm font-medium" style={{ color: textPrimary }}>{SEMESTER_LABELS[semester]}</p><p className="mt-0.5 text-xs" style={{ color: textSecondary }}>第 {round} 回合</p>
       </div>
 
-      <div className="mb-4">
-        <button
-          type="button"
-          onClick={() => setSkillsExpanded((expanded) => !expanded)}
-          aria-expanded={skillsExpanded}
-          aria-controls="decision-rail-skills"
-          className="group mb-3 flex w-full items-center justify-between rounded-md py-1 text-left outline-none transition-colors hover:bg-white/[0.035] focus-visible:ring-1 focus-visible:ring-[#c9a84c]/60"
-        >
-          <span className="text-[10px] tracking-[0.2em]" style={{ color: textSecondary }}>SKILLS</span>
-          <ChevronDown
-            size={15}
-            strokeWidth={1.7}
-            aria-hidden="true"
-            className={`text-slate-500 transition-transform duration-200 group-hover:text-slate-300 ${skillsExpanded ? "rotate-0" : "-rotate-90"}`}
-          />
-        </button>
-        {skillsExpanded && (
-          <div id="decision-rail-skills">
-            {(["arch", "logic", "expression", "english", "structured", "stress", "network", "money"] as StatKey[]).map((key) => (
-              <StatBar key={key} statKey={key} value={stats[key]} delta={deltaFor(key)} />
-            ))}
+      {/* 储蓄余额展示 */}
+      {balance !== undefined && (
+        <div className="mb-5 border-b pb-5" style={{ borderColor: border }}>
+          <p className="mb-2 text-[10px] tracking-[0.2em]" style={{ color: textSecondary }}>BALANCE</p>
+          <div className="flex items-baseline justify-between gap-2">
+            <span
+              className="font-mono text-[18px] font-bold tabular-nums"
+              style={{
+                color: balance >= 40000 ? "#4ade80"
+                  : balance >= 20000 ? accent
+                  : balance >= 8000 ? "#ffb74d"
+                  : "#f87171",
+              }}
+            >
+              ¥{balance.toLocaleString("zh-CN")}
+            </span>
+            <span
+              className="text-[10px] px-2 py-0.5 rounded-full border"
+              style={{
+                color: balance >= 40000 ? "#4ade80"
+                  : balance >= 20000 ? accent
+                  : balance >= 8000 ? "#ffb74d"
+                  : "#f87171",
+                borderColor: balance >= 40000 ? "rgba(74,222,128,0.25)"
+                  : balance >= 20000 ? "rgba(201,168,76,0.25)"
+                  : balance >= 8000 ? "rgba(255,183,77,0.25)"
+                  : "rgba(248,113,113,0.25)",
+                background: balance >= 40000 ? "rgba(74,222,128,0.08)"
+                  : balance >= 20000 ? "rgba(201,168,76,0.08)"
+                  : balance >= 8000 ? "rgba(255,183,77,0.08)"
+                  : "rgba(248,113,113,0.08)",
+              }}
+            >
+              {balance >= 40000 ? "宽裕" : balance >= 20000 ? "紧巴巴" : balance >= 8000 ? "吃紧" : "见底了"}
+            </span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="border-t pt-4" style={{ borderColor: border }}>
-        <button
-          type="button"
-          onClick={() => setMentalStateExpanded((expanded) => !expanded)}
-          aria-expanded={mentalStateExpanded}
-          aria-controls="decision-rail-mental-state"
-          className="group mb-3 flex w-full items-center justify-between rounded-md py-1 text-left outline-none transition-colors hover:bg-white/[0.035] focus-visible:ring-1 focus-visible:ring-red-400/50"
-        >
-          <span className="text-[10px] tracking-[0.2em] text-red-400/70">MENTAL STATE</span>
-          <ChevronDown
-            size={15}
-            strokeWidth={1.7}
-            aria-hidden="true"
-            className={`text-red-400/40 transition-transform duration-200 group-hover:text-red-300/70 ${mentalStateExpanded ? "rotate-0" : "-rotate-90"}`}
+      {/* 危险指标警示区 —— 仅展示会直接触发结局的 4 项 */}
+      <div className="flex-1">
+        <p className="mb-3 text-[10px] tracking-[0.2em]" style={{ color: textSecondary }}>CRITICAL STATUS</p>
+        <div className="space-y-4">
+          {/* 导师好感度：≤0 触发退学结局 */}
+          <CriticalWarningBar
+            label="导师好感度"
+            value={stats.mentorFavorability}
+            delta={deltaFor("mentorFavorability")}
+            max={100}
+            dangerBelow={20}
+            warningBelow={40}
+            dangerHint="≤ 0 → 退学"
+            invertDanger={false}
           />
-        </button>
-        {mentalStateExpanded && (
-          <div id="decision-rail-mental-state">
-            {(["selfDoubt", "ageAnxiety"] as StatKey[]).map((key) => (
-              <StatBar key={key} statKey={key} value={stats[key]} delta={deltaFor(key)} />
-            ))}
-          </div>
-        )}
+          {/* 压力值：≤0 触发崩溃结局 */}
+          <CriticalWarningBar
+            label="压力承受"
+            value={stats.stress}
+            delta={deltaFor("stress")}
+            max={100}
+            dangerBelow={20}
+            warningBelow={40}
+            dangerHint="≤ 0 → 崩溃"
+            invertDanger={false}
+          />
+          {/* 自我怀疑：≥100 触发放弃结局 */}
+          <CriticalWarningBar
+            label="自我怀疑"
+            value={stats.selfDoubt}
+            delta={deltaFor("selfDoubt")}
+            max={100}
+            dangerBelow={60}
+            warningBelow={40}
+            dangerHint="≥ 100 → 放弃"
+            invertDanger={true}
+          />
+          {/* 年龄焦虑：≥100 触发转行结局 */}
+          <CriticalWarningBar
+            label="年龄焦虑"
+            value={stats.ageAnxiety}
+            delta={deltaFor("ageAnxiety")}
+            max={100}
+            dangerBelow={60}
+            warningBelow={40}
+            dangerHint="≥ 100 → 转行"
+            invertDanger={true}
+          />
+        </div>
+        <p className="mt-5 text-[9px] leading-4" style={{ color: "rgba(198,207,234,0.35)" }}>
+          其余能力属性请在「状态」页查看
+        </p>
       </div>
     </aside>
   );
@@ -4233,6 +4591,9 @@ export function GamePage() {
   const [rolledMentorNames, setRolledMentorNames] = useState<Record<string, string>>({});
   // 简历查看：存当前展开简历的 mentorId
   const [resumeMentorId, setResumeMentorId] = useState<string | null>(null);
+  const [isMentorOfficeOpen, setIsMentorOfficeOpen] = useState(false);
+  const [financeState, setFinanceState] = useState<FinanceState>(() => createInitialFinance(38, false));
+  const [monthlySettlement, setMonthlySettlement] = useState<MonthlySettlement | null>(null);
   const [selectedEventBranch, setSelectedEventBranch] = useState<EventBranchOption | null>(null);
   const [isCustomEventActionOpen, setIsCustomEventActionOpen] = useState(false);
   const [customEventAction, setCustomEventAction] = useState("");
@@ -4354,6 +4715,7 @@ export function GamePage() {
     internshipApplications, currentInternshipUpdates, internshipApplicationFeedback, offerBuffs,
     isResumeOpen, receivedOffers,
     actionMemory,
+    financeState,
   }), [
     phase, character, stats, mentor, semester, round,
     currentEvent, activeCampusEvent, campusEventResult,
@@ -4365,6 +4727,7 @@ export function GamePage() {
     internshipApplications, currentInternshipUpdates, internshipApplicationFeedback, offerBuffs,
     isResumeOpen, receivedOffers,
     actionMemory,
+    financeState,
   ]);
 
   const restoreGameState = useCallback((data: Record<string, any>) => {
@@ -4381,7 +4744,12 @@ export function GamePage() {
       setCharacter(savedCharacter);
       setPlayerNameInput(savedCharacter.name);
     }
-    setStats(data.stats ?? null);
+    setStats(normalizeStats(data.stats));
+    if (data.financeState) {
+      setFinanceState(data.financeState);
+    } else if (data.stats) {
+      setFinanceState(createInitialFinance(data.stats.money ?? 38, Boolean(data.character?.isOverseas)));
+    }
     setMentor(MENTORS.find((item) => item.id === data.mentor?.id) ?? data.mentor ?? null);
     setSemester(data.semester ?? 1);
     setRound(data.round ?? 1);
@@ -4789,6 +5157,7 @@ export function GamePage() {
 
       const { newStats } = applyEffects(stats, m.bonuses);
       setStats(newStats);
+      setFinanceState(createInitialFinance(newStats.money ?? 38, character?.isOverseas ?? false));
       maybeShowEvent(newStats, 1, new Set());
       setShowTutorial(true);
       setTutorialStep(0);
@@ -5040,6 +5409,13 @@ export function GamePage() {
         setSelectedInternshipIds([]);
       }
 
+      if (action.id === "sidejob") {
+        setFinanceState((prev) => ({
+          ...prev,
+          sideJobIncome: (prev.sideJobIncome || 0) + Math.floor(Math.random() * 1500) + 2000,
+        }));
+      }
+
       setPhase("action_result");
     },
     [stats, internshipApplications]
@@ -5199,6 +5575,26 @@ export function GamePage() {
     setRound(nextRd);
     setDesktopGameSection("map");
 
+    // ── 经济系统月度结算 ──
+    const currentFinance = { ...financeState };
+    // 检查学期初奖学金
+    if (nextRd === 1 && nextSem > semester) {
+      const sch = scholarshipByArch(statsAfterPassive.arch);
+      if (sch > 0) {
+        currentFinance.scholarshipPending = sch;
+      }
+    }
+    const settlement = settleMonth(currentFinance, statsAfterPassive.money, totalRound);
+    statsAfterPassive.money = settlement.newMoney;
+    setStats(statsAfterPassive);
+    setFinanceState({
+      ...currentFinance,
+      balance: settlement.newBalance,
+      sideJobIncome: 0,
+      scholarshipPending: 0,
+    });
+    setMonthlySettlement(settlement);
+
     // ── 社交系统：检查是否有新 NPC 解锁 + 对话树触发 ──
     const nextTotalRound = (nextSem - 1) * 4 + nextRd;
     setSocialState((prevSocial) => {
@@ -5249,7 +5645,7 @@ export function GamePage() {
     }
 
     maybeShowEvent(statsAfterPassive, nextSem, seenEventIds);
-  }, [stats, semester, round, seenEventIds, seenCampusIds, maybeShowEvent, chosenAction, selectedInternshipIds, internshipChannel, internshipApplications]);
+  }, [stats, semester, round, seenEventIds, seenCampusIds, maybeShowEvent, chosenAction, selectedInternshipIds, internshipChannel, internshipApplications, financeState]);
 
   const selectInternshipApplication = useCallback((applicationId: string) => {
     setActiveInterviewApplicationId(applicationId || null);
@@ -5474,6 +5870,20 @@ export function GamePage() {
       return withoutPreviousAcceptance.some((item) => item.id === option.id)
         ? withoutPreviousAcceptance
         : [...withoutPreviousAcceptance, option];
+    });
+
+    // 更新实习月薪与常驻城市
+    const city = inferCompanyCity(option.companyId, option.companyName);
+    const matchDaily = option.stipend ? option.stipend.match(/¥?(\d+)/) : null;
+    const dailyPay = matchDaily ? parseInt(matchDaily[1], 10) : 200;
+    const monthlyPay = dailyPay * 22;
+    setFinanceState((prev) => {
+      const updatedCity = applyCityToFinance(prev, city);
+      return {
+        ...updatedCity,
+        monthlyIncome: monthlyPay,
+        internshipCompanyName: option.companyName,
+      };
     });
   }, [internshipApplications]);
   const declineInternshipOffer = useCallback((applicationId: string) => {
@@ -6224,7 +6634,19 @@ export function GamePage() {
           style={{ borderColor: border, background: "rgba(255,255,255,0.01)" }}
         >
           {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "status" ? (
-            <StatusAnalysisPanel stats={stats} phase={phase} actionDelta={actionDelta} eventDelta={eventDelta} />
+            <DetailedStatsPanel
+              stats={stats as any}
+              character={character}
+              mentor={mentor}
+              semester={semester}
+              round={round}
+              totalRound={totalRound}
+              phase={phase}
+              actionDelta={actionDelta}
+              eventDelta={eventDelta}
+              pastInternships={pastInternships}
+              onUpdateInternshipDetails={updateInternshipDetails}
+            />
           ) : (
           <>
           {/* 角色信息 */}
@@ -6729,9 +7151,9 @@ export function GamePage() {
                     className="text-left p-4 rounded-xl transition-all duration-200 hover:border-blue-400/40 hover:bg-white/5 group"
                     style={{ background: card, border: `1px solid ${border}` }}
                   >
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xl">{action.emoji}</span>
-                      <span className="text-[15px]" style={{ color: textPrimary }}>{action.label}</span>
+                    <div className="flex items-center gap-2.5 mb-1.5">
+                      <ActionBadgeIcon id={action.id} size={15} containerClass="h-7 w-7" />
+                      <span className="text-[15px] font-semibold" style={{ color: textPrimary }}>{action.label}</span>
                     </div>
                     <p className="text-[13px] leading-relaxed mb-2" style={{ color: textSecondary }}>
                       {action.description}
@@ -6754,10 +7176,10 @@ export function GamePage() {
                 className="rounded-2xl p-6 mb-6"
                 style={{ background: "rgba(74,158,255,0.05)", border: `1px solid rgba(74,158,255,0.18)` }}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-xl">{chosenAction.emoji}</span>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <ActionBadgeIcon id={chosenAction.id} size={16} containerClass="h-8 w-8" />
                   <span
-                    className="text-[12px] tracking-widest uppercase px-2 py-1 rounded"
+                    className="text-[12px] font-bold tracking-widest uppercase px-2 py-1 rounded"
                     style={{ color: accent, background: "rgba(74,158,255,0.1)" }}
                   >
                     {chosenAction.label}
@@ -6831,6 +7253,7 @@ export function GamePage() {
               }
               onOpenRound={() => setDesktopGameSection("round")}
               actions={ACTIONS}
+              onOpenMentorOffice={() => setIsMentorOfficeOpen(true)}
               onChooseAction={(actionId) => {
                 const action = ACTIONS.find((candidate) => candidate.id === actionId);
                 if (!action || phase !== "action_choice") return;
@@ -6854,6 +7277,7 @@ export function GamePage() {
               }
               onOpenRound={() => setDesktopGameSection("round")}
               actions={ACTIONS}
+              onOpenMentorOffice={() => setIsMentorOfficeOpen(true)}
               onChooseAction={(actionId) => {
                 const action = ACTIONS.find((candidate) => candidate.id === actionId);
                 if (!action || phase !== "action_choice") return;
@@ -6863,6 +7287,34 @@ export function GamePage() {
             />
           </>
         )}
+
+        {/* 导师办公室沉浸式面谈（带导师人物立绘与学术请教对话系统） */}
+        <MentorOfficeModal
+          isOpen={isMentorOfficeOpen}
+          onClose={() => setIsMentorOfficeOpen(false)}
+          mentor={mentor ? { id: mentor.id, name: mentorDisplayName(mentor), title: mentor.title, image: mentor.image } : null}
+          favorability={stats?.mentorFavorability ?? 30}
+          money={stats?.money ?? 38}
+          stats={{
+            arch: stats?.arch ?? 50,
+            logic: stats?.logic ?? 50,
+            stress: stats?.stress ?? 50,
+          }}
+          canChooseAction={phase === "action_choice"}
+          onExecuteOption={(option) => {
+            if (option.statDeltas && stats) {
+              const { newStats, delta } = applyEffects(stats, option.statDeltas);
+              setStats(newStats);
+              setActionDelta(delta);
+            }
+          }}
+        />
+
+        {/* 月度财务账单弹窗 */}
+        <MonthlyBillModal
+          settlement={monthlySettlement}
+          onClose={() => setMonthlySettlement(null)}
+        />
 
         {desktopGameSection !== "computer" && phase === "action_result" && chosenAction?.id === "internship" && currentOfferedInternships.length > 0 && (
           <div className="fixed inset-0 z-[210] flex items-center justify-center bg-[#020611]/78 p-3 backdrop-blur-md sm:p-6">
@@ -6975,20 +7427,7 @@ export function GamePage() {
             professorAvatar={mentorAvatar(mentor)}
           />
         )}
-        {/* ─── 右侧：常驻简历 ─── */}
-        <aside
-          className={`${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "flex" : "hidden") : "hidden"} shrink-0 flex-col overflow-y-auto p-4 pb-28 lg:p-5 lg:pb-5 ${ENABLE_DESKTOP_GAME_SIDEBAR ? (desktopGameSection === "resume" ? "lg:flex lg:min-w-0 lg:flex-1 lg:shrink lg:flex-1" : "lg:hidden") : "lg:flex lg:w-80"}`}
-          style={{ background: "rgba(0,0,0,0.2)" }}
-        >
-          <ResumeView
-            character={character}
-            stats={stats}
-            pastInternships={pastInternships}
-            onUpdateInternshipDetails={updateInternshipDetails}
-            onClose={() => { }}
-          />
-        </aside>
-        {ENABLE_DESKTOP_GAME_SIDEBAR && (
+        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection !== "status" && (
           <DecisionStatusRail
             stats={stats}
             mentor={mentor}
@@ -7001,6 +7440,7 @@ export function GamePage() {
             eventDelta={eventDelta}
             tutorialActive={showTutorial && tutorialStep === 2}
             onViewResume={mentor ? () => setResumeMentorId(mentor.id) : undefined}
+            balance={financeState.balance}
           />
         )}
 

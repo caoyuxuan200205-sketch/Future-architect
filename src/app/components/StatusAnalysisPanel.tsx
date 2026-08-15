@@ -1,5 +1,7 @@
 type StatusKey = "arch" | "logic" | "expression" | "english" | "structured" | "stress" | "network" | "money" | "selfDoubt" | "ageAnxiety" | "mentorFavorability";
 
+import { moneyToBalance, formatYuan } from "../economy/finance";
+
 type StatusStats = Record<StatusKey, number>;
 
 const META: Record<StatusKey, { label: string; color: string; positive: boolean }> = {
@@ -87,7 +89,7 @@ export function StatusAnalysisPanel({ stats, phase, actionDelta, eventDelta }: {
     </div>
     <div className="mt-5 grid gap-5 2xl:grid-cols-[1.25fr_.75fr]">
       <Panel eyebrow="OFFER PROXIMITY" title="最接近的职业路线" aside="展示前三名"><div className="space-y-4">{routes.slice(0, 3).map((route, index) => <div key={route.name}><div className="flex items-center justify-between"><span className="text-[12px] text-slate-200"><i className="mr-2 not-italic font-mono text-[10px] text-slate-600">0{index + 1}</i>{route.name}</span><span className="font-mono text-[12px]" style={{ color: route.accent }}>{route.match}%</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[.06]"><div className="h-full rounded-full" style={{ width: `${route.match}%`, background: route.accent }} /></div><p className="mt-1.5 text-[10px] text-slate-600">{route.gaps.length ? `主要缺口：${route.gaps.slice(0, 2).map((gap) => `${META[gap.key].label} ${gap.gap}`).join(" · ")}` : "当前能力已达到基础门槛"}</p></div>)}</div></Panel>
-      <Panel eyebrow="LATEST SIGNAL" title="本回合动向">{recent.length ? <div className="space-y-2.5">{recent.map(([key, value]) => <div key={key} className="flex items-center justify-between rounded-lg bg-white/[.025] px-3 py-2"><span className="text-[11px] text-slate-400">{META[key].label}</span><span className={`font-mono text-[12px] ${(value > 0) === META[key].positive ? "text-emerald-300" : "text-red-300"}`}>{value > 0 ? "+" : ""}{value}</span></div>)}</div> : <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-white/[.08] px-4 text-center text-[11px] leading-relaxed text-slate-600">完成本回合选择后，这里会显示最新变化。</div>}</Panel>
+      <Panel eyebrow="LATEST SIGNAL" title="本回合动向">{recent.length ? <div className="space-y-2.5">{recent.map(([key, value]) => <div key={key} className="flex items-center justify-between rounded-lg bg-white/[.025] px-3 py-2"><span className="text-[11px] text-slate-400">{META[key].label}</span><span className={`font-mono text-[12px] ${(value > 0) === META[key].positive ? "text-emerald-300" : "text-red-300"}`}>{key === "money" ? (value > 0 ? "+" : "") + formatYuan(value) : (value > 0 ? "+" : "") + value}</span></div>)}</div> : <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-white/[.08] px-4 text-center text-[11px] leading-relaxed text-slate-600">完成本回合选择后，这里会显示最新变化。</div>}</Panel>
     </div>
   </div>;
 }

@@ -10,6 +10,7 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import { ActionBadgeIcon } from "../ActionIcon";
 import type { DesktopGameSection } from "../DesktopGameSidebar";
 
 type NavigationItem = {
@@ -23,7 +24,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: "computer", label: "电脑", icon: Monitor },
   { id: "round", label: "回合", icon: Sparkles },
   { id: "status", label: "状态", icon: Activity },
-  { id: "resume", label: "简历", icon: FileText },
 ];
 
 interface MobileGameShellProps {
@@ -115,12 +115,12 @@ export type MobileMapAction = {
 };
 
 const MOBILE_LOCATIONS = [
-  { name: "建筑学院", emoji: "🏛️", description: "回到专业基本盘", actionIds: ["revise"] },
-  { name: "图书馆", emoji: "📚", description: "学习产品与英语", actionIds: ["product", "ielts"] },
-  { name: "就业中心", emoji: "💼", description: "投递实习或参加校招", actionIds: ["internship", "campus"] },
-  { name: "咖啡馆", emoji: "☕", description: "经营副业补充资金", actionIds: ["sidejob"] },
-  { name: "导师办公室", emoji: "🎓", description: "改善导师关系", actionIds: ["gifts"] },
-  { name: "宿舍", emoji: "🛏️", description: "暂时休息恢复状态", actionIds: ["slack"] },
+  { name: "建筑学院", emoji: "🏛️", description: "专业基本盘、学术论文与作品集", actionIds: ["revise", "thesis", "portfolio"] },
+  { name: "图书馆", emoji: "📚", description: "产品PRD、行研建模、代码、数据与英语", actionIds: ["product", "industry_research", "code_learning", "data_analysis", "ielts"] },
+  { name: "就业中心", emoji: "💼", description: "投递实习、模拟群面与秋招宣讲", actionIds: ["internship", "mock_interview", "campus"] },
+  { name: "咖啡馆", emoji: "☕", description: "商业副业、校友猎头局与挖内推", actionIds: ["sidejob", "networking", "insider_intel"] },
+  { name: "导师办公室", emoji: "🎓", description: "拜访导师与改善关系", actionIds: ["gifts"] },
+  { name: "宿舍", emoji: "🛏️", description: "健身长跑排毒或彻底摆烂休整", actionIds: ["fitness", "slack"] },
 ];
 
 interface MobileMapViewProps {
@@ -129,9 +129,10 @@ interface MobileMapViewProps {
   notice?: { title: string; description: string; urgent?: boolean } | null;
   onOpenRound: () => void;
   onChooseAction: (actionId: string) => void;
+  onOpenMentorOffice?: () => void;
 }
 
-export function MobileMapView({ actions, canChooseAction, notice, onOpenRound, onChooseAction }: MobileMapViewProps) {
+export function MobileMapView({ actions, canChooseAction, notice, onOpenRound, onChooseAction, onOpenMentorOffice }: MobileMapViewProps) {
   const [selectedLocationName, setSelectedLocationName] = useState<string | null>(null);
   const selectedLocation = MOBILE_LOCATIONS.find((location) => location.name === selectedLocationName) ?? null;
   const selectedActions = selectedLocation ? actions.filter((action) => selectedLocation.actionIds.includes(action.id)) : [];
@@ -198,6 +199,22 @@ export function MobileMapView({ actions, canChooseAction, notice, onOpenRound, o
               <button type="button" onClick={() => setSelectedLocationName(null)} className="flex h-11 min-w-11 items-center justify-center rounded-xl bg-white/[0.05] text-sm text-slate-400">关闭</button>
             </div>
             <div className="space-y-2">
+              {selectedLocation.name === "导师办公室" && onOpenMentorOffice && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocationName(null);
+                    onOpenMentorOffice();
+                  }}
+                  className="flex min-h-16 w-full items-start gap-3 rounded-xl border border-[#c9a84c]/50 bg-gradient-to-r from-[#c9a84c]/20 to-[#c9a84c]/5 p-3 text-left active:scale-[0.99] active:border-[#c9a84c]"
+                >
+                  <span className="text-xl">🏛️</span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-bold text-[#fde047]">进入办公室面谈（AVG 沉浸式交流）</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-amber-200/80">展开学术请教、探讨近代建筑史课题与心声</span>
+                  </span>
+                </button>
+              )}
               {selectedActions.map((action) => (
                 <button
                   key={action.id}
@@ -205,7 +222,7 @@ export function MobileMapView({ actions, canChooseAction, notice, onOpenRound, o
                   onClick={() => { setSelectedLocationName(null); onChooseAction(action.id); }}
                   className="flex min-h-16 w-full items-start gap-3 rounded-xl border border-white/[0.08] bg-white/[0.025] p-3 text-left active:scale-[0.99] active:border-[#c9a84c]/40"
                 >
-                  <span className="text-xl">{action.emoji}</span>
+                  <ActionBadgeIcon id={action.id} size={16} containerClass="h-8 w-8 mt-0.5" />
                   <span className="min-w-0">
                     <span className="block text-[14px] font-medium text-slate-100">{action.label}</span>
                     <span className="mt-1 block text-[11px] leading-4 text-slate-500">{action.description}</span>

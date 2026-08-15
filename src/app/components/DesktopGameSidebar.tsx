@@ -32,6 +32,7 @@ import {
   Wifi,
   X,
 } from "lucide-react";
+import { ActionBadgeIcon } from "./ActionIcon";
 import type { SocialState, NPCMessage, NPCReplyOption, UnlockContext } from "../npc/types";
 import { TONE_LABEL, TONE_BUBBLE_COLOR, NPC_REGISTRY } from "../npc/npcRegistry";
 import { checkAllUnlocks, greetNpc, sendGreeting, stageLabelFor } from "../npc/socialStore";
@@ -59,7 +60,6 @@ const PRIMARY_ITEMS = [
 
 const GROWTH_ITEMS = [
   { id: "status", label: "状态", icon: Activity },
-  { id: "resume", label: "简历", icon: FileText },
 ] as const;
 
 const SCHOOL_LOGOS: Record<string, string> = {
@@ -193,12 +193,12 @@ export type DesktopMapAction = {
 };
 
 const LOCATIONS = [
-  { name: "建筑学院", description: "回到专业基本盘，完成本轮改图", icon: Building2, color: "#d5ad47", actionIds: ["revise"], x: 27, y: 28 },
-  { name: "图书馆", description: "集中学习产品、英语或经营副业", icon: Library, color: "#72a7ff", actionIds: ["product", "ielts", "sidejob"], x: 69, y: 24 },
-  { name: "就业中心", description: "投递实习，并在研三参加校招", icon: BriefcaseBusiness, color: "#f59e5b", actionIds: ["internship", "campus"], x: 86, y: 48 },
-  { name: "咖啡馆", description: "接外包、做副业，补充生活资金", icon: Coffee, color: "#d8bd69", actionIds: ["sidejob"], x: 49, y: 47 },
-  { name: "导师办公室", description: "送礼献殷勤，尝试改善导师关系", icon: GraduationCap, color: "#aab4c5", actionIds: ["gifts"], x: 57, y: 74 },
-  { name: "宿舍", description: "暂时摆烂，恢复抗压但承担心理代价", icon: House, color: "#76c7b7", actionIds: ["slack"], x: 24, y: 68 },
+  { name: "建筑学院", description: "专业基本盘、学术学位论文与跨界设计作品集", icon: Building2, color: "#d5ad47", actionIds: ["revise", "thesis", "portfolio"], x: 27, y: 28 },
+  { name: "图书馆", description: "产品PRD、宏观行研建模、算法代码、数据分析与英语冲刺", icon: Library, color: "#72a7ff", actionIds: ["product", "industry_research", "code_learning", "data_analysis", "ielts"], x: 69, y: 24 },
+  { name: "就业中心", description: "投递高含金量实习、模拟群面演练，并在研三参加秋招", icon: BriefcaseBusiness, color: "#f59e5b", actionIds: ["internship", "mock_interview", "campus"], x: 86, y: 48 },
+  { name: "咖啡馆", description: "接商业外包副业、约跨界校友猎头局与深挖招聘内推", icon: Coffee, color: "#d8bd69", actionIds: ["sidejob", "networking", "insider_intel"], x: 49, y: 47 },
+  { name: "宿舍", description: "规律长跑健身排毒，或彻底躺平休整回血", icon: House, color: "#76c7b7", actionIds: ["fitness", "slack"], x: 24, y: 68 },
+  { name: "导师办公室", description: "敲门拜访导师，展开学术请教、实习申请或交流心声", icon: GraduationCap, color: "#aab4c5", actionIds: ["gifts"], x: 57, y: 74 },
 ];
 
 interface DesktopMapPreviewProps {
@@ -210,9 +210,10 @@ interface DesktopMapPreviewProps {
   onOpenRound: () => void;
   actions: DesktopMapAction[];
   onChooseAction: (actionId: string) => void;
+  onOpenMentorOffice?: () => void;
 }
 
-export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAction, roundNotice, onOpenRound, actions, onChooseAction }: DesktopMapPreviewProps) {
+export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAction, roundNotice, onOpenRound, actions, onChooseAction, onOpenMentorOffice }: DesktopMapPreviewProps) {
   const [selectedLocationName, setSelectedLocationName] = useState<string | null>(null);
   const isUrgentNotice = roundNotice?.urgent === true;
   const selectedLocation = LOCATIONS.find((location) => location.name === selectedLocationName) ?? null;
@@ -253,13 +254,21 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
           {LOCATIONS.map(({ name, description, icon: Icon, color, actionIds, x, y }) => {
             const selected = selectedLocationName === name;
             const availableCount = actionIds.filter((actionId) => actionId !== "campus" || semester >= 5).length;
+            const isMentorOffice = name === "导师办公室";
+            const locationLabel = isMentorOffice ? "面谈" : `${availableCount} 项行动`;
             return (
               <button
                 key={name}
                 type="button"
                 disabled={isUrgentNotice}
-                onClick={() => setSelectedLocationName(selected ? null : name)}
-                aria-label={`${name}，${availableCount} 项行动`}
+                onClick={() => {
+                  if (name === "导师办公室" && onOpenMentorOffice) {
+                    onOpenMentorOffice();
+                    return;
+                  }
+                  setSelectedLocationName(selected ? null : name);
+                }}
+                aria-label={`${name}，${locationLabel}`}
                 aria-expanded={selected}
                 className={`group absolute z-10 -translate-x-1/2 -translate-y-1/2 text-left outline-none transition-transform hover:z-30 hover:scale-105 focus-visible:z-30 focus-visible:scale-105 ${selected ? "z-30 scale-105" : ""}`}
                 style={{ left: x + "%", top: y + "%" }}
@@ -271,7 +280,7 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
                 </span>
                 <span className="mt-2 block min-w-28 rounded-lg border border-white/15 bg-[#07101d]/88 px-2.5 py-1.5 text-center shadow-lg backdrop-blur-md">
                   <span className="block whitespace-nowrap text-[14px] font-semibold text-white">{name}</span>
-                  <span className={`mt-0.5 block whitespace-nowrap text-[11px] ${canChooseAction ? "text-amber-300" : "text-slate-400"}`}>{availableCount} 项行动</span>
+                  <span className={`mt-0.5 block whitespace-nowrap text-[11px] ${canChooseAction ? "text-amber-300" : "text-slate-400"}`}>{locationLabel}</span>
                   <span className="hidden pt-1 text-[11px] leading-relaxed text-slate-300 group-hover:block group-focus-visible:block">{description}</span>
                 </span>
               </button>
@@ -289,9 +298,31 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
                 <button type="button" onClick={() => setSelectedLocationName(null)} className="rounded-lg border border-white/10 px-2.5 py-1 text-[13px] text-slate-400 hover:bg-white/5 hover:text-white">关闭</button>
               </div>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {selectedLocation.name === "导师办公室" && onOpenMentorOffice && (
+                  <button
+                    type="button"
+                    onClick={onOpenMentorOffice}
+                    className="group/action col-span-full rounded-xl border border-[#c9a84c]/60 bg-gradient-to-r from-[#c9a84c]/25 via-[#c9a84c]/15 to-transparent p-3 text-left transition hover:border-[#c9a84c] hover:bg-[#c9a84c]/30 shadow-md"
+                  >
+                    <span className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm font-bold text-[#fde047]">
+                        <span className="text-lg">🏛️</span>进入导师办公室面谈（AVG 沉浸式交流）
+                      </span>
+                      <span className="rounded-full bg-[#c9a84c]/30 px-2 py-0.5 text-[10px] font-semibold text-amber-200">
+                        立绘与学术请教
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[12px] leading-relaxed text-slate-300">
+                      敲门拜访导师，展开学术请教、探讨近代建筑史课题、交流心声或送礼关怀。
+                    </span>
+                  </button>
+                )}
                 {selectedActions.map((action) => (
                   <button key={action.id} type="button" disabled={!canChooseAction} onClick={() => onChooseAction(action.id)} className="group/action rounded-xl border border-white/10 bg-white/[0.035] p-3 text-left transition hover:border-[#c9a84c]/45 hover:bg-[#c9a84c]/10 disabled:cursor-not-allowed disabled:opacity-45">
-                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-100"><span>{action.emoji}</span>{action.label}</span>
+                    <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+                      <ActionBadgeIcon id={action.id} size={13} containerClass="h-6 w-6" />
+                      {action.label}
+                    </span>
                     <span className="mt-1.5 block line-clamp-2 text-[12px] leading-relaxed text-slate-400">{action.description}</span>
                   </button>
                 ))}
