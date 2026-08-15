@@ -3737,6 +3737,7 @@ function DecisionStatusRail({
   actionDelta,
   eventDelta,
   tutorialActive = false,
+  onViewResume,
 }: {
   stats: Stats;
   mentor: Mentor | null;
@@ -3748,6 +3749,7 @@ function DecisionStatusRail({
   actionDelta: Partial<Stats>;
   eventDelta: Partial<Stats>;
   tutorialActive?: boolean;
+  onViewResume?: () => void;
 }) {
   const [skillsExpanded, setSkillsExpanded] = useState(true);
   const [mentalStateExpanded, setMentalStateExpanded] = useState(true);
@@ -3765,11 +3767,40 @@ function DecisionStatusRail({
     >
       {mentor && (
         <div className="mb-5 border-b pb-5" style={{ borderColor: border }}>
-          <p className="mb-3 text-[10px] tracking-[0.22em]" style={{ color: textSecondary }}>CURRENT MENTOR</p>
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border text-xl" style={{ borderColor: border, background: "rgba(255,255,255,0.04)" }}>{mentor.emoji}</div>
-            <div className="min-w-0"><p className="text-[11px]" style={{ color: textSecondary }}>当前导师</p><p className="truncate text-[15px] font-semibold" style={{ color: textPrimary }}>{mentorDisplayName(mentor)}</p></div>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[10px] tracking-[0.22em]" style={{ color: textSecondary }}>CURRENT MENTOR</p>
+            {onViewResume && (
+              <button
+                type="button"
+                onClick={onViewResume}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] transition-colors hover:bg-white/[0.08]"
+                style={{ color: accent }}
+                title="查看导师简历"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                查看简历
+              </button>
+            )}
           </div>
+          <button
+            type="button"
+            onClick={onViewResume}
+            className="mb-4 flex w-full items-center gap-3 rounded-lg p-1.5 text-left transition-colors hover:bg-white/[0.05] cursor-pointer"
+            title="点击查看导师简历"
+          >
+            <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border" style={{ borderColor: border }}>
+              <img
+                src={mentorAvatar(mentor)}
+                alt={mentorDisplayName(mentor)}
+                className="h-full w-full object-cover"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px]" style={{ color: textSecondary }}>当前导师</p>
+              <p className="truncate text-[15px] font-semibold" style={{ color: textPrimary }}>{mentorDisplayName(mentor)}</p>
+            </div>
+          </button>
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs" style={{ color: textSecondary }}>好感度</span>
             <div className="flex items-center gap-1.5"><span className="font-mono text-sm font-bold" style={{ color: stats.mentorFavorability < 15 ? "#f87171" : accent }}>{stats.mentorFavorability}</span><DeltaBadge statKey="mentorFavorability" value={deltaFor("mentorFavorability") ?? 0} /></div>
@@ -6969,6 +7000,7 @@ export function GamePage() {
             actionDelta={actionDelta}
             eventDelta={eventDelta}
             tutorialActive={showTutorial && tutorialStep === 2}
+            onViewResume={mentor ? () => setResumeMentorId(mentor.id) : undefined}
           />
         )}
 
