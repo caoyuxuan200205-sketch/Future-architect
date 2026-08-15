@@ -2889,9 +2889,9 @@ function mentorAvatar(m: Mentor | null): string {
     case "童敦桢":
       return "/assets/visuals/npcs/professor_academic_tong.jpg"; // 海浪画
     case "葛慎康":
-      return "/assets/visuals/npcs/professor_academic.jpg";
+      return "/assets/visuals/npcs/professor_academic_ge.jpg"; // 茶杯与线装书
     case "朱薇亚":
-      return "/assets/visuals/npcs/professor_academic.jpg";
+      return "/assets/visuals/npcs/professor_academic_zhu.jpg"; // 青花瓷瓶白梅
 
     // 放养自由型 (hands_off)
     case "钱晓茜":
@@ -2899,9 +2899,9 @@ function mentorAvatar(m: Mentor | null): string {
     case "沈剑葳":
       return "/assets/visuals/npcs/professor_hands_off_shen.jpg"; // 红发卡通
     case "李诸葛":
-      return "/assets/visuals/npcs/professor_hands_off.jpg";
+      return "/assets/visuals/npcs/professor_hands_off_li.jpg"; // 图纸上睡觉的猫
     case "旸葳":
-      return "/assets/visuals/npcs/professor_hands_off.jpg";
+      return "/assets/visuals/npcs/professor_hands_off_yang.jpg"; // 水彩朝阳山脉
 
     // 实践工程型 (practice)
     case "程恺":
@@ -2909,9 +2909,9 @@ function mentorAvatar(m: Mentor | null): string {
     case "何建民":
       return "/assets/visuals/npcs/professor_practice_he.jpg"; // 鲸鱼雕塑
     case "崔泰宁":
-      return "/assets/visuals/npcs/professor_practice.jpg";
+      return "/assets/visuals/npcs/professor_practice_cui.jpg"; // 混凝土高楼与蓝天
     case "恺宁":
-      return "/assets/visuals/npcs/professor_practice.jpg";
+      return "/assets/visuals/npcs/professor_practice_kai.jpg"; // 蓝图、比例尺与眼镜
 
     // 海归前沿型 (overseas)
     case "常彤":
@@ -2919,9 +2919,9 @@ function mentorAvatar(m: Mentor | null): string {
     case "张青":
       return "/assets/visuals/npcs/professor_overseas_zhang.jpg"; // 城市夜景
     case "庄惟":
-      return "/assets/visuals/npcs/professor_overseas.jpg";
+      return "/assets/visuals/npcs/professor_overseas_zhuang.jpg"; // 极简包豪斯几何海报
     case "彤青":
-      return "/assets/visuals/npcs/professor_overseas.jpg";
+      return "/assets/visuals/npcs/professor_overseas_tong.jpg"; // 跨海大桥鸟瞰
 
     default:
       switch (m.id) {
