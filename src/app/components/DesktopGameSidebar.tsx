@@ -366,6 +366,7 @@ interface DesktopComputerPreviewProps {
   onSocialMarkRead?: () => void;
   onSocialSelectNpc?: (npcId: string) => void;
   onSocialGreeting?: (npcId: string) => void;
+  professorAvatar?: string | null;
 }
 
 const PREPARATION_OPTIONS: Array<{
@@ -561,6 +562,7 @@ export function DesktopComputerPreview({ interviews, activeInterviewId, onSelect
   onSocialMarkRead,
   onSocialSelectNpc,
   onSocialGreeting,
+  professorAvatar = null,
 }: DesktopComputerPreviewProps) {
   const activeInterview = interviews.find((item) => item.id === activeInterviewId) ?? null;
   const actionableCount = interviews.filter((item) => item.status === "interview" || item.status === "offered").length;
@@ -665,6 +667,7 @@ export function DesktopComputerPreview({ interviews, activeInterviewId, onSelect
             activeNpcId={activeNpcId}
             professorName={professorName}
             professorFavorability={professorFavorability}
+            professorAvatar={professorAvatar}
             socialUnlockContext={socialUnlockContext}
             unlockedNpcIds={unlockedNpcIds}
             mobileActiveChatId={mobileActiveChatId}
@@ -703,6 +706,7 @@ interface WeChatStyleMessagesPanelProps {
   onBackToList: () => void;
   onReply?: (option: NPCReplyOption) => void;
   onGreeting?: (npcId: string, customText?: string) => void;
+  professorAvatar?: string | null;
 }
 
 function WeChatStyleMessagesPanel(props: WeChatStyleMessagesPanelProps) {
@@ -720,6 +724,7 @@ function WeChatStyleMessagesPanel(props: WeChatStyleMessagesPanelProps) {
     onBackToList,
     onReply,
     onGreeting,
+    professorAvatar,
   } = props;
 
   const allNpcIds = Object.keys(NPC_REGISTRY);
@@ -774,6 +779,7 @@ function WeChatStyleMessagesPanel(props: WeChatStyleMessagesPanelProps) {
         : npc.greeting.slice(0, 28) + "…";
     const timeLabel = lastMsg?.timeLabel ?? "";
     const heartColor = favor < 20 ? "#ef5350" : favor < 50 ? "#c9a84c" : "#f59e5b";
+    const avatarPath = (npcId === "professor" && professorAvatar) ? professorAvatar : npc.avatar;
 
     return (
       <button
@@ -796,8 +802,8 @@ function WeChatStyleMessagesPanel(props: WeChatStyleMessagesPanelProps) {
               locked ? "bg-white/[0.03] grayscale" : isActive ? "bg-[#c9a84c]/20" : "bg-white/[0.05]"
             }`}
           >
-            {npc.avatar && !locked ? (
-              <img src={npc.avatar} alt={npc.name} className="h-full w-full object-cover" />
+            {avatarPath && !locked ? (
+              <img src={avatarPath} alt={name} className="h-full w-full object-cover" />
             ) : (
               npc.emoji
             )}
@@ -883,6 +889,7 @@ function WeChatStyleMessagesPanel(props: WeChatStyleMessagesPanelProps) {
           onBack={onBackToList}
           onReply={onReply}
           onGreeting={onGreeting}
+          professorAvatar={professorAvatar}
         />
       </main>
     </div>
@@ -901,6 +908,7 @@ function ChatDetail({
   onBack,
   onReply,
   onGreeting,
+  professorAvatar,
 }: {
   npcId: string;
   displayName: string;
@@ -912,8 +920,10 @@ function ChatDetail({
   onBack: () => void;
   onReply?: (opt: NPCReplyOption) => void;
   onGreeting?: (npcId: string, customText?: string) => void;
+  professorAvatar?: string | null;
 }) {
   const npc = NPC_REGISTRY[npcId] ?? NPC_REGISTRY.professor;
+  const avatarPath = (npcId === "professor" && professorAvatar) ? professorAvatar : npc.avatar;
   const stage = stageLabelFor(npcId, favorability);
   const heartColor = favorability < 20 ? "#ef5350" : favorability < 50 ? "#c9a84c" : "#f59e5b";
 
@@ -1036,8 +1046,8 @@ function ChatDetail({
           <ChevronLeft size={18} />
         </button>
         <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[9px] border border-[#c9a84c]/25 bg-[#c9a84c]/12 text-base">
-          {npc.avatar ? (
-            <img src={npc.avatar} alt={npc.name} className="h-full w-full object-cover" />
+          {avatarPath ? (
+            <img src={avatarPath} alt={displayName} className="h-full w-full object-cover" />
           ) : (
             npc.emoji
           )}
@@ -1080,8 +1090,8 @@ function ChatDetail({
                   {/* NPC 头像（仅 NPC 消息显示，且在气泡左侧底部对齐） */}
                   {isNpc && (
                     <span className="mb-4 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.05] text-sm">
-                      {npc.avatar ? (
-                        <img src={npc.avatar} alt={npc.name} className="h-full w-full object-cover" />
+                      {avatarPath ? (
+                        <img src={avatarPath} alt={displayName} className="h-full w-full object-cover" />
                       ) : (
                         npc.emoji
                       )}

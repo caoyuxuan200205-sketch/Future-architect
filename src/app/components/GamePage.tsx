@@ -2879,6 +2879,22 @@ function mentorDisplayName(m: Mentor | null): string | null {
   return (m.customName && m.customName.trim()) ? m.customName.trim() : m.name;
 }
 
+function mentorAvatar(m: Mentor | null): string {
+  if (!m) return "/assets/visuals/npcs/professor_academic.jpg";
+  switch (m.id) {
+    case "hands_off":
+      return "/assets/visuals/npcs/professor_hands_off.jpg";
+    case "practice":
+      return "/assets/visuals/npcs/professor_practice.jpg";
+    case "overseas":
+      return "/assets/visuals/npcs/professor_overseas.jpg";
+    case "academic":
+    default:
+      return "/assets/visuals/npcs/professor_academic.jpg";
+  }
+}
+
+
 const MENTORS: Mentor[] = [
   {
     id: "academic",
@@ -6328,6 +6344,7 @@ export function GamePage() {
             onSocialMarkRead={handleSocialMarkRead}
             onSocialSelectNpc={handleSocialSelectNpc}
             onSocialGreeting={handleSocialGreeting}
+            professorAvatar={mentorAvatar(mentor)}
           />
         )}
         {/* ─── 右侧：常驻简历 ─── */}
