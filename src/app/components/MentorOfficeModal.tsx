@@ -22,6 +22,18 @@ import {
   generateOfficeDialogueOptions,
   rollMentorPresence,
   rollGiftRejection,
+  rollCashGiftRejection,
+  generateCashGiftOption,
+  isRedLineViolation,
+  cashGiftTierIndex,
+  CASH_GIFT_TIER_LABELS,
+  CASH_GIFT_MIN,
+  CASH_GIFT_MAX_NORMAL,
+  CASH_GIFT_SLIDER_MAX,
+  CASH_GIFT_PER_SEMESTER_LIMIT,
+  readCashGiftRecord,
+  writeCashGiftRecord,
+  canSendCashGiftThisSemester,
   getMentorAwayScene,
   type OfficeDialogueOption,
   type MentorOfficeProfile,
@@ -46,6 +58,10 @@ interface MentorOfficeModalProps {
   canChooseAction: boolean;
   /** 当玩家确认执行一项办公室互动时触发；rejected 标记仅对送礼类选项有效 */
   onExecuteOption: (option: OfficeDialogueOption, rejected: boolean) => void;
+  /** 当前学期（用于送钱限频记账） */
+  semester?: number;
+  /** 当前回合（用于送钱记录） */
+  round?: number;
 }
 
 export function MentorOfficeModal({
@@ -57,6 +73,8 @@ export function MentorOfficeModal({
   stats,
   canChooseAction,
   onExecuteOption,
+  semester = 1,
+  round = 0,
 }: MentorOfficeModalProps) {
   // ===== 所有 Hooks 必须在早期 return 之前声明（React Hook 规则） =====
   const [activeTab, setActiveTab] = useState<"dialogue" | "profile">("dialogue");
@@ -78,6 +96,14 @@ export function MentorOfficeModal({
   // 暂存送礼结算数据，等对话序列播完再触发外部回调
   const pendingExecutionRef = React.useRef<{ option: OfficeDialogueOption; rejected: boolean } | null>(null);
 
+  // ===== 送钱（现金）状态 =====
+  // 是否正在输入金额（独立浮层弹窗）
+  const [cashInputOpen, setCashInputOpen] = useState(false);
+  // 玩家选择的金额（数字，滑块/输入双向绑定）
+  const [cashAmount, setCashAmount] = useState<number>(1000);
+  // 已生成的送钱选项（点击"确认送出"后生成，走正常的拒收/收下流程）
+  const [cashGiftOption, setCashGiftOption] = useState<OfficeDialogueOption | null>(null);
+
   const isDialoguePlaying = dialogueSequence.length > 0 && !dialogueComplete;
 
   const profile: MentorOfficeProfile = getMentorOfficeProfile(mentor);
@@ -96,6 +122,9 @@ export function MentorOfficeModal({
       setDialogueSequence([]);
       setDialogueIndex(0);
       setDialogueComplete(false);
+      setCashInputOpen(false);
+      setCashAmount(1000);
+      setCashGiftOption(null);
       setCurrentMoodIndex(Math.floor(Math.random() * profile.currentMoods.length));
       // 判定导师是否在办公室（放养型导师扑空概率大）
       const present = rollMentorPresence(profile.mentorId);
@@ -195,7 +224,42 @@ export function MentorOfficeModal({
 
   const handleSelectOption = (opt: OfficeDialogueOption) => {
     if (opt.disabled) return;
+    // 送钱入口：弹出独立金额输入浮层，不直接进入确认流程
+    if (opt.id === "gift_cash_entry") {
+      setSelectedOption(null);
+      setCashAmount(1000);
+      setCashGiftOption(null);
+      setCashInputOpen(true);
+      return;
+    }
     setSelectedOption(opt);
+  };
+
+  // 送钱：玩家输入金额后确认，生成送钱选项并走正常拒收/收下流程
+  const handleConfirmCashGift = () => {
+    if (!Number.isFinite(cashAmount) || cashAmount < CASH_GIFT_MIN) return;
+    if (!canSendCashGiftThisSemester(semester)) return;
+
+    const balanceYuan = moneyToBalance(money);
+    const consecutiveCount = readCashGiftRecord(semester).count;
+    const opt = generateCashGiftOption(
+      profile,
+      favorability,
+      cashAmount,
+      balanceYuan,
+      consecutiveCount
+    );
+    setCashGiftOption(opt);
+    setSelectedOption(opt);
+    setCashInputOpen(false);
+  };
+
+  // 送钱：取消金额输入
+  const handleCancelCashGift = () => {
+    setCashInputOpen(false);
+    setCashAmount(1000);
+    setCashGiftOption(null);
+    setSelectedOption(null);
   };
 
   const handleConfirmAction = () => {
@@ -212,7 +276,14 @@ export function MentorOfficeModal({
     let sequence: GiftDialogueLine[] | undefined;
 
     if (selectedOption.category === "gift") {
-      isRejected = rollGiftRejection(profile.mentorId, favorability);
+      // 区分普通送礼 vs 送钱：送钱用专属判定与金额
+      const isCashGift = selectedOption.id === "gift_cash";
+      if (isCashGift) {
+        // 送钱选项的拒收判定直接用原始元数 cashAmount
+        isRejected = rollCashGiftRejection(profile.mentorId, favorability, cashAmount);
+      } else {
+        isRejected = rollGiftRejection(profile.mentorId, favorability);
+      }
       if (isRejected && selectedOption.rejection) {
         displayOption = {
           ...selectedOption,
@@ -233,6 +304,11 @@ export function MentorOfficeModal({
     setCurrentNarrative(displayOption.resultNarrative);
     setGiftRejected(isRejected);
     setHasExecuted(true);
+
+    // 送钱记账：无论收下还是拒收都算消耗一次学期配额（避免玩家通过反复刷拒收来白嫖）
+    if (selectedOption.id === "gift_cash") {
+      writeCashGiftRecord(semester, round);
+    }
 
     // 送礼：启动剧情对话序列播放器；序列播完后由 advanceDialogue / skipDialogue 触发外部回调
     if (sequence && sequence.length > 0) {
@@ -272,6 +348,7 @@ export function MentorOfficeModal({
   };
 
   return (
+    <>
     <div className="fixed inset-0 z-[220] flex items-center justify-center bg-[#020611]/88 p-3 backdrop-blur-md sm:p-6 animate-in fade-in duration-200">
       <section
         role="dialog"
@@ -485,7 +562,7 @@ export function MentorOfficeModal({
                 </div>
 
                 <div className="grid gap-2.5 sm:grid-cols-2">
-                  {options.map((opt) => {
+                  {[...options.filter((o) => !(cashGiftOption && o.id === "gift_cash_entry")), ...(cashGiftOption ? [cashGiftOption] : [])].map((opt) => {
                     const isSelected = selectedOption?.id === opt.id;
                     return (
                       <button
@@ -543,6 +620,8 @@ export function MentorOfficeModal({
                     );
                   })}
                 </div>
+
+                {/* 送钱金额输入浮层在组件根层级渲染（fixed 定位独立弹窗） */}
 
                 {/* 底部行动确认栏 */}
                 <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
@@ -729,5 +808,131 @@ export function MentorOfficeModal({
         </div>
       </section>
     </div>
+
+    {/* 送钱金额输入浮层 —— 独立弹窗，z-index 高于主 Modal */}
+    {cashInputOpen && (
+      <div
+        className="fixed inset-0 z-[230] flex items-center justify-center bg-[#020611]/78 p-3 backdrop-blur-sm sm:p-6 animate-in fade-in duration-150"
+        onClick={handleCancelCashGift}
+      >
+        <div
+          className="w-full max-w-md rounded-3xl border border-amber-400/35 bg-[#0c1320] p-6 shadow-[0_30px_100px_rgba(0,0,0,0.85)] animate-in zoom-in-95 duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* 标题 */}
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <span className="text-xl leading-none">🧧</span>
+              <div>
+                <div className="text-sm font-semibold text-amber-200">敬献一份现金</div>
+                <div className="mt-0.5 text-[11px] text-slate-400">
+                  你从书包里拿出一个信封，里面装着……
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCancelCashGift}
+              className="rounded-full p-1 text-slate-500 transition hover:bg-white/5 hover:text-white"
+              aria-label="关闭"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* 金额显示 + 数字输入（双向） */}
+          <div className="mb-4 flex items-baseline justify-center gap-1">
+            <span className="text-xs text-slate-400">¥</span>
+            <input
+              type="number"
+              min={CASH_GIFT_MIN}
+              max={CASH_GIFT_SLIDER_MAX}
+              step={100}
+              value={cashAmount}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                setCashAmount(Number.isFinite(v) ? Math.max(CASH_GIFT_MIN, Math.min(CASH_GIFT_SLIDER_MAX, v)) : CASH_GIFT_MIN);
+              }}
+              className="w-32 bg-transparent text-center text-4xl font-bold tabular-nums text-white outline-none"
+            />
+          </div>
+
+          {/* 滑块 */}
+          <div className="mb-2">
+            <input
+              type="range"
+              min={CASH_GIFT_MIN}
+              max={CASH_GIFT_SLIDER_MAX}
+              step={100}
+              value={cashAmount}
+              onChange={(e) => setCashAmount(parseInt(e.target.value, 10))}
+              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-amber-500/40 via-amber-400 to-rose-500/70 accent-amber-300"
+              style={{
+                background: `linear-gradient(to right,
+                  #f59e0b 0%,
+                  #f59e0b ${(10000 / CASH_GIFT_SLIDER_MAX) * 100}%,
+                  #f43f5e ${(10000 / CASH_GIFT_SLIDER_MAX) * 100}%,
+                  #f43f5e 100%)`,
+              }}
+            />
+            {/* 刻度（只读，营造"不确定送多少合适"的探索感） */}
+            <div className="mt-1.5 flex justify-between text-[9px] text-slate-600">
+              <span>¥{CASH_GIFT_MIN}</span>
+              <span>¥2,000</span>
+              <span>¥5,000</span>
+              <span className="text-rose-500/70">¥10,000 · 红线</span>
+              <span>¥{CASH_GIFT_SLIDER_MAX.toLocaleString()}</span>
+            </div>
+          </div>
+
+          {/* 当前档位提示 / 红线警告 */}
+          {isRedLineViolation(cashAmount) ? (
+            <div className="mb-3 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-[11px] leading-relaxed text-rose-300">
+              ⚠️ 金额超过 ¥{CASH_GIFT_MAX_NORMAL.toLocaleString()} 师德红线。
+              绝大多数导师会严厉拒收，好感度大幅下降并触发特殊剧情。三思。
+            </div>
+          ) : (
+            <div className="mb-3 text-center text-[11px] text-amber-300/70">
+              {CASH_GIFT_TIER_LABELS[cashGiftTierIndex(cashAmount)]}
+            </div>
+          )}
+
+          {/* 免责 + 余额 + 配额 */}
+          <div className="mb-4 rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[10px] leading-relaxed text-slate-500">
+            ⚠️ 本剧情仅为游戏机制，模拟师生权力关系张力，不鼓励任何现实中的现金馈赠行为。
+            <br />
+            当前余额 {formatYuan(moneyToBalance(money))} · 本学期已用 {readCashGiftRecord(semester).count}/{CASH_GIFT_PER_SEMESTER_LIMIT} 次
+            {cashAmount > moneyToBalance(money) && (
+              <span className="mt-1 block text-rose-300">⚠️ 余额不足（差 {formatYuan(cashAmount - moneyToBalance(money))}）</span>
+            )}
+          </div>
+
+          {/* 操作按钮 */}
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleCancelCashGift}
+              className="rounded-xl border border-white/15 px-4 py-2 text-xs text-slate-400 transition hover:bg-white/5 hover:text-white"
+            >
+              作罢
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmCashGift}
+              disabled={
+                cashAmount < CASH_GIFT_MIN ||
+                !canSendCashGiftThisSemester(semester) ||
+                cashAmount > moneyToBalance(money)
+              }
+              className="flex items-center gap-1.5 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-500 to-amber-300 px-5 py-2 text-xs font-bold text-black shadow-lg transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span>装入信封</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

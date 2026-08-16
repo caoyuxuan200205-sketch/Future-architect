@@ -15,9 +15,12 @@ import {
   scholarshipByArch,
   inferCompanyCity,
   applyCityToFinance,
+  formatYuan,
   type FinanceState,
   type MonthlySettlement,
 } from "../economy/finance";
+import { getInitialThesisScore } from "../thesis/thesisScore";
+import { calculateThesisGrade as calcThesisGrade } from "../thesis/thesisScore";
 import { MobileGameShell, MobileMapView } from "./mobile/MobileGameShell";
 import { ENABLE_DESKTOP_GAME_SIDEBAR } from "../gameUiFlags";
 import { EVENT_BRANCHES, type EventBranchOption } from "../eventBranches";
@@ -144,6 +147,7 @@ interface Stats {
   fastLearning?: number;
   alignment?: number;
   infoChannels?: number;
+  thesisScore?: number; // 毕业论文估分（0-100，初始值由导师类型决定）
 }
 
 type StatKey = keyof Stats;
@@ -181,6 +185,7 @@ const STAT_META: Record<StatKey, { label: string; positive: boolean; color: stri
   riskTolerance:      { label: "风险偏好",   positive: true,  color: "#7c8aff" },
   reputation:         { label: "行业声望",   positive: true,  color: "#ff8a65" },
   infoChannels:       { label: "信息渠道",   positive: true,  color: "#ffa726" },
+  thesisScore:        { label: "毕业论文",   positive: true,  color: "#7c4dff" },
 };
 
 interface CharacterInfo {
@@ -264,7 +269,7 @@ const ACTIONS: Action[] = [
     label: "课题改图",
     emoji: "📐",
     description: "死磕方案图纸与空间工程，建筑专业力大幅提升，但极其消耗抗压与体能",
-    effects: { arch: 8, execution: 4, stress: -6, selfDoubt: 3, ageAnxiety: 2, mentorFavorability: [2, 5] },
+    effects: { arch: 8, execution: 4, stress: -6, selfDoubt: 3, ageAnxiety: 2, mentorFavorability: [2, 5], thesisScore: 3 },
     narratives: [
       "你又开了一夜的图。天亮前保存文件的那一刻，有一种说不清是成就感还是麻木的东西。",
       "导师说线条不够干净，你删掉重画了三遍。最后一遍完成时，窗外已经开始堵车了。",
@@ -276,7 +281,7 @@ const ACTIONS: Action[] = [
     label: "撰写学位论文",
     emoji: "📑",
     description: "潜心撰写毕业学术论文与方法论，提升文档能力、结构化思维与美学理论，防延毕基石",
-    effects: { writingDepth: 7, structured: 5, aestheticTheory: 6, mentorFavorability: 4, health: -4, stress: -3 },
+    effects: { writingDepth: 7, structured: 5, aestheticTheory: 6, mentorFavorability: 4, thesisScore: 8, health: -4, stress: -3 },
     narratives: [
       "你在Word里敲下了绪论的第二万字，把建筑空间句法与现代性批判框架串联起来。导师在批注里破天荒打了个勾。",
       "知网与Avery建筑索引里下载了两百篇英文文献，你把它们分类归档进Zotero，感觉自己的框架思维越发清晰。",
@@ -302,7 +307,7 @@ const ACTIONS: Action[] = [
     label: "自研产品PRD",
     emoji: "💡",
     description: "系统拆解大厂业务，撰写产品需求文档，提升逻辑推理、共情感知与跨职能拉通",
-    effects: { logic: 6, empathy: 5, alignment: 5, structured: 5, mentorFavorability: -2 },
+    effects: { logic: 6, empathy: 5, alignment: 5, structured: 5, mentorFavorability: -2, thesisScore: 2 },
     narratives: [
       "你读完了《用户体验要素》，开始觉得PRD和建筑图纸其实有点像——都是在帮别人建造一个他们说不清楚想要的东西。",
       "你把产品课和建筑课放在一起比较，发现空间动线分析和用户流程图可以用同一套语言描述。这让你安心了一些。",
@@ -314,7 +319,7 @@ const ACTIONS: Action[] = [
     label: "行研与商业建模",
     emoji: "📊",
     description: "专攻金融与咨询：宏观研报拆解、TAM市场空间测算与财务估值建模，行业研判核心",
-    effects: { industryResearch: 8, structured: 6, logic: 5, commercial: 5, mentorFavorability: -2 },
+    effects: { industryResearch: 8, structured: 6, logic: 5, commercial: 5, mentorFavorability: -2, thesisScore: 2 },
     narratives: [
       "你下载了50份券商与MBB行研报告，在Excel里一行行搭建DCF估值模型与敏感性分析表，看懂了产业资本的流向。",
       "自上而下推演新能源产业链与AI算力基建的市场空间（TAM/SAM/SOM），在咨询面试模拟中逻辑无懈可击。",
@@ -499,7 +504,7 @@ const EVENTS: GameEvent[] = [
   {
     id: "e04", title: "论文AIGC查重超标",
     description: "新版知网查重报告弹出来的时候你正在吃泡面。28%，红色的数字像医院化验单上的异常指标。导师的邮件紧随其后，加粗的四个字：‘全部重写。’你把泡面推到一边，盯着那篇写了两个月的论文，发现里面的每一句话都像是从某个你崇拜的学者那里偷来的，包括那些你以为自己原创的思考。窗外的天黑得很慢，你知道这又是一个睡不着的夜晚。",
-    effects: { arch: -3, stress: -10, ageAnxiety: 5 },
+    effects: { arch: -3, stress: -10, ageAnxiety: 5, thesisScore: -8 },
     type: "negative",
   },
   {
@@ -603,13 +608,13 @@ const EVENTS: GameEvent[] = [
   {
     id: "e21", title: "导师消失两周",
     description: "导师已经两周没回消息了。论文进度完全停滞，你发了四条微信，每条都显示'已读'，但石沉大海。你盯着聊天界面，那四个绿色的'已读'标记像四只冷漠的眼睛，看着你在焦虑中一点点沉没。你不确定应该继续等，还是假装这段时间根本不存在——就像建筑图纸上那些被擦掉的辅助线，从未存在过，却留下无法忽视的痕迹。",
-    effects: { arch: -5, stress: -10, ageAnxiety: 7 },
+    effects: { arch: -5, stress: -10, ageAnxiety: 7, thesisScore: -4 },
     type: "negative",
   },
   {
     id: "e22", title: "开题被毙",
     description: "开题报告被导师当场毙掉，会议室里空气凝固。他说：'方向不对，重新想。'五个字，像五颗钉子把你钉在椅子上。你在宿舍里坐了两个小时，窗外有人在踢球，欢呼声一阵阵传来，你听着球鞋踩地的声音，什么都没有想，或者说，想了太多以至于大脑一片空白。你突然想起本科设计课第一次被老师否定方案时，你还能倔强地重来，现在你只觉得累，累到连失望都显得奢侈。",
-    effects: { arch: -3, selfDoubt: 9, ageAnxiety: 5 },
+    effects: { arch: -3, selfDoubt: 9, ageAnxiety: 5, thesisScore: -10 },
     type: "negative",
   },
   {
@@ -774,7 +779,7 @@ const EVENTS: GameEvent[] = [
   {
     id: "e57", title: "论文被《建筑学报》录用",
     description: "你随手投给《建筑学报》的课程论文，在你已经背完半本产品经理面试题库时，收到了录用通知。邮件里编辑的评语写着 “研究视角新颖，兼具理论与实践价值”，导师也特意找你：“这篇论文能帮你申请博士，或者进设计院核心研发岗。” 你翻开那篇论文，里面的每一个公式、每一张分析图，都是你当年在图书馆泡了两个月的成果。转行的焦虑还在，但手里的录用通知像一块磁石 —— 你突然犹豫了，那些改图的深夜、查资料的清晨，难道真的要因为 “行业下行” 就放弃？建筑生的执念，在这一刻突然翻涌上来。",
-    effects: { arch: 10, selfDoubt: -5, stress: 5, ageAnxiety: -3 },
+    effects: { arch: 10, selfDoubt: -5, stress: 5, ageAnxiety: -3, thesisScore: 12 },
     type: "positive",
   },
   {
@@ -798,7 +803,7 @@ const EVENTS: GameEvent[] = [
   {
     id: "e61", title: "研究建筑师转行的论文被《建筑师》录用，风向变了",
     description: "你花了半年时间调研 200 位建筑师转行案例，熬夜整理数据、分析转行路径，写下的《行业转型背景下建筑师跨领域就业现状与发展研究》，本是课程论文的延伸，没想到真的收到了《建筑学报》的录用通知。邮件里编辑特意备注：“你的研究填补了行业空白，现在转行不再是‘异类选择’，而是值得关注的行业趋势。” 导师看到通知后，一改之前 “转行就是浪费专业” 的态度，主动说：“这个方向有价值，我帮你联系行业论坛分享。” 你翻着论文里那些转行前辈的故事，突然觉得自己的坚持有了意义 —— 曾经被质疑 “不务正业” 的研究，如今成了被核心期刊认可的议题，建筑生转行的风，终于吹向了被理解、被正视的方向，所有的熬夜和调研，都成了最值得的铺垫。",
-    effects: { arch: 8, selfDoubt: -10, network: 5 },
+    effects: { arch: 8, selfDoubt: -10, network: 5, thesisScore: 14 },
     type: "positive",
   },
   {
@@ -896,6 +901,20 @@ const EVENTS: GameEvent[] = [
     description: "你在朋友圈发了一条'建筑转产品经验线下分享'，本以为最多来十几个人。结果报名链接第二天就破了 100。那天晚上，阶梯教室坐满了人，后排还有站着的。你站在台上，PPT 第一页是那张你改了十八版的城市设计图。你说：'我今天不是来教大家转行的，我是来告诉你们——那些你以为没用的过去，会在某一天突然变成你的武器。'台下响起掌声，你看到第三排有个女生在低头擦眼泪。你突然意识到，你已经走出了那个在出租屋崩溃的自己，而此刻，你正在成为别人的灯塔。",
     effects: { network: 12, expression: 8, selfDoubt: -10, logic: 3 },
     condition: ({ stats, semester }) => stats.network >= 70 && semester >= 5,
+    type: "positive",
+  },
+  {
+    id: "e69", title: "盲审反馈意外高分",
+    description: "盲审结果出来那天，你不敢点开邮件。前两个月你还在为论文结构反复推倒重来，导师那句「这个章节的逻辑链还差一口气」卡在心里挥之不去。结果打开附件，三位匿名评审的分数都在 85 分以上，主审评语写道：「方法论清晰，案例分析与理论框架结合自然，是一篇具备学术辨识度的硕士论文。」你把这条邮件截图发给导师，他罕见地秒回了一个👍的表情。你盯着那个表情看了很久，突然觉得过去几个月图书馆闭馆铃声响起的每一个深夜，都得到了某种迟来的回执。",
+    effects: { thesisScore: 18, selfDoubt: -8, stress: 4, mentorFavorability: 5, aestheticTheory: 3 },
+    condition: ({ stats, semester }) => semester >= 4 && (stats.thesisScore ?? 0) >= 45,
+    type: "positive",
+  },
+  {
+    id: "e70", title: "导师逐字批注论文初稿",
+    description: "凌晨两点，导师把你提交的论文初稿发回来。打开文档的瞬间你愣住了——几乎每一段都插满了红色批注，从「这里引用的文献年份不对」到「这个论证逻辑跳了一步」，甚至连标点符号的误用都被圈了出来。文档末尾他写了一行：「你的方向是对的，但学术写作的颗粒度还差很多。再来一版。」你合上电脑，感到一种奇怪的安心——至少他在认真读你写的东西。在建筑学院，被导师逐字批注是一件奢侈的事，它意味着你的论文还没被放弃。",
+    effects: { thesisScore: 10, writingDepth: 5, aestheticTheory: 2, stress: -5, mentorFavorability: 3, structured: 3 },
+    condition: ({ stats, semester }) => semester >= 3 && stats.mentorFavorability >= 40,
     type: "positive",
   },
 ];
@@ -1263,6 +1282,7 @@ function generateCharacter(name: string): { character: CharacterInfo; stats: Sta
     alignment: clamp(25 + tb * 0.3 + rng()),
     reputation: clamp(15 + tb * 0.3 + rng()),
     infoChannels: clamp(15 + tb * 0.3 + (isOverseas ? 8 : 0) + rng()),
+    thesisScore: 0, // 由 selectMentor 按导师类型注入初始值
   };
 
   return { character: { name, undergradTier, undergradSchool, masterTier, masterSchool, isOverseas }, stats };
@@ -1276,6 +1296,12 @@ function calculateEnding(stats: Stats): Ending {
   // 过滤掉那些明确需要 Offer 才能触发的结局（通常是大厂/外企/咨询/中厂/小厂/传统）
   // 我们可以通过 ending.id 来判断，或者加一个 explicitOfferRequired 字段。
   // 简单起见，我们假设前几个好结局都需要 offer。
+
+  // —— 论文挂科优先判定：论文分 < 60 且无 offer → 强制延毕 ——
+  if ((stats.thesisScore ?? 0) < 60) {
+    const delayEnding = ENDINGS.find((e) => e.id === "delayed_graduation");
+    if (delayEnding) return delayEnding;
+  }
 
   const fallbackEndings = ENDINGS.filter(e => 
     e.id === "quit_architecture" || 
@@ -1332,6 +1358,13 @@ function calculateEndingWithOffer(stats: Stats, selectedOfferId: string | null):
   } else if (level === "传统") {
     const e = ENDINGS.find((x) => x.id === "design_institute");
     if (e) return e;
+  }
+
+  // —— 论文风险覆盖：拿到 offer 但论文分 < 45（延毕风险档），改为延毕结局 ——
+  // 给 offer 但论文未过关，无法按期入职 → 延毕
+  if ((stats.thesisScore ?? 0) < 45) {
+    const delay = ENDINGS.find((e) => e.id === "delayed_graduation");
+    if (delay) return delay;
   }
 
   // 如果按意向公司无法找到对应结局，则退回到数值优先的默认计算
@@ -1719,16 +1752,79 @@ interface InternshipApplication {
   mindsetFeedback?: string;
 }
 
+/**
+ * 投递渠道元信息（固定属性）
+ * 实际加成由 getChannelBonus() 按属性分档动态计算
+ */
 const INTERNSHIP_CHANNELS: Array<{
   id: InternshipChannel;
   label: string;
   description: string;
-  bonus: number;
 }> = [
-  { id: "official", label: "官网海投", description: "不消耗人脉，反馈较慢，胜在稳定。", bonus: 0 },
-  { id: "direct", label: "招聘平台直聊", description: "主动联系招聘者，更看重表达能力。", bonus: 6 },
-  { id: "referral", label: "校友内推", description: "让简历更容易被看到，人脉越高越有效。", bonus: 10 },
+  { id: "official", label: "官网海投", description: "不消耗人脉，反馈较慢，胜在稳定。" },
+  { id: "direct", label: "招聘平台直聊", description: "主动联系招聘者，表达越强越有效。" },
+  { id: "referral", label: "校友内推", description: "让简历被看到，人脉越高越有效。" },
 ];
+
+/** 渠道解锁门槛（统一为 40） */
+const CHANNEL_UNLOCK_THRESHOLD = 40;
+
+/** expression 分档（直聊）：40-54 / 55-69 / 70+ → +3 / +6 / +10 */
+function getDirectBonus(expression: number): number {
+  if (expression < 40) return 0;
+  if (expression < 55) return 3;
+  if (expression < 70) return 6;
+  return 10;
+}
+
+/** network 分档（内推）：40-59 / 60-79 / 80+ → +5 / +9 / +18 */
+function getReferralBonus(network: number): number {
+  if (network < 40) return 0;
+  if (network < 60) return 5;
+  if (network < 80) return 9;
+  return 18;
+}
+
+/** 渠道是否已解锁（属性门槛统一为 40；official 始终可用） */
+function isChannelUnlocked(channelId: InternshipChannel, stats: Stats): boolean {
+  if (channelId === "official") return true;
+  if (channelId === "direct") return stats.expression >= CHANNEL_UNLOCK_THRESHOLD;
+  if (channelId === "referral") return stats.network >= CHANNEL_UNLOCK_THRESHOLD;
+  return false;
+}
+
+/** 渠道当前实际加成（含解锁判定，未解锁返回 0） */
+function getChannelBonus(channelId: InternshipChannel, stats: Stats): number {
+  if (!isChannelUnlocked(channelId, stats)) return 0;
+  if (channelId === "direct") return getDirectBonus(stats.expression);
+  if (channelId === "referral") return getReferralBonus(stats.network);
+  return 0; // official
+}
+
+/** 渠道锁定提示文案 */
+function getChannelLockHint(channelId: InternshipChannel, stats: Stats): string | null {
+  if (isChannelUnlocked(channelId, stats)) return null;
+  if (channelId === "direct") return `需要表达能力 ≥ ${CHANNEL_UNLOCK_THRESHOLD}（当前 ${Math.round(stats.expression)}）`;
+  if (channelId === "referral") return `需要人脉 ≥ ${CHANNEL_UNLOCK_THRESHOLD}（当前 ${Math.round(stats.network)}）`;
+  return null;
+}
+
+/** 渠道档位叙事文案（已解锁时） */
+function getChannelTierLabel(channelId: InternshipChannel, stats: Stats): string | null {
+  if (!isChannelUnlocked(channelId, stats)) return null;
+  if (channelId === "official") return "稳定渠道，无需任何属性";
+  if (channelId === "direct") {
+    if (stats.expression < 55) return "初窥门径：能把话说清楚，但还显生硬";
+    if (stats.expression < 70) return "略有所成：会包装自己，话术熟练";
+    return "沟通达人：三言两语抓住 HR 注意力";
+  }
+  if (channelId === "referral") {
+    if (stats.network < 60) return "初识人脉：认识几个师兄师姐";
+    if (stats.network < 80) return "小有圈子：在院内有些名气";
+    return "人脉达人：能直接联系到部门负责人";
+  }
+  return null;
+}
 
 const INTERNSHIP_OPTIONS: InternshipOption[] = [
   {
@@ -2693,9 +2789,9 @@ function resolveInternshipScreening(
     const channel = INTERNSHIP_CHANNELS.find((item) => item.id === application.channel);
     const requirementGaps = getInternshipRequirementGaps(option, stats);
     const fitMargin = requirementGaps.reduce((total, gap) => total + gap.value, 0) / requirementGaps.length;
-    const directBonus = application.channel === "direct" ? Math.max(0, (stats.expression - 45) / 5) : 0;
-    const referralBonus = application.channel === "referral" ? Math.max(0, (stats.network - 40) / 6) : 0;
-    const passChance = Math.max(8, Math.min(88, 38 + fitMargin * 1.7 + (channel?.bonus ?? 0) + directBonus + referralBonus));
+    // 渠道加成：按 expression / network 分档动态计算（official=0）
+    const channelBonus = getChannelBonus(application.channel, stats);
+    const passChance = Math.max(8, Math.min(88, 38 + fitMargin * 1.7 + channelBonus));
 
     if (Math.random() * 100 < passChance) {
       return { ...application, status: "interview", interviewStage: "invited", interviewQuestionIndex: 0, interviewAnswers: [], interviewScore: 0, message: "简历通过筛选。HR 已将视频面试邀请发送到你的电脑，请在本回合内处理。" };
@@ -4140,6 +4236,44 @@ function DecisionStatusRail({
         <p className="text-sm font-medium" style={{ color: textPrimary }}>{SEMESTER_LABELS[semester]}</p><p className="mt-0.5 text-xs" style={{ color: textSecondary }}>第 {round} 回合</p>
       </div>
 
+      {/* 毕业论文估分（直接影响结局，常驻展示） */}
+      <div className="mb-5 border-b pb-5" style={{ borderColor: border }}>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-[10px] tracking-[0.2em]" style={{ color: textSecondary }}>THESIS · 毕业论文</span>
+          <div className="flex items-center gap-1.5">
+            <span
+              className="font-mono text-sm font-bold"
+              style={{ color: calcThesisGrade(stats.thesisScore ?? 0).color }}
+            >
+              {stats.thesisScore ?? 0}
+            </span>
+            <DeltaBadge statKey="thesisScore" value={deltaFor("thesisScore") ?? 0} />
+          </div>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{
+              width: `${Math.max(0, Math.min(100, stats.thesisScore ?? 0))}%`,
+              background: calcThesisGrade(stats.thesisScore ?? 0).color,
+            }}
+          />
+        </div>
+        <div className="mt-1.5 flex items-center justify-between">
+          <span
+            className="text-[11px] font-bold"
+            style={{ color: calcThesisGrade(stats.thesisScore ?? 0).color }}
+          >
+            {calcThesisGrade(stats.thesisScore ?? 0).label}
+          </span>
+          {(stats.thesisScore ?? 0) < 60 && (
+            <span className="text-[10px] text-red-400 flex items-center gap-1">
+              <TriangleAlert size={10} /> 未达毕业线
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* 储蓄余额展示 */}
       {balance !== undefined && (
         <div className="mb-5 border-b pb-5" style={{ borderColor: border }}>
@@ -4646,6 +4780,8 @@ export function GamePage() {
   const [localSaveUpdatedAt, setLocalSaveUpdatedAt] = useState<string | null>(null);
   const [localSaveFeedback, setLocalSaveFeedback] = useState("");
   const [localSaveSlots, setLocalSaveSlots] = useState<Array<LocalSaveSlotSummary | null>>(() => readLocalSaveSlotSummaries());
+  // 开题线提醒：研二下学期 thesisScore < 30 时触发（一次性 banner）
+  const [thesisProposalWarning, setThesisProposalWarning] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isEvaluatingCustomEventAction) {
@@ -5171,9 +5307,11 @@ export function GamePage() {
       });
 
       const { newStats } = applyEffects(stats, m.bonuses);
-      setStats(newStats);
-      setFinanceState(createInitialFinance(newStats.money ?? 38, character?.isOverseas ?? false));
-      maybeShowEvent(newStats, 1, new Set());
+      // 注入导师类型决定的初始论文分（学术35 / 海归25 / 实践15 / 放养0）
+      const finalStats = { ...newStats, thesisScore: getInitialThesisScore(m.id) };
+      setStats(finalStats);
+      setFinanceState(createInitialFinance(finalStats.money ?? 38, character?.isOverseas ?? false));
+      maybeShowEvent(finalStats, 1, new Set());
       setShowTutorial(true);
       setTutorialStep(0);
       setDesktopGameSection("map");
@@ -5609,6 +5747,16 @@ export function GamePage() {
       scholarshipPending: 0,
     });
     setMonthlySettlement(settlement);
+
+    // ── 开题线提醒：进入研二下学期（semester 4）首回合时，检测论文分是否 < 30 ──
+    if (nextSem === 4 && nextRd === 1) {
+      const ts = statsAfterPassive.thesisScore ?? 0;
+      if (ts < 30) {
+        setThesisProposalWarning(
+          `⚠ 开题预警：当前毕业论文分仅 ${ts}/100，低于开题线（30）。开题答辩存在被卡风险，建议尽快撰写论文或联系导师辅导。`
+        );
+      }
+    }
 
     // ── 社交系统：检查是否有新 NPC 解锁 + 对话树触发 ──
     const nextTotalRound = (nextSem - 1) * 4 + nextRd;
@@ -6384,6 +6532,26 @@ export function GamePage() {
         }}
         className="flex min-h-screen flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:flex-row lg:pb-0"
       >
+        {/* 开题线一次性提醒（研二下学期论文分 < 30） */}
+        {thesisProposalWarning && (
+          <div
+            role="alert"
+            className="fixed left-1/2 top-4 z-[120] w-[min(92vw,640px)] -translate-x-1/2 rounded-xl border border-amber-400/40 bg-[#1a1408]/95 px-5 py-3.5 text-[13px] leading-relaxed text-amber-100 shadow-2xl backdrop-blur"
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 shrink-0 text-base">⚠</span>
+              <p className="flex-1">{thesisProposalWarning}</p>
+              <button
+                type="button"
+                onClick={() => setThesisProposalWarning(null)}
+                className="shrink-0 rounded-md px-2 py-0.5 text-[12px] text-amber-300 transition hover:bg-amber-400/15"
+                aria-label="关闭提醒"
+              >
+                知道了
+              </button>
+            </div>
+          </div>
+        )}
         {ENABLE_DESKTOP_GAME_SIDEBAR && (
           <DesktopGameSidebar
             active={desktopGameSection}
@@ -6555,6 +6723,45 @@ export function GamePage() {
             </div>
             <p className="text-[13px]" style={{ color: textPrimary }}>{SEMESTER_LABELS[semester]}</p>
             <p className="text-[12px]" style={{ color: textSecondary }}>第 {round} 回合</p>
+          </div>
+
+          {/* 毕业论文（移动端常驻） */}
+          <div className="mb-5 pb-5" style={{ borderBottom: `1px solid ${border}` }}>
+            <div className="flex justify-between items-center mb-1.5">
+              <p className="text-[12px] tracking-widest uppercase" style={{ color: textSecondary }}>毕业论文</p>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="text-[14px] font-mono font-bold"
+                  style={{ color: calcThesisGrade(stats.thesisScore ?? 0).color }}
+                >
+                  {stats.thesisScore ?? 0}
+                </span>
+                <DeltaBadge
+                  statKey="thesisScore"
+                  value={(phase === "action_result" ? (actionDelta.thesisScore ?? eventDelta.thesisScore) : eventDelta.thesisScore) ?? 0}
+                />
+              </div>
+            </div>
+            <div className="h-1 rounded-full mb-1.5 overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${Math.max(0, Math.min(100, stats.thesisScore ?? 0))}%`,
+                  background: calcThesisGrade(stats.thesisScore ?? 0).color,
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <span
+                className="text-[11px] font-bold"
+                style={{ color: calcThesisGrade(stats.thesisScore ?? 0).color }}
+              >
+                {calcThesisGrade(stats.thesisScore ?? 0).label}
+              </span>
+              {(stats.thesisScore ?? 0) < 60 && (
+                <span className="text-[10px] text-red-400">未达毕业线</span>
+              )}
+            </div>
           </div>
 
           {/* 技能属性 */}
@@ -7313,8 +7520,14 @@ export function GamePage() {
             stress: stats?.stress ?? 50,
           }}
           canChooseAction={phase === "action_choice"}
+          semester={semester}
+          round={round}
           onExecuteOption={(option, rejected) => {
             if (!stats) return;
+            // 同步 semester 给送钱限频读取
+            if (typeof window !== "undefined") {
+              (window as any).__archGameSemester = semester;
+            }
             const effectiveDeltas = option.statDeltas ?? {};
             const { newStats, delta } = applyEffects(stats, effectiveDeltas);
 
@@ -7376,14 +7589,27 @@ export function GamePage() {
 
         {desktopGameSection !== "computer" && phase === "action_result" && chosenAction?.id === "internship" && currentOfferedInternships.length > 0 && (
           <div className="fixed inset-0 z-[210] flex items-center justify-center bg-[#020611]/78 p-3 backdrop-blur-md sm:p-6">
-            <section role="dialog" aria-modal="true" aria-labelledby="map-internship-title" className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[#c9a84c]/30 bg-[#07101d] shadow-[0_30px_100px_rgba(0,0,0,0.68)]">
+            <section role="dialog" aria-modal="true" aria-labelledby="map-internship-title" className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[#c9a84c]/30 bg-[#07101d] shadow-[0_30px_100px_rgba(0,0,0,0.68)]">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedInternshipIds([]);
+                  setInternshipChannel("official");
+                  setInternshipApplicationFeedback("");
+                  setPhase("action_choice");
+                }}
+                aria-label="关闭投递界面"
+                className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-400 transition hover:border-white/25 hover:bg-white/10 hover:text-white"
+              >
+                <X size={16} />
+              </button>
               <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(201,168,76,0.12),transparent_58%)] px-4 py-3 sm:px-5">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#c9a84c]">Career Center · Internship Radar</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#c9a84c]">Career Center · Internship Radar</p>
                   <h3 id="map-internship-title" className="mt-1 text-xl font-semibold text-white">选择本轮要投递的岗位</h3>
-                  <p className="mt-1 text-[11px] text-slate-500">最多投递 3 个岗位，筛选进展将在下一回合发送到求职电脑。</p>
+                  <p className="mt-1 text-[12px] text-slate-500">最多投递 3 个岗位，筛选进展将在下一回合发送到求职电脑。</p>
                 </div>
-                <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] text-slate-400">已选 {selectedInternshipIds.length} / 3</span>
+                <span className="rounded-full border border-white/10 px-3 py-1 text-[12px] text-slate-400">已选 {selectedInternshipIds.length} / 3</span>
               </header>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 sm:px-5">
@@ -7417,41 +7643,78 @@ export function GamePage() {
                               </span>
                             )}
                             <div className="min-w-0">
-                              <p className="text-[11px] text-slate-500">{option.companyName}</p>
-                              <p className="mt-0.5 text-[14px] font-medium text-white leading-tight">{option.title}</p>
+                              <p className="text-[12px] text-slate-500">{option.companyName}</p>
+                              <p className="mt-0.5 text-[15px] font-medium text-white leading-tight">{option.title}</p>
                             </div>
                           </div>
-                          <span className="shrink-0 rounded-full border px-2 py-0.5 text-[9px]" style={{ color: fit.color, borderColor: `${fit.color}55`, background: `${fit.color}12` }}>{fit.label}</span>
+                          <span className="shrink-0 rounded-full border px-2 py-0.5 text-[10px]" style={{ color: fit.color, borderColor: `${fit.color}55`, background: `${fit.color}12` }}>{fit.label}</span>
                         </div>
-                        <p className="mt-1.5 text-[11px] text-[#dec678]">{option.stipend}</p>
-                        <p className="mt-1.5 line-clamp-2 text-[11px] leading-4 text-slate-400">{option.description}</p>
-                        <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2"><span className="text-[9px] text-slate-600">{fit.reason}</span><span className={`text-[10px] ${selected ? "text-[#dec678]" : "text-slate-600"}`}>{selected ? "已加入投递" : "选择岗位"}</span></div>
+                        <p className="mt-1.5 text-[12px] text-[#dec678]">{option.stipend}</p>
+                        <p className="mt-1.5 line-clamp-2 text-[12px] leading-4 text-slate-400">{option.description}</p>
+                        <div className="mt-2 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2"><span className="text-[10px] text-slate-600">{fit.reason}</span><span className={`text-[11px] ${selected ? "text-[#dec678]" : "text-slate-600"}`}>{selected ? "已加入投递" : "选择岗位"}</span></div>
                       </button>
                     );
                   })}
                 </div>
 
                 <div className="mt-3.5">
-                  <p className="mb-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">选择投递渠道</p>
+                  <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">选择投递渠道</p>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     {INTERNSHIP_CHANNELS.map((channel) => {
                       const selected = internshipChannel === channel.id;
+                      const unlocked = isChannelUnlocked(channel.id, stats);
+                      const bonus = getChannelBonus(channel.id, stats);
+                      const lockHint = getChannelLockHint(channel.id, stats);
+                      const tierLabel = getChannelTierLabel(channel.id, stats);
                       return (
-                        <button key={channel.id} type="button" onClick={() => setInternshipChannel(channel.id)} className={`rounded-xl border px-3 py-2.5 text-left transition-all ${selected ? "border-blue-400/50 bg-blue-400/10" : "border-white/[0.08] bg-white/[0.02] hover:border-white/15"}`}>
-                          <span className={`block text-[11px] font-medium ${selected ? "text-blue-300" : "text-slate-300"}`}>{channel.label}</span>
-                          <span className="mt-1 block text-[9px] leading-4 text-slate-600">{channel.description}</span>
+                        <button
+                          key={channel.id}
+                          type="button"
+                          disabled={!unlocked}
+                          onClick={() => unlocked && setInternshipChannel(channel.id)}
+                          className={`rounded-xl border px-3 py-2.5 text-left transition-all ${
+                            !unlocked
+                              ? "cursor-not-allowed border-white/[0.05] bg-white/[0.01] opacity-60"
+                              : selected
+                                ? "border-blue-400/50 bg-blue-400/10"
+                                : "border-white/[0.08] bg-white/[0.02] hover:border-white/15"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`block text-[12px] font-medium ${!unlocked ? "text-slate-500" : selected ? "text-blue-300" : "text-slate-300"}`}>
+                              {!unlocked && "🔒 "}
+                              {channel.label}
+                            </span>
+                            {unlocked && bonus > 0 && (
+                              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
+                                bonus >= 15 ? "bg-rose-500/20 text-rose-300"
+                                : bonus >= 8 ? "bg-amber-500/20 text-amber-300"
+                                : "bg-sky-500/15 text-sky-300"
+                              }`}>
+                                +{bonus}
+                              </span>
+                            )}
+                          </div>
+                          {unlocked ? (
+                            <>
+                              <span className="mt-1 block text-[10px] leading-4 text-slate-600">{channel.description}</span>
+                              {tierLabel && <span className="mt-1 block text-[10px] leading-4 text-slate-500">{tierLabel}</span>}
+                            </>
+                          ) : (
+                            <span className="mt-1 block text-[10px] leading-4 text-rose-400/70">{lockHint}</span>
+                          )}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {internshipApplicationFeedback && <p className="mt-3 rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/[0.05] px-3 py-2 text-[10px] text-[#cdb768]">{internshipApplicationFeedback}</p>}
+                {internshipApplicationFeedback && <p className="mt-3 rounded-lg border border-[#c9a84c]/15 bg-[#c9a84c]/[0.05] px-3 py-2 text-[11px] text-[#cdb768]">{internshipApplicationFeedback}</p>}
               </div>
 
               <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] px-4 py-3 sm:px-5">
-                <p className="text-[10px] text-slate-600">提交后本回合结束，招聘进展不会在地图上直接揭晓。</p>
-                <button type="button" onClick={nextRound} className="rounded-xl border border-[#c9a84c]/35 bg-[#c9a84c]/15 px-6 py-3 text-[12px] font-semibold text-[#e3cc7d] transition hover:bg-[#c9a84c]/22">
+                <p className="text-[11px] text-slate-600">提交后本回合结束，招聘进展不会在地图上直接揭晓。</p>
+                <button type="button" onClick={nextRound} className="rounded-xl border border-[#c9a84c]/35 bg-[#c9a84c]/15 px-6 py-3 text-[13px] font-semibold text-[#e3cc7d] transition hover:bg-[#c9a84c]/22">
                   {selectedInternshipIds.length > 0 ? `提交 ${selectedInternshipIds.length} 份申请并结束本回合` : "请先选择要投递的岗位"}
                 </button>
               </footer>
@@ -8011,17 +8274,112 @@ export function GamePage() {
               </div>
             </div>
 
-            {/* 2. 最终属性 */}
+            {/* 2. 毕业论文估分（独立卡片） */}
             <div className="mb-8 pb-8 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-              <p className="text-[12px] tracking-widest uppercase mb-4" style={{ color: textSecondary }}>最终属性</p>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-1">
-                {(["logic", "expression", "english", "structured", "stress", "money"] as StatKey[]).map((k) => (
-                  <StatBar key={k} statKey={k} value={stats[k]} />
-                ))}
-              </div>
+              <p className="text-[12px] tracking-widest uppercase mb-4" style={{ color: textSecondary }}>毕业论文</p>
+              {(() => {
+                const ts = stats.thesisScore ?? 0;
+                const tg = calcThesisGrade(ts);
+                return (
+                  <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+                    <div>
+                      <p className="text-[11px] mb-1" style={{ color: textSecondary }}>盲审评分</p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[36px] font-bold leading-none" style={{ color: tg.color, fontFamily: "'Noto Serif SC', serif" }}>{ts}</span>
+                        <span className="text-[14px]" style={{ color: textSecondary }}>/100</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-[180px]">
+                      <div className="flex items-baseline justify-between mb-1.5">
+                        <span className="text-[14px] font-semibold" style={{ color: tg.color }}>{tg.label}</span>
+                        <span className="text-[11px]" style={{ color: tg.canGraduate ? "#52c41a" : "#f5222d" }}>
+                          {tg.canGraduate ? "✓ 达到毕业要求" : "✗ 未达毕业线"}
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, ts)}%`, background: tg.color }} />
+                      </div>
+                      <p className="text-[11px] mt-2 leading-relaxed" style={{ color: textSecondary }}>{tg.description}</p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* 3. 实习经历 */}
+            {/* 3. 最终属性 —— 完整 24 项分组（紧凑行式，横向分栏） */}
+            <div className="mb-8 pb-8 border-b" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+              <p className="text-[12px] tracking-widest uppercase mb-4" style={{ color: textSecondary }}>最终属性</p>
+              {([
+                { title: "核心能力", keys: ["arch", "logic", "expression", "english", "structured", "stress", "network", "money", "selfDoubt", "ageAnxiety", "mentorFavorability"] as StatKey[] },
+                { title: "扩展硬技能", keys: ["dataSense", "codeBasic", "visualTaste", "writingDepth", "aestheticTheory", "commercial", "industryResearch"] as StatKey[] },
+                { title: "扩展软实力", keys: ["negotiation", "leadership", "empathy", "execution", "fastLearning", "alignment"] as StatKey[] },
+                { title: "状态与资源", keys: ["health", "riskTolerance", "reputation", "infoChannels"] as StatKey[] },
+              ]).map((group) => (
+                <div key={group.title} className="mb-4 last:mb-0">
+                  <p className="text-[11px] mb-1.5 font-medium" style={{ color: textSecondary }}>{group.title}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 divide-y divide-white/[.05] text-[12px]">
+                    {group.keys.map((k) => {
+                      const meta = STAT_META[k];
+                      const raw = stats[k] as number;
+                      const display = meta.yuanScale ? formatYuan(raw) : Math.round(raw).toString();
+                      // 四档配色：负向属性反向计算
+                      const normalized = meta.positive ? raw : 100 - raw;
+                      const gradeColor = normalized >= 80 ? "#16a34a"
+                        : normalized >= 60 ? "#84cc16"
+                        : normalized >= 30 ? "#facc15"
+                        : "#ef4444";
+                      const gradeLabel = normalized >= 80 ? "卓越"
+                        : normalized >= 60 ? "良好"
+                        : normalized >= 30 ? "待提升"
+                        : "风险";
+                      const gradeDesc = normalized >= 80 ? "行业顶尖水平"
+                        : normalized >= 60 ? "稳健进阶阶段"
+                        : normalized >= 30 ? "蓄力成长期，仍需打磨"
+                        : "亟需加强，存在明显短板";
+                      return (
+                        <div
+                          key={k}
+                          className="group relative py-1.5 px-1 -mx-1 transition-colors hover:bg-white/[.03] rounded"
+                        >
+                          <div className="flex justify-between items-baseline gap-2 mb-0.5">
+                            <span className="text-slate-400 truncate text-[13px]">{meta.label}</span>
+                            <span
+                              className="font-mono font-bold text-[14px] shrink-0 cursor-default transition-transform group-hover:scale-110 origin-right duration-150"
+                              style={{ color: gradeColor, display: "inline-block" }}
+                            >
+                              {display}
+                            </span>
+                          </div>
+                          {/* 迷你横向柱状图 —— 纯装饰，不参与任何逻辑 */}
+                          <div className="h-[3px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                            <div
+                              className="h-full rounded-full transition-all duration-500 ease-out"
+                              style={{
+                                width: `${Math.min(100, Math.max(0, normalized))}%`,
+                                background: gradeColor,
+                                opacity: 0.85,
+                              }}
+                            />
+                          </div>
+                          {/* 纯装饰性悬浮卡 —— 不影响任何逻辑 */}
+                          <div
+                            className="pointer-events-none absolute right-0 top-full z-10 mt-1 w-max max-w-[200px] translate-y-1 rounded-md border border-white/10 bg-[#0a0f1f]/95 px-2.5 py-1.5 text-left opacity-0 shadow-xl backdrop-blur transition-all duration-150 group-hover:translate-y-0 group-hover:opacity-100"
+                          >
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ background: gradeColor }} />
+                              <span className="text-[11px] font-semibold" style={{ color: gradeColor }}>{gradeLabel}</span>
+                            </div>
+                            <p className="text-[10px] leading-snug text-slate-400">{gradeDesc}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 4. 实习经历 */}
             <div>
               <p className="text-[12px] tracking-widest uppercase mb-4" style={{ color: textSecondary }}>实习经历</p>
               {pastInternships.length === 0 ? (

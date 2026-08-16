@@ -19,6 +19,7 @@ import {
   type PerkStats,
 } from "../perks/perkRegistry";
 import { moneyToBalance, formatYuan } from "../economy/finance";
+import { calculateThesisGrade, getMentorThesisBoostLabel } from "../thesis/thesisScore";
 
 // ============================================================================
 // 类型与属性元数据
@@ -30,7 +31,8 @@ export type StatusKey =
   | "dataSense" | "visualTaste" | "writingDepth" | "codeBasic" | "commercial"
   | "negotiation" | "leadership" | "empathy" | "execution"
   | "reputation" | "health" | "riskTolerance" | "aestheticTheory"
-  | "industryResearch" | "fastLearning" | "alignment" | "infoChannels";
+  | "industryResearch" | "fastLearning" | "alignment" | "infoChannels"
+  | "thesisScore";
 
 export type StatusStats = Record<StatusKey, number>;
 
@@ -473,6 +475,45 @@ export function DetailedStatsPanel({
                     {Math.round(safeStats.stress)}%
                   </span>
                 </div>
+              </div>
+
+              {/* 毕业论文估分卡片 */}
+              <div className="mt-3 p-3 rounded-lg border border-white/10 bg-white/[.03]">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] tracking-widest font-mono uppercase font-bold text-[#7c4dff]">
+                    THESIS · 毕业论文
+                  </span>
+                  <span
+                    className="font-mono font-bold text-[13px]"
+                    style={{ color: (() => {
+                      const g = calculateThesisGrade(safeStats.thesisScore ?? 0);
+                      return g.color;
+                    })() }}
+                  >
+                    {safeStats.thesisScore ?? 0}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] mb-2">
+                  <span
+                    className="font-bold"
+                    style={{ color: calculateThesisGrade(safeStats.thesisScore ?? 0).color }}
+                  >
+                    {calculateThesisGrade(safeStats.thesisScore ?? 0).label}
+                  </span>
+                  <span className="text-slate-500 font-mono">{getMentorThesisBoostLabel(mentor?.id)}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, safeStats.thesisScore ?? 0))}%`,
+                      background: calculateThesisGrade(safeStats.thesisScore ?? 0).color,
+                    }}
+                  />
+                </div>
+                <p className="text-[10.5px] text-slate-400 mt-1.5 leading-relaxed">
+                  {calculateThesisGrade(safeStats.thesisScore ?? 0).description}
+                </p>
               </div>
             </div>
 

@@ -2,6 +2,7 @@
  * 导师办公室会面剧情、心境与多维对话数据
  */
 import type { ToneTier } from "./types";
+import { moneyToBalance, formatYuan, balanceToMoney } from "../economy/finance";
 
 export interface MentorOfficeProfile {
   mentorId: string;
@@ -104,6 +105,617 @@ export function rollGiftRejection(mentorId: string, favorability: number): boole
   const type = normalizeMentorType(mentorId);
   const rate = GIFT_REJECTION_RATES[type][giftFavorBucket(favorability)];
   return Math.random() < rate;
+}
+
+// ================================================================
+// 送钱（现金）机制
+// 设计哲学：现金 = 高赌注路径。相比送礼，送钱是"越界"行为，
+// 收下时好感加成可观，但拒收率显著更高，且逾矩金额会触发师德红线。
+// ================================================================
+
+/** 金额档位索引：0 试探 / 1 心意 / 2 进阶 / 3 重注 / 4 逾矩 */
+export type CashGiftTier = 0 | 1 | 2 | 3 | 4;
+
+/** 金额 → 档位索引 */
+export function cashGiftTierIndex(amountYuan: number): CashGiftTier {
+  if (amountYuan < 500) return 0;        // ¥200–¥499   试探档
+  if (amountYuan < 2000) return 1;       // ¥500–¥1999  心意档
+  if (amountYuan < 5000) return 2;       // ¥2000–¥4999 进阶档
+  if (amountYuan <= 10000) return 3;     // ¥5000–¥10000 重注档
+  return 4;                              // >¥10000 逾矩档（触发师德红线）
+}
+
+/** 档位中文标签 */
+export const CASH_GIFT_TIER_LABELS: string[] = [
+  "试探档", "心意档", "进阶档", "重注档", "逾矩档",
+];
+
+/** 送钱金额范围（元） */
+export const CASH_GIFT_MIN = 200;
+export const CASH_GIFT_MAX_NORMAL = 10000;
+/** 滑块上限（覆盖逾矩档，便于玩家触碰红线剧情） */
+export const CASH_GIFT_SLIDER_MAX = 20000;
+
+/** 送钱拒收率：行=导师类型，列=金额档位（0–4） */
+export const CASH_GIFT_REJECTION_RATES: Record<string, number[]> = {
+  practice:  [0.35, 0.45, 0.58, 0.70, 0.80],
+  hands_off: [0.50, 0.62, 0.72, 0.82, 0.90],
+  academic:  [0.75, 0.85, 0.93, 0.97, 0.99],
+  overseas:  [0.88, 0.94, 0.98, 0.99, 1.00],
+};
+
+/**
+ * 送钱好感加成基础表（收下时）：行=导师类型，列=金额档位
+ * - 不封顶：金额越大加成越显著，实践派逾矩档可达 +18
+ * - 高风险高收益：金额越大拒收率也越高，逾矩档大概率重伤
+ * - 后续由 repeat/favor 修正系数再次削减
+ */
+export const CASH_GIFT_FAVOR_BONUS: Record<string, number[]> = {
+  practice:  [3, 6, 10, 14, 18],
+  hands_off: [2, 5, 8, 11, 14],
+  academic:  [1, 3, 5, 7, 9],
+  overseas:  [1, 2, 3, 4, 5],
+};
+
+/** 压力下降值（收下时）：导师类型 × 档位 */
+export const CASH_GIFT_STRESS_RELIEF: Record<string, number[]> = {
+  practice:  [2, 4, 6, 8, 8],
+  hands_off: [1, 3, 4, 5, 5],
+  academic:  [1, 2, 2, 3, 3],
+  overseas:  [1, 2, 2, 2, 2],
+};
+
+/** 连续送钱次数 → 边际效用系数（最多 5 次） */
+export function cashGiftRepeatMultiplier(consecutiveCount: number): number {
+  if (consecutiveCount <= 0) return 1.0;
+  if (consecutiveCount === 1) return 0.85;
+  if (consecutiveCount === 2) return 0.70;
+  if (consecutiveCount === 3) return 0.55;
+  return 0.4;
+}
+
+/** 好感区间边际递减：高好感度下加成衰减 */
+export function favorRangeMultiplier(favor: number): number {
+  if (favor < 30) return 1.0;
+  if (favor < 60) return 0.7;
+  return 0.4;
+}
+
+/** 高好感度特例：≥70 时导师会关心玩家是否困难，拒收率减半，加成也减半（钱会被悄悄塞回） */
+export function isHighFavorSpecialCase(favor: number): boolean {
+  return favor >= 70;
+}
+
+/** 是否触发师德红线（金额 > ¥10,000） */
+export function isRedLineViolation(amountYuan: number): boolean {
+  return amountYuan > CASH_GIFT_MAX_NORMAL;
+}
+
+/**
+ * 判定送钱是否被拒收
+ * 综合导师类型 × 金额档位 × 高好感特例
+ */
+export function rollCashGiftRejection(
+  mentorId: string,
+  favorability: number,
+  amountYuan: number
+): boolean {
+  const type = normalizeMentorType(mentorId);
+  const tier = cashGiftTierIndex(amountYuan);
+  let rate = CASH_GIFT_REJECTION_RATES[type][tier];
+  // 高好感特例：拒收率减半（导师相信你并非贿赂）
+  if (isHighFavorSpecialCase(favorability)) rate *= 0.5;
+  return Math.random() < Math.min(1, rate);
+}
+
+/**
+ * 计算送钱被收下时的最终好感加成
+ * base[tier] × repeatMult × favorRangeMult × highFavorHalf（如果≥70）
+ */
+export function calcCashGiftFavorBonus(
+  mentorId: string,
+  favorability: number,
+  amountYuan: number,
+  consecutiveCount: number
+): number {
+  const type = normalizeMentorType(mentorId);
+  const tier = cashGiftTierIndex(amountYuan);
+  const base = CASH_GIFT_FAVOR_BONUS[type][tier];
+  const repeat = cashGiftRepeatMultiplier(consecutiveCount);
+  const range = favorRangeMultiplier(favorability);
+  let result = base * repeat * range;
+  if (isHighFavorSpecialCase(favorability)) result *= 0.5;
+  return Math.max(1, Math.round(result));
+}
+
+/**
+ * 构造送钱被收下时的剧情对话序列
+ * 按导师类型分支，文案区分档位（试探/心意/进阶/重注/逾矩）
+ */
+function buildCashGiftAcceptance(
+  mentorId: string,
+  mentorName: string,
+  amountYuan: number,
+  favorBonus: number
+): GiftDialogueLine[] {
+  const type = normalizeMentorType(mentorId);
+  const tier = cashGiftTierIndex(amountYuan);
+  const envelope = tier <= 1 ? "一个素白信封" : tier <= 3 ? "一个鼓鼓的信封" : "一个厚实的牛皮纸信封";
+  const amountHint = tier === 0 ? "薄薄的一点点" : tier === 1 ? "中等厚度" : tier === 2 ? "相当有分量" : "厚得有些不寻常";
+
+  switch (type) {
+    case "practice":
+      return [
+        {
+          speaker: "narration",
+          content: `你从书包侧袋抽出${envelope}，没封口，边缘被手指捏得有点发皱。${mentorName} 正在和项目部通电话，比划着立面图的剖面位置。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "把信封压在他桌角的节点洽商单上",
+          content: `老师，上次您帮我盯下来的投标，我这边项目奖金刚发了……这点您别推辞，算我请老师吃饭。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "扫了一眼信封厚度，笑了起来",
+          tone: "warm",
+          content: `你小子，工资发了多少？${tier >= 3 ? "这么多你拿出来，自己下半月吃什么？" : "这钱你留着，下次投标还要跑现场。"}`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "尽量让语气听起来随意",
+          content: `老师，您再推我可真不好意思了……`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "干脆利落地把信封收进抽屉",
+          tone: "warm",
+          content: `行，这个情我领了。下次甲方又改需求，你别自己一个人扛，来找我。咱们做实务的，就是靠这种信任。`,
+        },
+        {
+          speaker: "narration",
+          content: `信封被放进抽屉的动作没有任何犹豫。你意识到，在实务派导师这里，现金是一种被默许的"江湖规矩"——它不优雅，但它有效。好感度 +${favorBonus}。`,
+        },
+      ];
+    case "hands_off":
+      return [
+        {
+          speaker: "narration",
+          content: `${mentorName} 的办公室门半开着，他正戴着半边监听耳机调城市声景的波形。你把${envelope}压在他桌角的 Sketch 图纸上。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "声音压得很低",
+          content: `老师，这个……您收着，上次帮我看毕设到凌晨，我心里过意不去。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "摘下半边耳机，愣了半秒",
+          tone: "neutral",
+          content: `哎你这孩子，我们组不兴这个吧？……你最近是不是经济上有什么困难？`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "有点慌",
+          content: `不是不是！就是……一点心意。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "犹豫片刻，把信封往回收了一点",
+          tone: "warm",
+          content: `那我就不推了——但我跟你说，咱们组靠的是你自己做出东西，不是这些。下次好好做项目，比什么都强。`,
+        },
+        {
+          speaker: "narration",
+          content: `他收下了，但收下的那一刻，你感觉某种东西在你们之间悄悄变了味道。放养派原本的"不设防"，被这个信封烫出了一道细细的边界。好感度 +${favorBonus}。`,
+        },
+      ];
+    case "academic":
+      return [
+        {
+          speaker: "narration",
+          content: `${mentorName} 的办公室里挂着杨廷宝手稿复印件，《营造法式》英译本摊在桌心。你把${envelope}放在书上，心跳莫名其妙地快了起来——学术派收下现金的概率极低。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "措辞谨慎",
+          content: `老师，这是我这学期的一点心意，感谢您在课题上的指导……`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "沉默了大约 5 秒，目光锁定信封",
+          tone: "neutral",
+          content: `你这个东西……你是觉得我帮你指导课题，是为了这个？`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "手心开始出汗",
+          content: `老师，我真没有别的意思……`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "深深叹了一口气，把信封推回来一点点，又停住",
+          tone: "warm",
+          content: `我跟你说实话——我教了三十年书，没收过学生的现金。但你这学期做的这个宋代柱础断代，确实让我看到了点东西。这个钱我收下，不是因为我需要它，是因为我不想让你难堪。但下一次，别再这样了。`,
+        },
+        {
+          speaker: "narration",
+          content: `信封被收进了抽屉的最里层，像是被刻意藏起来。学术派导师极少会收现金——这一次，是你的研究真正打动了他。好感度 +${favorBonus}。`,
+        },
+      ];
+    case "overseas":
+      return [
+        {
+          speaker: "narration",
+          content: `${mentorName} 的办公室是开放式布局，玻璃桌上一台 MacBook、一杯喝了一半的 flat white。你把${envelope}放在 guest table 上——这是屋里唯一不带学术符号的家具。`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "尽量让自己的英语听起来自然",
+          content: `Professor, I just wanted to thank you. 这是我们中国学生的一点心意。`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "看了一眼信封，眉毛轻轻挑了一下",
+          tone: "neutral",
+          content: `Hmm. I appreciate the thought, but this really isn't how we do things. You know that, right?`,
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "已经准备好被拒绝的台词",
+          content: `……I'm sorry, I didn't mean to——`,
+        },
+        {
+          speaker: "mentor",
+          name: mentorName,
+          action: "停顿了一下，似乎在权衡什么",
+          tone: "warm",
+          content: `Listen, in my group, we keep it professional. But… I can see you're not trying to buy anything. I'll take it this once. Next time, if you want to thank me, bring me a really good question, not an envelope. Deal?`,
+        },
+        {
+          speaker: "narration",
+          content: `他把信封放进抽屉的动作有一种近乎本能的克制。你知道，对海归派导师而言，收下现金几乎是一次破例——他不是在收钱，而是在接受你试图表达的某种笨拙的尊重。好感度 +${favorBonus}。`,
+        },
+      ];
+  }
+}
+
+/**
+ * 构造送钱被拒收时的剧情对话序列
+ * 区分普通拒收与师德红线（逾矩档）
+ */
+function buildCashGiftRejection(
+  mentorId: string,
+  mentorName: string,
+  amountYuan: number,
+  isRedLine: boolean
+): NonNullable<OfficeDialogueOption["rejection"]> {
+  const type = normalizeMentorType(mentorId);
+  const tier = cashGiftTierIndex(amountYuan);
+  const envelope = tier <= 1 ? "一个素白信封" : tier <= 3 ? "一个鼓鼓的信封" : "一个厚实的牛皮纸信封";
+
+  // 师德红线：好感度 -15、压力 +8；普通拒收：好感度 -2、压力 +4
+  const basePenalty = isRedLine
+    ? { mentorFavorability: -15, stress: 8 }
+    : { mentorFavorability: -2, stress: 4 };
+
+  switch (type) {
+    case "practice":
+      return {
+        statDeltas: { money: 0, ...basePenalty },
+        mentorReply: isRedLine
+          ? `「你这是什么意思？把东西收起来——你这数字已经能让人多想了。我帮你盯项目是因为你做得出来，不是因为这种东西。你要再这样，下次别进我这个门。」`
+          : `「你这是干什么？把这玩意儿收起来。我帮你看项目是因为你做得出来，不是因为这个。你要真想谢我，下次投标给我拿个一等奖回来。」`,
+        replyTone: isRedLine ? "neutral" : "neutral",
+        resultNarrative: isRedLine
+          ? `${mentorName} 的语气罕见地冷了下来。你意识到这个金额已经触碰到了实务派导师的底线——他们的"江湖"是有边界的，越过了就不再是自己人。`
+          : `拒收得很干脆，但你也没觉得难堪——实务派的边界是软的，他们的"不"不带刺。`,
+        dialogueSequence: [
+          {
+            speaker: "narration",
+            content: `你把${envelope}放在 ${mentorName} 桌上。他瞥了一眼厚度，眉头皱了起来。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "把信封推近了一点",
+            content: `老师，这点您别推辞……`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: isRedLine ? "没去碰那个信封" : "把信封推回你面前",
+            tone: "neutral",
+            content: isRedLine
+              ? `你这个数字……你知不知道这已经不是"心意"了？我跟甲方打了这么多年交道，收到这种金额是要写检讨的。把它拿走，下次别再这样。`
+              : `你这是干什么？把这玩意儿收起来。我帮你看项目是因为你做得出来，不是因为这个。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "把信封塞回包里",
+            content: `……好的老师。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: isRedLine ? "转过身，不再看你" : "拍了拍你的肩",
+            tone: "neutral",
+            content: isRedLine
+              ? `回去吧。这件事我希望就到这里。`
+              : `行了，别扭扭捏捏的。回去改图吧。`,
+          },
+          {
+            speaker: "narration",
+            content: isRedLine
+              ? `你抓起信封夺门而出。实务派导师的"江湖规矩"是有上限的，越过那条线，你就不再是"自己人"。好感度 -15。`
+              : `拒收得很干脆，但你也没觉得难堪——实务派的边界是软的，他们的"不"不带刺。好感度小幅下降。`,
+          },
+        ],
+      };
+    case "hands_off":
+      return {
+        statDeltas: { money: 0, ...basePenalty },
+        mentorReply: isRedLine
+          ? `「哇哦等等——你这个数额已经超出我能理解的范围了。我们组不兴这个，你自己拿回去。我希望以后别再发生这种事。`
+          : `哎呀你这孩子客气啥，自己留着用。咱们组不兴这些——赶紧回去忙吧。`,
+        replyTone: "neutral",
+        resultNarrative: isRedLine
+          ? `${mentorName} 的语气里第一次出现了一种近乎疏离的严肃。放养派导师的"不设防"是有底线的，越过了就再也回不去。`
+          : `他挥挥手把信封推回来，态度倒是不生硬，但你明显感觉到放养派导师对形式化的东西兴致缺缺。`,
+        dialogueSequence: [
+          {
+            speaker: "narration",
+            content: `${mentorName} 正在调一段城市声景。你把${envelope}放在波形图旁边。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "尽量让自己的语气听起来随意",
+            content: `老师，这个……您收着。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: isRedLine ? "猛地摘下耳机，盯着你看了好几秒" : "摘下半边耳机，摆摆手",
+            tone: "neutral",
+            content: isRedLine
+              ? `等等等等——这个数字你认真的？这已经不是我能不能收的问题了，是我要不要提醒你"你在做什么"的问题。拿回去。`
+              : `哎呀你这孩子客气啥，自己留着用。咱们组不兴这些。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "尴尬地把信封收回",
+            content: `……好的老师。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: isRedLine ? "重新戴上耳机，转身背对你" : "重新戴上耳机",
+            tone: "neutral",
+            content: isRedLine
+              ? `这件事就当没发生。但你自己心里要有数。`
+              : `行了行了，赶紧回去忙吧。`,
+          },
+          {
+            speaker: "narration",
+            content: isRedLine
+              ? `放养派原本的松弛感在这一刻荡然无存。你意识到，这种数额已经触碰到了他的某种底线。好感度 -15。`
+              : `他挥挥手把信封推回来，态度不生硬，但你明显感觉到放养派对形式化的东西兴致缺缺。`,
+          },
+        ],
+      };
+    case "academic":
+      return {
+        statDeltas: { money: 0, ...basePenalty },
+        mentorReply: isRedLine
+          ? `「你知不知道你现在的行为，在学校的师德规范里叫什么？把它拿走。下不为例。我不会记在档案里，但你自己心里要有数。」`
+          : `这是什么？……你知不知道你现在的行为，在我们这一行意味着什么？把它拿回去。`,
+        replyTone: "neutral",
+        resultNarrative: isRedLine
+          ? `${mentorName} 的声音压得很低，没有任何起伏，但那种平静本身就是一种愤怒。学术派的"清廉"不是表演，是他们立足的全部底气。`
+          : `学术派导师对现金几乎是本能地排斥——他们要的是你的课题，不是你的钱。`,
+        dialogueSequence: [
+          {
+            speaker: "narration",
+            content: `${mentorName} 的办公室里只有巴赫的平均律在响。你把${envelope}放在《营造法式》英译本上，心跳莫名其妙地快了起来。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "措辞谨慎",
+            content: `老师，这是我……`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "没等你说完，目光已经锁定信封",
+            tone: "neutral",
+            content: `这是什么？`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "手开始发抖",
+            content: `……一点心意。`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "沉默了大约 5 秒，声音压得很低",
+            tone: "neutral",
+            content: isRedLine
+              ? `你知不知道你现在的行为，在学校的师德规范里叫什么？这个东西你拿回去。下不为例。我不会记在档案里，但你自己心里要有数。`
+              : `我教了三十年书，没收过学生的现金。这个东西你拿回去。你要真想谢我，把你的宋代柱础断代做出像样的东西来。`,
+          },
+          {
+            speaker: "narration",
+            content: `你抓起信封夺门而出。学术派导师的"清廉"不是表演，是他们在这个圈子里立足的全部底气。你刚才差点踩到的那条线，名叫"师德"。好感度 ${isRedLine ? "-15" : "-2"}。`,
+          },
+        ],
+      };
+    case "overseas":
+      return {
+        statDeltas: { money: 0, ...basePenalty },
+        mentorReply: isRedLine
+          ? `「I'm going to pretend I didn't see this. Take it back. Now. And please—don't ever do this again.」`
+          : `Hmm. I appreciate the thought, but this really isn't how we do things. Take it back.`,
+        replyTone: "neutral",
+        resultNarrative: isRedLine
+          ? `${mentorName} 的表情第一次出现了一种近乎冰冷的距离感。海归派对"边界"的执念，在这一刻显现得淋漓尽致。`
+          : `他用一种近乎礼貌却疏离的方式拒绝了。海归派导师对师生边界感格外敏感，现金在他们眼里几乎是一种越界。`,
+        dialogueSequence: [
+          {
+            speaker: "narration",
+            content: `${mentorName} 的办公室是极简黑白灰，MacBook 旁一杯喝了一半的 flat white。你把${envelope}放在 guest table 上。`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "尽量让自己的英语听起来自然",
+            content: `Professor, I just wanted to……`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "看了一眼信封，表情微微一变",
+            tone: "neutral",
+            content: isRedLine
+              ? `I'm going to pretend I didn't see this. Take it back. Now. And please—don't ever do this again.`
+              : `Hmm. I appreciate the thought, but this really isn't how we do things. You know that, right?`,
+          },
+          {
+            speaker: "player",
+            name: "你",
+            action: "已经准备好被拒绝",
+            content: `……Yes. I'm sorry.`,
+          },
+          {
+            speaker: "mentor",
+            name: mentorName,
+            action: "把信封轻轻推回你面前",
+            tone: "neutral",
+            content: isRedLine
+              ? `Boundaries are not walls—they are how we respect each other. Please remember that.`
+              : `If you're struggling financially, there are proper channels—TA positions, scholarships. But this? This I can't take.`,
+          },
+          {
+            speaker: "narration",
+            content: `他把信封轻轻推回你面前，动作里没有任何指责，只有一种近乎本能的边界感。好感度 ${isRedLine ? "-15" : "-2"}。`,
+          },
+        ],
+      };
+  }
+}
+
+/**
+ * 生成一个送钱选项（运行时根据玩家输入的金额动态构造）
+ * @param mentor 导师办公室资料
+ * @param favorability 当前好感度
+ * @param amountYuan 玩家输入的金额（元）
+ * @param currentBalanceYuan 当前余额（元），用于 disabled 判定
+ * @param consecutiveCount 本学期连续送钱次数（用于边际递减）
+ */
+export function generateCashGiftOption(
+  mentor: MentorOfficeProfile,
+  favorability: number,
+  amountYuan: number,
+  currentBalanceYuan: number,
+  consecutiveCount: number
+): OfficeDialogueOption {
+  const tier = cashGiftTierIndex(amountYuan);
+  const tierLabel = CASH_GIFT_TIER_LABELS[tier];
+  const isRedLine = isRedLineViolation(amountYuan);
+  const favorBonus = calcCashGiftFavorBonus(mentor.mentorId, favorability, amountYuan, consecutiveCount);
+  const stressRelief =
+    CASH_GIFT_STRESS_RELIEF[normalizeMentorType(mentor.mentorId)]?.[tier] ?? 3;
+  const insufficient = amountYuan > currentBalanceYuan;
+  const highFavor = isHighFavorSpecialCase(favorability);
+  const finalFavor = highFavor ? Math.max(1, Math.round(favorBonus * 0.5)) : favorBonus;
+
+  const acceptanceDialogue = buildCashGiftAcceptance(mentor.mentorId, mentor.name, amountYuan, finalFavor);
+  const rejectionData = buildCashGiftRejection(mentor.mentorId, mentor.name, amountYuan, isRedLine);
+
+  const description = isRedLine
+    ? `金额超过 ¥10,000 红线，触碰师德底线——大概率被严厉拒收并大幅降低好感。`
+    : `直接奉上 ¥${amountYuan} 现金（${tierLabel}）。金额越大，反应越敏感，收下加成也越可观。`;
+
+  // 内部 money 数值（约 0-100 区间，1 ≈ ¥500）
+  const moneyDelta = -balanceToMoney(amountYuan);
+
+  return {
+    id: "gift_cash",
+    label: `敬献一份现金 ¥${amountYuan}`,
+    emoji: "🧧",
+    category: "gift",
+    description,
+    costText: `${tierLabel}${isRedLine ? " · 逾矩" : ""} · ${insufficient ? `余额不足（差 ¥${amountYuan - currentBalanceYuan}）` : `花费 ¥${amountYuan}`}`,
+    disabled: insufficient,
+    disabledReason: insufficient ? `当前余额 ¥${currentBalanceYuan}，不足以支付 ¥${amountYuan}` : undefined,
+    statDeltas: {
+      money: moneyDelta,
+      mentorFavorability: finalFavor,
+      stress: -stressRelief,
+    },
+    mentorReply: acceptanceDialogue[acceptanceDialogue.length - 1]?.content ?? "",
+    replyTone: "warm",
+    resultNarrative: `导师收下了你的信封。好感度 +${finalFavor}，压力 -${stressRelief}。`,
+    rejection: rejectionData,
+    acceptanceDialogue,
+  };
+}
+
+/** 每学期送钱次数上限 */
+export const CASH_GIFT_PER_SEMESTER_LIMIT = 2;
+
+/** localStorage 键名（按学期区分） */
+export function cashGiftRecordKey(semester: number): string {
+  return `archGame_cashGiftRecord_s${semester}`;
+}
+
+/** 读取本学期送钱记录 */
+export function readCashGiftRecord(semester: number): { count: number; lastRound: number | null } {
+  if (typeof window === "undefined") return { count: 0, lastRound: null };
+  try {
+    const raw = window.localStorage.getItem(cashGiftRecordKey(semester));
+    if (!raw) return { count: 0, lastRound: null };
+    return JSON.parse(raw);
+  } catch {
+    return { count: 0, lastRound: null };
+  }
+}
+
+/** 写入本学期送钱记录 */
+export function writeCashGiftRecord(semester: number, round: number): void {
+  if (typeof window === "undefined") return;
+  const prev = readCashGiftRecord(semester);
+  const next = { count: prev.count + 1, lastRound: round };
+  try {
+    window.localStorage.setItem(cashGiftRecordKey(semester), JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+}
+
+/** 当前学期是否还能送钱 */
+export function canSendCashGiftThisSemester(semester: number): boolean {
+  return readCashGiftRecord(semester).count < CASH_GIFT_PER_SEMESTER_LIMIT;
 }
 
 /** 按导师类型构造拒收事件的文案、数值影响与剧情对话序列 */
@@ -825,6 +1437,31 @@ export function generateOfficeDialogueOptions(
     resultNarrative: `导师收下了清茶，眼神中流露出一丝欣慰的笑意。他特意嘱咐你在高强度的改图与文献攻坚中也要保重身体。`,
     rejection: giftRejection,
     acceptanceDialogue: giftAcceptance,
+  });
+
+  // 3.5 送钱入口（点击后弹金额输入框；本学期超过 2 次则禁用）
+  const semesterForCash =
+    (typeof window !== "undefined" && (window as any).__archGameSemester) || 1;
+  const cashRecord = readCashGiftRecord(semesterForCash);
+  const cashRemaining = CASH_GIFT_PER_SEMESTER_LIMIT - cashRecord.count;
+  const cashDisabled = cashRemaining <= 0;
+  const balanceYuan = moneyToBalance(money);
+  options.push({
+    id: "gift_cash_entry",
+    label: "敬献一份现金以表谢意",
+    emoji: "🧧",
+    category: "gift",
+    description:
+      "直接奉上现金，金额自定（¥200–¥10,000；逾矩金额会触发师德红线剧情）。⚠️ 现金路径敏感度高：收下加成可观，拒收惩罚也重。每学期最多 2 次。",
+    costText: cashDisabled
+      ? `本学期已达上限（${CASH_GIFT_PER_SEMESTER_LIMIT} 次）`
+      : `本学期剩余 ${cashRemaining} 次 · 当前余额 ${formatYuan(balanceYuan)}`,
+    disabled: cashDisabled,
+    disabledReason: cashDisabled ? "本学期送钱次数已用完，下学期再来" : undefined,
+    statDeltas: undefined,
+    mentorReply: "",
+    replyTone: "neutral",
+    resultNarrative: "",
   });
 
   // 4. 高好感度专属：打探资源与推荐信
