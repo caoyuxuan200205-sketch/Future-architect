@@ -130,9 +130,18 @@ interface MobileMapViewProps {
   onOpenRound: () => void;
   onChooseAction: (actionId: string) => void;
   onOpenMentorOffice?: () => void;
+  onOpenPeerModal?: () => void;
+  onOpenLuYuchenModal?: () => void;
+  onSelectCareerCenter?: () => void;
+  onOpenBaiXuModal?: () => void;
+  onSelectCafe?: () => void;
+  onOpenJiangHuaiModal?: () => void;
+  onSelectDorm?: () => void;
+  onOpenShenQinghuaiModal?: () => void;
+  onSelectLibrary?: () => void;
 }
 
-export function MobileMapView({ actions, canChooseAction, notice, onOpenRound, onChooseAction, onOpenMentorOffice }: MobileMapViewProps) {
+export function MobileMapView({ actions, canChooseAction, notice, onOpenRound, onChooseAction, onOpenMentorOffice, onOpenPeerModal, onOpenLuYuchenModal, onSelectCareerCenter, onOpenBaiXuModal, onSelectCafe, onOpenJiangHuaiModal, onSelectDorm, onOpenShenQinghuaiModal, onSelectLibrary }: MobileMapViewProps) {
   const [selectedLocationName, setSelectedLocationName] = useState<string | null>(null);
   const selectedLocation = MOBILE_LOCATIONS.find((location) => location.name === selectedLocationName) ?? null;
   const selectedActions = selectedLocation ? actions.filter((action) => selectedLocation.actionIds.includes(action.id)) : [];
@@ -167,7 +176,25 @@ export function MobileMapView({ actions, canChooseAction, notice, onOpenRound, o
               key={location.name}
               type="button"
               disabled={disabled}
-              onClick={() => setSelectedLocationName(location.name)}
+              onClick={() => {
+                if (location.name === "导师办公室" && onOpenMentorOffice) {
+                  onOpenMentorOffice();
+                  return;
+                }
+                if (location.name === "就业中心" && onSelectCareerCenter) {
+                  onSelectCareerCenter();
+                }
+                if (location.name === "咖啡馆" && onSelectCafe) {
+                  onSelectCafe();
+                }
+                if (location.name === "宿舍" && onSelectDorm) {
+                  onSelectDorm();
+                }
+                if (location.name === "图书馆" && onSelectLibrary) {
+                  onSelectLibrary();
+                }
+                setSelectedLocationName(location.name);
+              }}
               className="min-h-36 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 text-left transition active:scale-[0.98] enabled:active:border-[#c9a84c]/40 disabled:opacity-45"
             >
               <span className="text-2xl" aria-hidden="true">{location.emoji}</span>
@@ -212,6 +239,86 @@ export function MobileMapView({ actions, canChooseAction, notice, onOpenRound, o
                   <span className="min-w-0">
                     <span className="block text-[14px] font-bold text-[#fde047]">进入办公室面谈（AVG 沉浸式交流）</span>
                     <span className="mt-1 block text-[11px] leading-4 text-amber-200/80">展开学术请教、探讨近代建筑史课题与心声</span>
+                  </span>
+                </button>
+              )}
+              {selectedLocation.name === "建筑学院" && onOpenPeerModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocationName(null);
+                    onOpenPeerModal();
+                  }}
+                  className="flex min-h-16 w-full items-start gap-3 rounded-xl border border-sky-400/50 bg-gradient-to-r from-sky-500/20 to-sky-500/5 p-3 text-left active:scale-[0.99] active:border-sky-400"
+                >
+                  <span className="text-xl">☕</span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-bold text-sky-200">拜访同门 · 张一帆</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-sky-200/80">去工位找同门聊聊天、交流方案与求职动态</span>
+                  </span>
+                </button>
+              )}
+              {selectedLocation.name === "就业中心" && onOpenLuYuchenModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocationName(null);
+                    onOpenLuYuchenModal();
+                  }}
+                  className="flex min-h-16 w-full items-start gap-3 rounded-xl border border-indigo-400/50 bg-gradient-to-r from-indigo-500/20 to-indigo-500/5 p-3 text-left active:scale-[0.99] active:border-indigo-400"
+                >
+                  <span className="text-xl">☕</span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-bold text-indigo-200">拜访同门 · 陆予忱</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-indigo-200/80">去 204 职业指导室找予忱，拆解大厂群面、重构简历、探讨 AI 算法</span>
+                  </span>
+                </button>
+              )}
+              {selectedLocation.name === "咖啡馆" && onOpenBaiXuModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocationName(null);
+                    onOpenBaiXuModal();
+                  }}
+                  className="flex min-h-16 w-full items-start gap-3 rounded-xl border border-amber-400/50 bg-gradient-to-r from-amber-500/20 to-amber-500/5 p-3 text-left active:scale-[0.99] active:border-amber-400"
+                >
+                  <span className="text-xl">☕</span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-bold text-amber-200">拜访学弟 · 白栩</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-amber-200/80">去咖啡馆阳光卡座找白栩，指导快题、拼装手工模型、享受治愈陪伴</span>
+                  </span>
+                </button>
+              )}
+              {selectedLocation.name === "图书馆" && onOpenShenQinghuaiModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocationName(null);
+                    onOpenShenQinghuaiModal();
+                  }}
+                  className="flex min-h-16 w-full items-start gap-3 rounded-xl border border-emerald-400/50 bg-gradient-to-r from-emerald-500/20 to-emerald-500/5 p-3 text-left active:scale-[0.99] active:border-emerald-400"
+                >
+                  <span className="text-xl">📚</span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-bold text-emerald-200">拜访学长 · 沈清淮</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-emerald-200/80">去古籍特藏区找清淮，切磋手绘透视速写、考据文献断代、享受静谧自习时光</span>
+                  </span>
+                </button>
+              )}
+              {selectedLocation.name === "宿舍" && onOpenJiangHuaiModal && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedLocationName(null);
+                    onOpenJiangHuaiModal();
+                  }}
+                  className="flex min-h-16 w-full items-start gap-3 rounded-xl border border-blue-400/50 bg-gradient-to-r from-blue-500/20 to-blue-500/5 p-3 text-left active:scale-[0.99] active:border-blue-400"
+                >
+                  <span className="text-xl">☕</span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-bold text-blue-200">拜访舍友 · 江淮</span>
+                    <span className="mt-1 block text-[11px] leading-4 text-blue-200/80">去 502 寝室找江淮，约羽毛球、验算力学结构、吃夜宵解压</span>
                   </span>
                 </button>
               )}

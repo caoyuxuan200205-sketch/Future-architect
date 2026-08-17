@@ -340,38 +340,62 @@ export function DetailedStatsPanel({
     []
   );
 
-  const playerName = character?.name || "研究生";
-  const playerSchool = character?.masterSchool || "同济大学建筑系";
+  const playerName = character?.name || "Yuxuan Cao";
+  const playerSchool = character?.masterSchool || "东南大学";
   const undergradSchool = character?.undergradSchool || "建筑学本科院校";
   const undergradTier = character?.undergradTier ?? 3;
   const masterTier = character?.masterTier ?? 3;
-  const mentorName = mentor?.displayName || mentor?.name || "周教授";
+  const mentorName = mentor?.displayName || mentor?.name || "齐廷宝";
   const semesterStr = `研${Math.ceil(semester / 2)}${semester % 2 === 1 ? "上" : "下"}`;
 
+  const thesisGrade = useMemo(() => calculateThesisGrade(safeStats.thesisScore ?? 0), [safeStats.thesisScore]);
+
+  const delayRisk = useMemo(() => {
+    const score = safeStats.thesisScore ?? 0;
+    const requiredBySemester = semester * 15;
+    if (score >= requiredBySemester + 15 || score >= 75) {
+      return { label: "低风险", color: "#4ade80", desc: "论文撰写与课题推进节奏良好，达标概率极高。" };
+    } else if (score >= requiredBySemester - 5 || score >= 50) {
+      return { label: "中度预警", color: "#facc15", desc: "论文进度略显滞后，建议增加【改论文】频次防范延毕。" };
+    } else {
+      return { label: "高危延毕", color: "#f87171", desc: "当前学术指标危急，若答辩前未达及格线将触发延毕！" };
+    }
+  }, [safeStats.thesisScore, semester]);
+
   return (
-    <div className="w-full bg-[#070d18] text-slate-200 select-none font-sans rounded-xl border border-white/[.07] shadow-xl overflow-hidden text-[13px]">
+    <div className="w-full bg-[#080d1a] text-slate-200 select-none font-sans rounded-2xl border border-white/[.08] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden text-[13px]">
       {/* ────────────────────────────────────────────────────────── */}
-      {/* 1. 顶栏：黄金比例尺寸 */}
+      {/* 1. 顶栏：大气大头像 + 扁平高亮切换器 */}
       {/* ────────────────────────────────────────────────────────── */}
-      <header className="border-b border-white/[.07] px-5 py-3 flex flex-wrap items-center justify-between gap-3 bg-[#0a1120]/70 backdrop-blur-sm">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="flex items-baseline gap-2">
-            <span className="text-amber-400 text-xs">✦</span>
-            <span className="text-[16px] font-bold text-white tracking-wide">{playerName}</span>
-            <span className="text-xs text-slate-400 font-medium truncate">
-              {playerSchool} · {semesterStr}（第 {round}/{totalRound} 回合）
-            </span>
+      <header className="border-b border-white/[.08] px-6 py-4 flex flex-wrap items-center justify-between gap-4 bg-[#0a1122]/90 backdrop-blur-md">
+        <div className="flex items-center gap-4 min-w-0">
+          {/* 头像 */}
+          <div className="relative w-13 h-13 sm:w-14 sm:h-14 shrink-0 rounded-2xl bg-gradient-to-br from-[#c9a84c]/25 via-slate-800 to-slate-900 border border-[#c9a84c]/40 p-0.5 shadow-[0_0_15px_rgba(201,168,76,0.15)] flex items-center justify-center overflow-hidden">
+            <span className="text-2xl select-none">👨‍🎓</span>
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[#0a1122] shadow-[0_0_8px_#34d399]" />
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[18.5px] sm:text-[20px] font-bold text-white tracking-tight leading-none">{playerName}</h2>
+            </div>
+            <p className="text-xs text-slate-400 font-medium mt-1.5 truncate flex items-center gap-1.5">
+              <span>{playerSchool}</span>
+              <span className="text-slate-600">·</span>
+              <span>{semesterStr}</span>
+              <span className="text-slate-500 font-mono">（第 {round}/{totalRound} 回合）</span>
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          {/* 纯净线框切换器 */}
-          <div className="flex items-center border border-white/10 rounded-lg p-0.5 text-xs bg-black/20">
+          {/* 纯净线框胶囊切换器 */}
+          <div className="flex items-center border border-white/10 rounded-xl p-1 text-xs bg-black/40 shadow-inner">
             <button
               onClick={() => setActiveSubTab("overview")}
-              className={`px-3 py-1 rounded font-medium transition-all ${
+              className={`px-4 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                 activeSubTab === "overview"
-                  ? "bg-[#c9a84c]/20 text-[#dec678] font-bold"
+                  ? "bg-[#2a2315] text-[#f5d77f] font-bold border border-[#c9a84c]/40 shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -379,9 +403,9 @@ export function DetailedStatsPanel({
             </button>
             <button
               onClick={() => setActiveSubTab("resume")}
-              className={`px-3 py-1 rounded font-medium transition-all ${
+              className={`px-4 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                 activeSubTab === "resume"
-                  ? "bg-[#c9a84c]/20 text-[#dec678] font-bold"
+                  ? "bg-[#2a2315] text-[#f5d77f] font-bold border border-[#c9a84c]/40 shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -389,9 +413,10 @@ export function DetailedStatsPanel({
             </button>
           </div>
 
-          <div className="text-xs text-slate-400 flex items-center gap-1.5 pl-2.5 border-l border-white/10">
-            <span>综合评分</span>
-            <span className="font-mono font-bold text-amber-300 text-sm">{ovr}</span>
+          {/* 综合评分胶囊 */}
+          <div className="text-xs text-slate-300 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/30 border border-white/10 shadow-sm">
+            <span className="text-slate-400 text-xs">综合评分</span>
+            <span className="font-mono font-bold text-amber-300 text-sm tracking-wide">{ovr}</span>
           </div>
         </div>
       </header>
@@ -400,42 +425,43 @@ export function DetailedStatsPanel({
       {/* 2. TAB 1: 综合能力总览（比例精巧，信息高密） */}
       {/* ────────────────────────────────────────────────────────── */}
       {activeSubTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-white/[.07]">
-          {/* ─── 左栏 (Col 1-3): 个人概况与心态 ─── */}
-          <aside className="lg:col-span-3 p-4 sm:p-5 flex flex-col gap-4">
-            {/* 档案与评级 */}
-            <div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-white/[.08]">
+          {/* ─── 左栏 (Col 1-3): 个人概况、延毕风险与心态 ─── */}
+          <aside className="lg:col-span-3 p-4 sm:p-5 flex flex-col gap-4 bg-[#080d1a]/50">
+            {/* 个人简介卡片 */}
+            <div className="rounded-xl border border-white/[.07] bg-white/[0.015] p-4 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <span className="text-[11px] font-mono tracking-widest text-[#c9a84c] uppercase font-bold">
-                    PROFILE
-                  </span>
-                  <p className="text-xs text-slate-200 font-semibold mt-0.5">{selectedTrack.name.split("/")[0]}</p>
+                  <h3 className="text-[13px] font-bold text-white tracking-wide flex items-center gap-1.5">
+                    <span>📋</span> 个人简介
+                  </h3>
+                  <p className="text-xs text-[#c9a84c] font-semibold mt-0.5">
+                    {selectedTrack.name.split("/")[0]}方向
+                  </p>
                 </div>
-                <div className="px-2 py-0.5 rounded bg-amber-400/10 border border-amber-400/20 text-amber-300 font-mono font-bold text-xs">
+                <div className="px-2 py-0.5 rounded-lg bg-amber-400/10 border border-amber-400/25 text-amber-300 font-mono font-bold text-xs shadow-[0_0_10px_rgba(251,191,36,0.1)]">
                   {ovr} OVR
                 </div>
               </div>
 
-              <div className="my-4 flex flex-col items-center text-center">
-                <button
-                  type="button"
-                  onClick={onViewResume}
-                  disabled={!onViewResume}
-                  className={`group relative w-16 h-16 rounded-full bg-white/[.03] border border-white/10 flex items-center justify-center text-3xl mb-2 transition ${onViewResume ? "hover:border-amber-400/55 hover:bg-amber-400/[.06] cursor-pointer" : "cursor-default"}`}
-                  title={onViewResume ? "查看导师简历" : undefined}
-                >
-                  <span>{mentor?.emoji || "📐"}</span>
-                  <span className="absolute -bottom-1 right-0 text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-600/90 text-white font-medium">
-                    {getEvaluationLabel(ovr)}
-                  </span>
-                </button>
-                <h3 className="text-[14.5px] font-bold text-white tracking-wide">{playerName}</h3>
-                <p className="text-xs text-slate-400 mt-0.5">{playerSchool}</p>
+              {/* 基础学籍信息 */}
+              <div className="mt-3 space-y-1.5 text-xs text-slate-300 pb-3 border-b border-white/[.07]">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">🏛️</span>
+                  <span className="text-slate-200">{playerSchool}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">🎓</span>
+                  <span className="text-slate-200">建筑学硕士</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500">📅</span>
+                  <span className="text-slate-200">{semesterStr}阶段</span>
+                </div>
               </div>
 
               {/* 细线属性列表 */}
-              <div className="divide-y divide-white/[.05] text-[12px] py-1">
+              <div className="divide-y divide-white/[.05] text-[12px] pt-1">
                 <div className="flex justify-between py-2">
                   <span className="text-slate-400">市场估值期望</span>
                   <span className="font-mono font-bold text-amber-300 text-[13px]">{marketSalary}</span>
@@ -471,65 +497,68 @@ export function DetailedStatsPanel({
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-400">心理抗压</span>
-                  <span className="font-mono font-bold text-[13px]" style={{ color: getStatGradeColor(safeStats.stress, true) }}>
-                    {Math.round(safeStats.stress)}%
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono font-bold text-[13px]" style={{ color: getStatGradeColor(safeStats.stress, true) }}>
+                      {Math.round(safeStats.stress)}%
+                    </span>
+                    {safeStats.stress < 40 && <span className="text-rose-400 text-[10px]">▼</span>}
+                  </div>
                 </div>
               </div>
 
-              {/* 毕业论文估分卡片 */}
-              <div className="mt-3 p-3 rounded-lg border border-white/10 bg-white/[.03]">
+              {/* 延毕风险与毕业论文评估卡片 (核心保留属性) */}
+              <div className="mt-3.5 p-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.04]">
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] tracking-widest font-mono uppercase font-bold text-[#7c4dff]">
-                    THESIS · 毕业论文
+                  <span className="text-[11px] tracking-wider font-mono uppercase font-bold text-amber-400 flex items-center gap-1">
+                    <span>⚠️</span> 延毕风险评估
                   </span>
                   <span
-                    className="font-mono font-bold text-[13px]"
-                    style={{ color: (() => {
-                      const g = calculateThesisGrade(safeStats.thesisScore ?? 0);
-                      return g.color;
-                    })() }}
+                    className="text-[11px] font-bold font-mono px-2 py-0.5 rounded-full"
+                    style={{
+                      color: delayRisk.color,
+                      backgroundColor: `${delayRisk.color}18`,
+                      border: `1px solid ${delayRisk.color}35`,
+                    }}
                   >
-                    {safeStats.thesisScore ?? 0}
+                    {delayRisk.label}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-[11px] mb-2">
-                  <span
-                    className="font-bold"
-                    style={{ color: calculateThesisGrade(safeStats.thesisScore ?? 0).color }}
-                  >
-                    {calculateThesisGrade(safeStats.thesisScore ?? 0).label}
+                <div className="flex items-center justify-between text-[11px] mb-1.5">
+                  <span className="text-slate-400">毕业论文估分</span>
+                  <span className="font-mono font-bold" style={{ color: thesisGrade.color }}>
+                    {safeStats.thesisScore ?? 0} / 100 ({thesisGrade.label})
                   </span>
-                  <span className="text-slate-500 font-mono">{getMentorThesisBoostLabel(mentor?.id)}</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
                       width: `${Math.max(0, Math.min(100, safeStats.thesisScore ?? 0))}%`,
-                      background: calculateThesisGrade(safeStats.thesisScore ?? 0).color,
+                      background: thesisGrade.color,
                     }}
                   />
                 </div>
                 <p className="text-[10.5px] text-slate-400 mt-1.5 leading-relaxed">
-                  {calculateThesisGrade(safeStats.thesisScore ?? 0).description}
+                  {delayRisk.desc}
                 </p>
               </div>
             </div>
 
-            {/* 心态诉求 */}
-            <div className="pt-4 border-t border-white/[.07]">
+            {/* 心态与诉求卡片 */}
+            <div className="rounded-xl border border-white/[.07] bg-white/[0.015] p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-slate-200 text-xs flex items-center gap-1.5">
-                  <span>💬</span> 心态与诉求
+                <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                  <span>💭</span> 心态与诉求
                 </span>
-                <span className="text-[11px] text-emerald-400 font-mono font-medium">状态积极</span>
+                <span className="text-[11px] text-emerald-400 font-mono font-medium px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                  {safeStats.stress >= 50 && safeStats.selfDoubt <= 50 ? "状态积极" : "平稳进阶"}
+                </span>
               </div>
-              <div className="space-y-2 text-[12px] text-slate-400 leading-relaxed">
+              <div className="space-y-1.5 text-[12px] text-slate-400 leading-relaxed">
                 <p>
                   • {safeStats.mentorFavorability >= 60
-                    ? `与导师 ${mentorName} 沟通顺畅，毕业课题与实习规划推进有序。`
-                    : `近期需多与导师沟通进度，保持良好关系。`}
+                    ? `近期与导师沟通进度良好，保持良好关系。`
+                    : `近期需多与导师沟通进度，维护师生互信。`}
                 </p>
                 <p>
                   • {pastInternships.length > 0
@@ -541,7 +570,7 @@ export function DetailedStatsPanel({
           </aside>
 
           {/* ─── 中栏 (Col 4-8): 24项能力属性矩阵 & 赛道匹配 ─── */}
-          <main className="lg:col-span-6 p-4 sm:p-5 flex flex-col gap-5">
+          <main className="lg:col-span-6 p-4 sm:p-5 flex flex-col gap-4.5">
             {/* 能力属性矩阵 */}
             <div>
               <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/[.07]">
@@ -555,7 +584,7 @@ export function DetailedStatsPanel({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 {/* 第 1 列：专业硬实力 */}
                 <div className="space-y-1">
-                  <div className="text-[11px] uppercase font-bold tracking-wider text-sky-400 pb-1.5 border-b border-sky-500/20 mb-1 flex justify-between">
+                  <div className="text-[11.5px] uppercase font-bold tracking-wider text-sky-400 pb-1.5 border-b border-sky-500/20 mb-1.5 flex justify-between">
                     <span>硬技能 (Hard)</span>
                     <span>数值</span>
                   </div>
@@ -567,7 +596,7 @@ export function DetailedStatsPanel({
                     return (
                       <div
                         key={key}
-                        className={`flex items-center justify-between px-1.5 py-1 rounded transition-colors ${
+                        className={`flex items-center justify-between px-2 py-1 rounded-lg transition-colors ${
                           isKeyForSelectedTrack
                             ? "bg-sky-500/15 text-sky-200 font-semibold"
                             : "hover:bg-white/[.03] text-slate-300"
@@ -581,7 +610,7 @@ export function DetailedStatsPanel({
                             </span>
                           )}
                           <span
-                            className="font-mono font-bold text-[13.5px] tabular-nums"
+                            className="font-mono font-bold text-[13px] tabular-nums"
                             style={{ color: getStatGradeColor(val, meta.positive) }}
                           >
                             {Math.round(val)}
@@ -594,7 +623,7 @@ export function DetailedStatsPanel({
 
                 {/* 第 2 列：综合软实力 */}
                 <div className="space-y-1">
-                  <div className="text-[11px] uppercase font-bold tracking-wider text-emerald-400 pb-1.5 border-b border-emerald-500/20 mb-1 flex justify-between">
+                  <div className="text-[11.5px] uppercase font-bold tracking-wider text-emerald-400 pb-1.5 border-b border-emerald-500/20 mb-1.5 flex justify-between">
                     <span>软实力 (Soft)</span>
                     <span>数值</span>
                   </div>
@@ -606,7 +635,7 @@ export function DetailedStatsPanel({
                     return (
                       <div
                         key={key}
-                        className={`flex items-center justify-between px-1.5 py-1 rounded transition-colors ${
+                        className={`flex items-center justify-between px-2 py-1 rounded-lg transition-colors ${
                           isKeyForSelectedTrack
                             ? "bg-emerald-500/15 text-emerald-200 font-semibold"
                             : "hover:bg-white/[.03] text-slate-300"
@@ -620,7 +649,7 @@ export function DetailedStatsPanel({
                             </span>
                           )}
                           <span
-                            className="font-mono font-bold text-[13.5px] tabular-nums"
+                            className="font-mono font-bold text-[13px] tabular-nums"
                             style={{ color: getStatGradeColor(val, meta.positive) }}
                           >
                             {Math.round(val)}
@@ -633,7 +662,7 @@ export function DetailedStatsPanel({
 
                 {/* 第 3 列：状态与资源 */}
                 <div className="space-y-1">
-                  <div className="text-[11px] uppercase font-bold tracking-wider text-amber-400 pb-1.5 border-b border-amber-500/20 mb-1 flex justify-between">
+                  <div className="text-[11.5px] uppercase font-bold tracking-wider text-amber-400 pb-1.5 border-b border-amber-500/20 mb-1.5 flex justify-between">
                     <span>状态/资源 (State)</span>
                     <span>数值</span>
                   </div>
@@ -645,7 +674,7 @@ export function DetailedStatsPanel({
                     return (
                       <div
                         key={key}
-                        className={`flex items-center justify-between px-1.5 py-1 rounded transition-colors ${
+                        className={`flex items-center justify-between px-2 py-1 rounded-lg transition-colors ${
                           isKeyForSelectedTrack
                             ? "bg-amber-500/15 text-amber-200 font-semibold"
                             : "hover:bg-white/[.03] text-slate-300"
@@ -659,7 +688,7 @@ export function DetailedStatsPanel({
                             </span>
                           )}
                           <span
-                            className="font-mono font-bold text-[13.5px] tabular-nums"
+                            className="font-mono font-bold text-[13px] tabular-nums"
                             style={{ color: getStatGradeColor(val, meta.positive) }}
                           >
                             {Math.round(val)}
@@ -673,7 +702,7 @@ export function DetailedStatsPanel({
             </div>
 
             {/* ─── 目标赛道匹配 ─── */}
-            <div className="pt-4 border-t border-white/[.07]">
+            <div className="pt-3.5 border-t border-white/[.07]">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[.07]">
                 <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <span className="text-emerald-400">🎯</span> 转行与求职赛道匹配度
@@ -714,7 +743,7 @@ export function DetailedStatsPanel({
           </main>
 
           {/* ─── 右栏 (Col 9-12): 六维能力雷达 + 诊断 ─── */}
-          <aside className="lg:col-span-3 p-4 sm:p-5 flex flex-col gap-5">
+          <aside className="lg:col-span-3 p-4 sm:p-5 flex flex-col gap-4">
             {/* 六维多边形雷达图 */}
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[.07]">
@@ -724,13 +753,13 @@ export function DetailedStatsPanel({
                 <span className="text-[11px] text-emerald-400 font-mono font-semibold">RADAR</span>
               </div>
 
-              <div className="w-full aspect-square max-w-[200px] mx-auto py-1">
+              <div className="w-full aspect-square max-w-[185px] mx-auto py-1">
                 <HexRadarChart stats={safeStats} />
               </div>
             </div>
 
             {/* 能力诊断报告 */}
-            <div className="pt-4 border-t border-white/[.07] space-y-3">
+            <div className="pt-3.5 border-t border-white/[.07] space-y-3">
               <div className="flex items-center justify-between pb-1.5 border-b border-white/[.07]">
                 <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
                   <span>📋</span> 综合能力诊断
@@ -753,13 +782,13 @@ export function DetailedStatsPanel({
               </div>
 
               <div>
-                <p className="text-[12.5px] font-bold text-rose-400 mb-1 flex items-center gap-1">
-                  <span>🟠</span> 待补强短板
+                <p className="text-[12.5px] font-bold text-amber-400 mb-1 flex items-center gap-1">
+                  <span>🟡</span> 待补强短板
                 </p>
                 <div className="space-y-1 text-[12px] text-slate-300 pl-2">
                   {weaknesses.map((w, idx) => (
                     <div key={idx} className="flex items-start gap-1 leading-relaxed">
-                      <span className="text-rose-400 font-bold">•</span>
+                      <span className="text-amber-400 font-bold">•</span>
                       <p>{w}</p>
                     </div>
                   ))}
@@ -768,8 +797,8 @@ export function DetailedStatsPanel({
             </div>
 
             {/* 已激活特质与天赋 */}
-            <div className="pt-4 border-t border-white/[.07]">
-              <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[.07]">
+            <div className="pt-3.5 border-t border-white/[.07]">
+              <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/[.07]">
                 <span className="font-bold text-white text-xs flex items-center gap-1.5">
                   <span>✦</span> 解锁特质
                 </span>

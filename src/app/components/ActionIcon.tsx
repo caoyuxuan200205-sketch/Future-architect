@@ -18,6 +18,7 @@ import {
   Moon,
   Gift,
   Zap,
+  Coffee,
 } from "lucide-react";
 
 export interface ActionIconProps {
@@ -62,6 +63,8 @@ export function ActionIcon({ id, className = "w-4 h-4", size }: ActionIconProps)
       return <Moon size={size} className={className} />;
     case "gifts":
       return <Gift size={size} className={className} />;
+    case "peer_interaction":
+      return <Coffee size={size} className={className} />;
     default:
       return <Zap size={size} className={className} />;
   }
@@ -88,6 +91,7 @@ export function ActionBadgeIcon({ id, size = 15, containerClass = "h-7 w-7" }: {
     fitness:           { bg: "bg-lime-500/10", border: "border-lime-500/25", text: "text-lime-400" },
     slack:             { bg: "bg-slate-500/10", border: "border-slate-500/25", text: "text-slate-400" },
     gifts:             { bg: "bg-rose-500/10", border: "border-rose-500/25", text: "text-rose-400" },
+    peer_interaction:  { bg: "bg-rose-500/15", border: "border-rose-400/35", text: "text-rose-300" },
   };
 
   const scheme = colorMap[id] || { bg: "bg-white/5", border: "border-white/10", text: "text-[#c9a84c]" };

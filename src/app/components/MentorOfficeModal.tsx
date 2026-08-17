@@ -78,6 +78,7 @@ export function MentorOfficeModal({
 }: MentorOfficeModalProps) {
   // ===== 所有 Hooks 必须在早期 return 之前声明（React Hook 规则） =====
   const [activeTab, setActiveTab] = useState<"dialogue" | "profile">("dialogue");
+  const [optionCategory, setOptionCategory] = useState<"academic" | "gift" | "romance">("academic");
   const [selectedOption, setSelectedOption] = useState<OfficeDialogueOption | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [hasExecuted, setHasExecuted] = useState(false);
@@ -296,6 +297,8 @@ export function MentorOfficeModal({
       } else {
         sequence = selectedOption.acceptanceDialogue;
       }
+    } else if (selectedOption.category === "romance") {
+      sequence = selectedOption.acceptanceDialogue;
     }
 
     // 立即设置标记与文案（让玩家看到第一条反馈）
@@ -551,10 +554,38 @@ export function MentorOfficeModal({
 
             {/* 状态分支：① 选择互动 ② 送礼剧情对话播放中 ③ 完成结算 */}
             {!hasExecuted ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
+                {/* 选项分类筛选切换 */}
+                <div className="flex items-center gap-1.5 rounded-2xl bg-black/40 p-1.5 border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => { setOptionCategory("academic"); setSelectedOption(null); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "academic" ? "bg-sky-500/25 text-sky-200 border border-sky-400/40 shadow-md" : "text-slate-400 hover:text-slate-200"}`}
+                  >
+                    <BookOpen size={14} />
+                    <span>学术指导</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOptionCategory("gift"); setSelectedOption(null); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "gift" ? "bg-amber-500/25 text-amber-200 border border-amber-400/40 shadow-md" : "text-slate-400 hover:text-slate-200"}`}
+                  >
+                    <Gift size={14} />
+                    <span>心意送礼</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOptionCategory("romance"); setSelectedOption(null); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "romance" ? "bg-gradient-to-r from-rose-500/30 to-pink-500/20 text-rose-200 border border-rose-400/50 shadow-md ring-1 ring-rose-400/30" : "text-rose-400/80 hover:text-rose-200 hover:bg-rose-500/10"}`}
+                  >
+                    <Heart size={14} className="text-rose-400 fill-rose-400/50" />
+                    <span>💘 禁忌心动 · 导师攻略</span>
+                  </button>
+                </div>
+
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    选择会面互动事项
+                    {optionCategory === "romance" ? "💘 导师禁忌心动 · 羁绊互动" : optionCategory === "gift" ? "🎁 关怀与礼物敬献" : optionCategory === "academic" ? "📖 课题汇报与学术请教" : "选择会面互动事项"}
                   </h4>
                   <span className="text-xs text-amber-300/80">
                     {canChooseAction ? "可消耗本回合行动" : "本回合已有待处理事项"}
@@ -562,7 +593,17 @@ export function MentorOfficeModal({
                 </div>
 
                 <div className="grid gap-2.5 sm:grid-cols-2">
-                  {[...options.filter((o) => !(cashGiftOption && o.id === "gift_cash_entry")), ...(cashGiftOption ? [cashGiftOption] : [])].map((opt) => {
+                  {[...options.filter((o) => !(cashGiftOption && o.id === "gift_cash_entry")), ...(cashGiftOption ? [cashGiftOption] : [])]
+                    .filter((opt) => {
+                      if (optionCategory === "all") return true;
+                      if (optionCategory === "academic") return opt.category === "academic" || opt.category === "chat" || opt.category === "opportunity";
+                      if (optionCategory === "gift") return opt.category === "gift";
+                      if (optionCategory === "romance") return opt.category === "romance";
+                      return true;
+                    })
+                    .map((opt) => {
+                      const isRomance = opt.category === "romance";
+                      const isLocked = Boolean(opt.disabled);
                     const isSelected = selectedOption?.id === opt.id;
                     return (
                       <button
@@ -570,9 +611,15 @@ export function MentorOfficeModal({
                         type="button"
                         onClick={() => handleSelectOption(opt)}
                         className={`group relative flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
-                          isSelected
-                            ? "border-[#c9a84c] bg-[#c9a84c]/15 ring-2 ring-[#c9a84c]/30 shadow-lg scale-[1.01]"
-                            : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+                          isLocked
+                            ? "border-white/5 bg-black/30 opacity-60 cursor-not-allowed"
+                            : isSelected
+                              ? isRomance
+                                ? "border-rose-400 bg-rose-500/25 ring-2 ring-rose-400/40 shadow-xl scale-[1.01]"
+                                : "border-[#c9a84c] bg-[#c9a84c]/15 ring-2 ring-[#c9a84c]/30 shadow-lg scale-[1.01]"
+                              : isRomance
+                                ? "border-rose-500/30 bg-rose-950/20 hover:border-rose-400/50 hover:bg-rose-500/15"
+                                : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
                         }`}
                       >
                         <div>
@@ -637,9 +684,13 @@ export function MentorOfficeModal({
                     type="button"
                     disabled={!selectedOption || !canChooseAction}
                     onClick={handleConfirmAction}
-                    className="flex items-center gap-2 rounded-xl border border-[#c9a84c]/60 bg-gradient-to-r from-[#c9a84c] to-[#dec678] px-6 py-2.5 text-xs font-bold text-black shadow-lg transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                    className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold shadow-lg transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${
+                      selectedOption?.category === "romance"
+                        ? "border border-rose-400/60 bg-gradient-to-r from-rose-500 to-pink-500 text-white"
+                        : "border border-[#c9a84c]/60 bg-gradient-to-r from-[#c9a84c] to-[#dec678] text-black"
+                    }`}
                   >
-                    <span>确认发起该项交流</span>
+                    <span>{selectedOption?.category === "romance" ? "发起禁忌心动" : "确认发起该项交流"}</span>
                     <ChevronRight size={14} />
                   </button>
                 </div>

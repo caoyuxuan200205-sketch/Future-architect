@@ -8,6 +8,7 @@ import { StatusAnalysisPanel } from "./StatusAnalysisPanel";
 import { DetailedStatsPanel } from "./DetailedStatsPanel";
 import { ActionBadgeIcon } from "./ActionIcon";
 import { MentorOfficeModal } from "./MentorOfficeModal";
+import { PeerVisitModal } from "./PeerVisitModal";
 import { MonthlyBillModal } from "./MonthlyBillModal";
 import {
   createInitialFinance,
@@ -129,6 +130,8 @@ interface Stats {
   selfDoubt: number;   // 自我怀疑（越低越好）
   ageAnxiety: number;  // 年龄焦虑（越低越好）
   mentorFavorability: number; // 导师好感度
+  peerFavorability?: number;  // 同门好感度
+  favorability?: number;      // 通用好感度
   // 扩展属性
   dataSense?: number;
   visualTaste?: number;
@@ -152,7 +155,7 @@ interface Stats {
 
 type StatKey = keyof Stats;
 
-const STAT_META: Record<StatKey, { label: string; positive: boolean; color: string; yuanScale?: number }> = {
+const STAT_META: Record<string, { label: string; positive: boolean; color: string; yuanScale?: number }> = {
   // 核心
   arch:               { label: "建筑专业力", positive: true,  color: "#64b5f6" },
   logic:              { label: "逻辑推理",   positive: true,  color: "#4a9eff" },
@@ -165,6 +168,8 @@ const STAT_META: Record<StatKey, { label: string; positive: boolean; color: stri
   selfDoubt:          { label: "自我怀疑",   positive: false, color: "#ef5350" },
   ageAnxiety:         { label: "同辈焦虑",   positive: false, color: "#e53935" },
   mentorFavorability: { label: "导师认可度", positive: true,  color: "#f0c040" },
+  peerFavorability:   { label: "同门好感",   positive: true,  color: "#f472b6" },
+  favorability:       { label: "同门好感",   positive: true,  color: "#f472b6" },
   // 扩展硬技能
   dataSense:          { label: "数据分析",   positive: true,  color: "#26c6da" },
   codeBasic:          { label: "代码基础",   positive: true,  color: "#388e3c" },
@@ -484,10 +489,10 @@ const ACTIONS: Action[] = [
 
 const EVENTS: GameEvent[] = [
   {
-    id: "e01", title: "导师催稿",
-    description: "凌晨一点十七分，手机在枕头边震动。你眯着眼睛划开，导师的微信只有八个字：‘明天早上九点，初稿发我。’你盯着天花板看了五分钟，然后爬起来打开电脑。屏幕亮起的瞬间，你发现窗外对面那栋宿舍楼，还有三扇窗户也亮着同样的CAD暖光。你们隔着黑暗遥遥相望，像一群守夜的灯塔管理员。",
-    effects: { arch: 5, stress: -8, selfDoubt: 5 },
-    type: "negative",
+    id: "e01", title: "导师深夜发错暧昧微信",
+    description: "凌晨一点十七分，手机连续震动。你迷迷糊糊点开，导师发来一条 60 秒语音：“宝贝我真知道错了，今晚真没跟李院长去洗脚，求求你开门让我进屋睡沙发吧……”五秒后消息被火速撤回，紧接着弹出冷冰冰的八个字：“明天早上九点交初稿。”",
+    effects: { stress: 4, selfDoubt: -4, mentorFavorability: 4 },
+    type: "positive",
   },
   {
     id: "e02", title: "同门拿到字节实习",
@@ -496,39 +501,39 @@ const EVENTS: GameEvent[] = [
     type: "negative",
   },
   {
-    id: "e03", title: "面试官质疑转行背景",
-    description: "视频面试进行到第十五分钟，面试官把眼镜往上推了推，看着你的简历说：‘你学建筑的，做产品能行吗？’你开始解释空间思维如何迁移到信息架构，剖面图如何对应层级逻辑，他说‘嗯嗯’的时候眼睛在看屏幕的另一个角落。挂掉电话后你发现手心里全是汗，窗外的阳光刺眼得有点不真实。你想起本科第一次交大作业时，老师也问过类似的问题：‘你觉得自己真的适合学建筑吗？",
-    effects: { expression: -3, selfDoubt: 7 },
+    id: "e03", title: "面试官让你用公厕拆解漏斗",
+    description: "面试官推了推眼镜冷笑：“你学建筑的懂什么互联网漏斗转化？你说你懂空间，那你现场给我用‘高铁站男公厕与女公厕动线设计’，解释一下电商如何提高付费转化率！”",
+    effects: { logic: 6, expression: 6, selfDoubt: -6 },
+    type: "positive",
+  },
+  {
+    id: "e04", title: "论文查重98%像甄嬛传华妃台词",
+    description: "知网最新 AIGC 查重报告弹出来：重复率 98%！你点开标红详情，系统不仅判定你是 AI 生成，还提示你的文献综述大面积抄袭了《甄嬛传》华妃赐一丈红和安陵容制香的台词。导师当场把你叫到办公室拍桌咆哮：“你给我解释一下，为什么‘贱人就是矫情’会出现在中国近代木构建筑剪力墙受力分析的第三章里？！”",
+    effects: { expression: 6, thesisScore: -5, stress: -4 },
     type: "negative",
   },
   {
-    id: "e04", title: "论文AIGC查重超标",
-    description: "新版知网查重报告弹出来的时候你正在吃泡面。28%，红色的数字像医院化验单上的异常指标。导师的邮件紧随其后，加粗的四个字：‘全部重写。’你把泡面推到一边，盯着那篇写了两个月的论文，发现里面的每一句话都像是从某个你崇拜的学者那里偷来的，包括那些你以为自己原创的思考。窗外的天黑得很慢，你知道这又是一个睡不着的夜晚。",
-    effects: { arch: -3, stress: -10, ageAnxiety: 5, thesisScore: -8 },
-    type: "negative",
+    id: "e05", title: "研九地缚灵学长现身",
+    description: "凌晨三点你在教研室通宵改图，头顶的矿棉板天花板突然掉下一包卫龙辣条。紧接着一个披头散发、戴着厚底眼镜的男子倒挂下来：“师弟，借个打火机。”他是传说中延毕到研九的“实验室地缚灵老仙尊”，平时睡在通风管道，靠给全系代跑能耗仿真维持生计。他递给你一本手抄的《建筑系防猝死修仙逃生秘笈》。",
+    effects: { ageAnxiety: -5, stress: 5, arch: 4 },
+    type: "positive",
   },
   {
-    id: "e05", title: "学长延毕",
-    description: "刷朋友圈时看到学长发了一条：‘多留一年，也许是礼物。’配图是他工位上的模型残骸和一盆快死的绿萝。评论区全是表情包，没有人说话。你盯着那条动态看了很久，想起去年他还在组会上分享自己的论文进度，意气风发地说‘明年这时候就毕业了’。你关掉手机，打开论文，光标在第一章标题后面一闪一闪，像一个倒计时的钟。",
-    effects: { ageAnxiety: 8, selfDoubt: 6 },
-    type: "negative",
+    id: "e06", title: "HR拒信误发内部备注",
+    description: "收到第十八封拒信，点开邮件发现HR误把面试官内部打分表当附件发过来了。只见初评栏赫然写着：“专业能力S级，但五官神似我劈腿前男友，看着来气，建议挂掉。”",
+    effects: { expression: 6, selfDoubt: -6, stress: 5 },
+    type: "positive",
   },
   {
-    id: "e06", title: "第十八封拒信",
-    description: "邮箱提示音响起的时候你正在改图。点开一看：‘感谢您的投递，经综合评估，您的情况与我们的需求暂不匹配。’这是你今天的第二封，也是这个月的第十八封。你把邮件截图，发到只有三个人的小群里，群里沉默了三分钟，然后有人发了一个‘抱抱’的表情包。你关掉邮箱，继续画那条被导师说‘不够干净’的轴线。CAD里那条线是直的，你不知道自己还能不能走出一条直的路。",
-    effects: { selfDoubt: 7, expression: -2 },
-    type: "negative",
+    id: "e07", title: "凌晨两点半导师在群里突然发癫",
+    description: "凌晨 02:30，你刚关掉 CAD 准备入土安详，群里突然弹出导师的催命弹窗：“小曹，轴线比例不对，明早九点前给我新版。”你连轴转了三天、大脑彻底烧糊涂，怒从心头起，手滑切错小号在全组大群直接甩出一张【华妃赐一丈红.jpg】，并配文：“老登，你真当本宫是永动机啊？！”群里三十多号同门瞬间集体装死，死寂得能听见心跳声。你吓得魂飞魄散正要狂点撤回，导师突然缓缓回了一张【甄嬛给皇上下毒.jpg】：“朕看你精神头挺足，明早顺便把三套沿街立面展开图也一并出了。”",
+    effects: { stress: -6, mentorFavorability: 6, expression: 6 },
+    type: "positive",
   },
   {
-    id: "e07", title: "凌晨三点改图",
-    description: "凌晨三点十七分，你终于把图纸调整到自己满意的状态，正准备保存然后睡觉。群里突然弹出一条消息，是导师：‘这个轴线比例不对，明天早上九点我要看新版本。’你盯着那行字看了十秒，然后默默把刚闭合的CAD文件重新打开。屏幕的光映在脸上，你发现镜子里的人眼眶有点红。你想发一条朋友圈，打了几个字又删掉，最后什么都没发。",
-    effects: { stress: -12, arch: 4 },
-    type: "negative",
-  },
-  {
-    id: "e08", title: "导师让做私活",
-    description: "导师把你叫到办公室，说手上有个地产项目的方案，让你帮忙做一下，‘算是练练手，当实践机会’。稿费两个字他提都没提。你点头说好，回到工位打开CAD，心想这大概就是行业里说的‘用作品换作品’。做到一半你发现自己比做自己的课题还认真，因为你知道这个方案可能会真的建成，而你自己的论文可能永远只停留在PDF里。",
-    effects: { arch: 5, stress: -6, money: 6 },
+    id: "e08", title: "导师接玄学私活让你画符",
+    description: "导师神秘兮兮把你叫进办公室，反锁了门。甲方是个极度迷信的煤老板，要求把售楼处设计成“九龙夺嫡聚财阵”。导师把任务交给你：“柱网必须按九宫八卦排，大门要避开老板的本命太岁，主梁底下要埋朱砂。另外……你顺便用 CAD 画个正楷五雷镇宅符，图层名字叫‘辟邪’。”",
+    effects: { money: 8, arch: 4, stress: -4 },
     type: "negative",
   },
   {
@@ -538,35 +543,35 @@ const EVENTS: GameEvent[] = [
     type: "negative",
   },
   {
-    id: "e10", title: "海归抢同一岗位",
-    description: "LinkedIn上突然弹出一个新动态：一个在硅谷工作两年的海归回国了，开始和你投同一批岗位。你点开他的简历，全英文的履历像一面镜子，照出你所有的不安——他有Google实习，你有熬夜改图；他有顶会论文，你有课程作业；他24岁，你25岁。最扎心的是，他的个人简介里写着'热爱探索跨领域创新'，而你的简历上还挂着'建筑专业力85'。你默默关掉页面，感觉自己的青春像被压缩成了一行行苍白的对比项。",
-    effects: { selfDoubt: 8, ageAnxiety: 5 },
+    id: "e10", title: "同台竞争的硅谷海归深夜破防求救",
+    description: "硅谷回来的海归精英突然在 LinkedIn 上通过了你的好友申请。你严阵以待以为他是来刺探敌情的，结果电话一接通，对面在急诊室走廊哭得撕心裂肺：“兄弟！国内大厂到底在说什么鸟语？什么‘引爆点对齐颗粒度打穿心智赋能抓手’？！昨晚二面总监拉我去喝了两斤酱香型白酒让我当众表忠心，我胃穿孔刚缝完针出来！我听说你们建筑系只要通宵画图不用陪酒？求求你教我画 CAD 吧，我把大厂题库全给你，我要去你们设计院画图！”",
+    effects: { selfDoubt: -8, network: 6, infoChannels: 6 },
     condition: ({ isOverseas }) => !isOverseas,
-    type: "negative",
+    type: "positive",
   },
   {
-    id: "e11", title: "HC冻结",
-    description: "你通过了五轮面试，最后一轮面试官微笑着对你说'期待共事'。你等了整整三周，每天刷新邮箱一百次。终于，HR的邮件来了，内容却让你心脏骤停：'由于业务调整，该岗位的HC暂时冻结，后续有进展会再联系您。'你盯着'冻结'两个字，感觉自己的职业生涯也被一同冻在了这个冰冷的春天。你回复'好的，谢谢'，然后盯着屏幕发呆，直到夜幕降临，房间里只剩下电脑散热器发出的微弱嗡鸣，像是某种哀鸣。",
-    effects: { selfDoubt: 10, ageAnxiety: 8 },
-    type: "negative",
+    id: "e11", title: "HR痛哭电话通知部门被端",
+    description: "苦等三周，你终于接到了大厂HR的电话。对面声音颤抖、带着哭腔在厕所压低声音：“同学……千万别来！我们整个业务线今晚被老板一锅端了，我现在正蹲在马桶上一边哭一边给你打电话，你也快跑吧！”",
+    effects: { stress: 8, selfDoubt: -5, logic: 4 },
+    type: "positive",
   },
   {
-    id: "e12", title: "实习工资不够房租",
-    description: "终于拿到实习offer，你兴奋地打开邮件，却看到月薪比你预期低了40%。你不死心，在地图上搜索公司附近的合租房，发现最便宜的单间也要押二付一。计算器敲下来，扣完房租每月只剩不到800块——刚好够吃饭，但不够买任何希望。你想起父母说'实习不要太计较工资，重要的是学习'，但你不知道该怎么告诉他们，在这个城市，连生存都成了需要精密计算的建筑学问题。",
-    effects: { money: -6, selfDoubt: 5 },
-    type: "negative",
+    id: "e12", title: "住烂尾楼当上废土城寨大统领",
+    description: "实习月薪不够交房租，你凭借过硬的建筑力学和管综知识，搬进了一栋封顶停工的烂尾楼，自制了太阳能供电与雨水收集系统。结果引来十几个同样交不起房租的年轻实习生投奔，一致推选你为“赛博废土城寨大统领”！",
+    effects: { arch: 8, network: 8, money: 10 },
+    type: "positive",
   },
   {
-    id: "e13", title: "导师不让去实习",
-    description: "组会上，你鼓起勇气提出想去实习，导师放下手中的论文，目光扫过会议室里每一个人的脸，最后定格在你身上：'你们还是以科研为主，不要总想着出去实习。你们来读研究生是为了做学问的。'他的声音不大，却像一堵墙压下来。会议室里死一般寂静，你能听到自己心跳的声音。你低下头，看着笔记本上画了一半的产品流程图，感觉那些线条正在一点点褪色，变回CAD里冰冷的轴线。",
-    effects: { stress: -8, selfDoubt: 6 },
-    type: "negative",
+    id: "e13", title: "大厂电梯偶遇兼职顾问的导师",
+    description: "导师严禁外出实习，你谎称“重度神经衰弱需回老家静养一个月”，转头溜进大厂当产品实习生。入职第一天早高峰挤进 VIP 电梯，门一开——导师端着星巴克超大杯、胸前挂着“特聘高级战略顾问”的工牌站在你正前方。两人在狭窄的电梯里四目相对，空气瞬间凝固成混凝土。",
+    effects: { network: 8, stress: 5, mentorFavorability: -3 },
+    type: "positive",
   },
   {
-    id: "e14", title: "家里催问出路",
-    description: "电话那头，母亲的声音带着小心翼翼的试探：'你同学都找到工作了，你到底有什么打算？学建筑的不是很好找工作吗？'你看着窗外，夕阳把天空染成了一种温暖的橘红色，但你只觉得冷。你想起八年前高考填志愿的那个下午，你指着建筑学专业说'我想设计让人幸福的空间'。如今，你连自己的空间都设计不了。你轻声说'再给我一点时间'，挂掉电话后，你在窗前站了很久，直到夜色吞没最后一丝光亮。",
-    effects: { ageAnxiety: 10, selfDoubt: 7 },
-    type: "negative",
+    id: "e14", title: "妈妈相亲角举牌引爆教研室",
+    description: "你妈在人民公园相亲角挂出你的硬核招牌：“985建筑硕士/脾气极好/天天通宵抗压强/无不良嗜好”。结果被逛公园的导师夫人一眼相中，硬要介绍给自己年薪百万的大厂高管女儿。第二天你进教研室，导师看你的眼神充满了惊恐、防备与欲言又止的敬畏。",
+    effects: { mentorFavorability: 6, ageAnxiety: -6, selfDoubt: -4 },
+    type: "positive",
   },
   {
     id: "e15", title: "设计院朋友圈",
@@ -575,11 +580,11 @@ const EVENTS: GameEvent[] = [
     type: "negative",
   },
   {
-    id: "e16", title: "雅思5.5",
-    description: "雅思成绩出来了，5.5。你需要至少6.5才能申请那些海外岗位。你盯着屏幕上那个数字，感觉它像一个巨大的嘲讽——你花了三个月，每天早起背单词，晚上练听力，结果只进步了0.5。你在退考政策页面停留了很久，鼠标在'申请退考'按钮上悬停，最终却点击了'重新报名'。支付成功的提示音响起时，你感觉那不是一笔考试费，而是为自己迟迟无法突破的瓶颈缴纳的赎金。",
-    effects: { english: -5, selfDoubt: 8, ageAnxiety: 5 },
+    id: "e16", title: "雅思口语考官竟是昨晚主播",
+    description: "进考场一抬头，外国考官摘下墨镜，端详了你的准考证两秒，嘴角勾起一抹玩味的笑：“‘夜雨寒蝉2002’？昨晚在我直播间刷了五个嘉年华点我跳科目三，今天怎么在考场装正经了？Now, please describe your favorite TikTok live streamer in English.”",
+    effects: { english: 4, stress: -4, selfDoubt: -3 },
     condition: ({ stats }) => stats.english < 65,
-    type: "negative",
+    type: "positive",
   },
   {
     id: "e17", title: "认识转行学长",
@@ -606,27 +611,27 @@ const EVENTS: GameEvent[] = [
     type: "positive",
   },
   {
-    id: "e21", title: "导师消失两周",
-    description: "导师已经两周没回消息了。论文进度完全停滞，你发了四条微信，每条都显示'已读'，但石沉大海。你盯着聊天界面，那四个绿色的'已读'标记像四只冷漠的眼睛，看着你在焦虑中一点点沉没。你不确定应该继续等，还是假装这段时间根本不存在——就像建筑图纸上那些被擦掉的辅助线，从未存在过，却留下无法忽视的痕迹。",
-    effects: { arch: -5, stress: -10, ageAnxiety: 7, thesisScore: -4 },
-    type: "negative",
+    id: "e21", title: "导师上恋综当男嘉宾被抓包",
+    description: "导师已经两周不回微信，论文停滞。你以为他在国外闭关学术，周五晚上在宿舍吃螺蛳粉看热播恋综《心动的信号》，镜头一转——导师西装革履、油头粉面，作为“4号成熟男嘉宾”深情告白：“我平时生活极具仪式感，对学生像春天般温暖，从不让他们加班……”",
+    effects: { selfDoubt: -5, stress: 5, expression: 4 },
+    type: "positive",
   },
   {
-    id: "e22", title: "开题被毙",
-    description: "开题报告被导师当场毙掉，会议室里空气凝固。他说：'方向不对，重新想。'五个字，像五颗钉子把你钉在椅子上。你在宿舍里坐了两个小时，窗外有人在踢球，欢呼声一阵阵传来，你听着球鞋踩地的声音，什么都没有想，或者说，想了太多以至于大脑一片空白。你突然想起本科设计课第一次被老师否定方案时，你还能倔强地重来，现在你只觉得累，累到连失望都显得奢侈。",
-    effects: { arch: -3, selfDoubt: 9, ageAnxiety: 5, thesisScore: -10 },
-    type: "negative",
+    id: "e22", title: "开题现场导师与死敌当场互撕",
+    description: "你的开题答辩刚讲到第三页，外请的评审老教授突然摔了茶杯：“放屁！这种学术垃圾是谁指导出来的？！”导师当场拍桌站起：“张建国！你三十年前抢我初恋，二十年前抄我国家社科，今天还想卡我学生？！”两人在讲台上扭打撕扯，其他老师在旁边吃瓜拉偏架，甚至塞给你半个西瓜。",
+    effects: { thesisScore: 8, stress: 4, selfDoubt: -6 },
+    type: "positive",
   },
   {
-    id: "e23", title: "身体亮红灯",
-    description: "连续熬夜两个月后，身体终于亮起红灯。校医院医生看着化验单，眉头微皱：'要注意休息，你的肝功能指标有几项偏高。'你付了128块检查费，走出医院，看着天空，觉得那片蓝色遥远得不像真的。你想起上周还在熬夜改图，为了一个转角细节纠结了三小时，现在突然觉得可笑——你连自己的身体健康都设计不好，却在为一个虚拟空间的完美而拼命。",
-    effects: { stress: -15, money: -4 },
-    type: "negative",
+    id: "e23", title: "老中医把脉直呼午夜僵尸脉",
+    description: "连熬两个月后你去校医院体检。白胡子老中医搭上你手腕，足足闭眼把脉了五分钟，随后倒吸一口凉气，把门外七个实习生全叫进来看：“快来看典型病例！这小伙子脉象浮而不沉，肝硬得能防弹，胃里全是速溶咖啡与冷面条的沉淀物！这是典型的‘午夜改图尸化脉’！小伙子，你再熬三天，头七就得改在答辩那天了！”",
+    effects: { stress: 8, selfDoubt: -4, ageAnxiety: -5 },
+    type: "positive",
   },
   {
-    id: "e24", title: "大厂学长指导",
-    description: "一个大厂PM学长主动联系你，给你做了整整一小时的简历修改，还模拟了一轮面试。结束时他说：'你有一种建筑生特有的结构感，这是真正稀缺的东西，不要把它当作包袱。'你盯着屏幕，突然眼眶发热——这是你转行以来第一次，有人告诉你那六年建筑学习不是浪费，而是一种独特的资产。你第一次觉得，也许那些熬夜画的图、那些被否定的方案、那些自我怀疑的夜晚，都没有白费。",
-    effects: { expression: 8, logic: 5, network: 6, selfDoubt: -10 },
+    id: "e24", title: "大厂PM学长的深夜“一对一辅导”",
+    description: "大厂资深 PM 学长主动加了你微信，约了深夜腾讯会议给你做“一对一简历深度精修与模拟面试”。原本以为是严肃的行业业务交流，结果视频聊着聊着，学长的眼神越来越拉丝，声音也低沉温柔了起来：“你的线条轮廓就像柯布西耶的萨伏伊别墅一样赏心悦目……这种建筑生特有的性感结构感，真让人移不开眼。”辅导结束时，学长发来私人定位：“下周来大厂园区找我，我亲自带你体验‘高并发心跳加速’，我的专属工牌可以借你挂一整天 😉。”你关掉会议，看着镜子脸红心跳的同时突然顿悟——原来这六年建筑学真没白学，不仅能当简历优势，关键时刻还能当“高级钓系武器”！",
+    effects: { expression: 8, logic: 6, network: 8, selfDoubt: -10 },
     type: "positive",
   },
   {
@@ -697,10 +702,10 @@ const EVENTS: GameEvent[] = [
     type: "positive",
   },
   {
-    id: "e36", title: "与导师关系恶化",
-    description: "组会上，你对导师的方案提出了一个谨慎的质疑。会议室里的空气瞬间凝固，导师脸上的笑容像石膏一样僵住。他没有反驳你，只是点了点头，说'我们再研究研究'。但从那天起，他不再在微信上回复你的消息，组会上的眼神也总是跳过你。你发现，那些原本属于你的任务，开始悄悄流向同门的工位。你坐在实验室的角落，看着他们忙碌的背影，感觉自己像一个被遗忘的构件，从精心设计的结构中脱落，无声地滚落到黑暗的角落。",
-    effects: { stress: -8, selfDoubt: 7, network: -4 },
-    type: "negative",
+    id: "e36", title: "误入全系博导私密吐槽吃瓜群",
+    description: "组会跟导师吵架后，导师本想在微信把你踢出大群，结果老花眼手滑，误把你拉进了全院博导的私密小群《清华同济不如咱们会画大饼》。群里十几个平时道貌岸然的大牛教授正在发沙雕表情包疯狂吐槽学院领导、互撕国家基金内幕，甚至在打赌院长什么时候换第三任夫人！",
+    effects: { network: 12, selfDoubt: -8, stress: 6 },
+    type: "positive",
   },
   {
     id: "e37", title: "HR环节被卡学历背景",
@@ -716,16 +721,16 @@ const EVENTS: GameEvent[] = [
     type: "positive",
   },
   {
-    id: "e39", title: "错过暑期实习窗口",
-    description: "你在实验室熬了整整一个暑假，改完了导师要的最后一版图纸。当你终于保存文件，揉着酸痛的脖子看向日历时，才发现已经错过了所有头部公司的暑期实习申请截止日期。你不死心，刷新招聘网站，却发现连最后的补录名额也变成了灰色。你重新打开那些曾经收藏的岗位链接，一个个'已结束'的标签像墓碑一样排列在屏幕上。你靠在椅背上，实验室的空调嗡嗡作响，你突然感觉这个夏天就像你的人生——你在埋头画图的时候，世界已经悄悄关上了所有的门。",
-    effects: { arch: 8, logic: -5, selfDoubt: 8, ageAnxiety: 7 },
-    type: "negative",
+    id: "e39", title: "错过暑期实习却被老总当成扫地僧",
+    description: "你在教研室熬了一整个暑假改完图纸，一查日历发现所有大厂暑期实习全截止了。你万念俱灰下楼倒垃圾，在园区花坛边顺手帮一位迷路的白发老头修好了他掉链子的老八四自行车，还用建筑空间流线给他画了张抄近道地图。老头拍了拍你的肩膀：“小伙子手艺不错，明天来科技大厦总部顶层直接找我。”",
+    effects: { network: 10, selfDoubt: -8, money: 8 },
+    type: "positive",
   },
   {
-    id: "e40", title: "课题组方向变更",
-    description: "组会上，导师轻描淡写地宣布：'课题组的研究方向要调整，之前的工作暂时搁置。'你花了两个月时间收集的数据、写的代码、画的图表，在他一句话里变成了废纸。你抬起头，想说什么，却看见他平静的目光：'学术研究就是这样，要有归零的勇气。'你张了张嘴，最终只是点了一下头。散会后，你坐在空荡荡的实验室里，看着屏幕上那些再也用不上的文件，突然想起本科时老师说'建筑是百年大计'，现在你明白了，学术研究不是百年大计，而是一场随时可能被推倒重来的沙盘游戏，而你的青春，是其中最容易被抹去的沙粒。",
-    effects: { arch: -5, stress: -15, selfDoubt: 10, ageAnxiety: 8 },
-    type: "negative",
+    id: "e40", title: "全组转型Web3赛博阴宅冥界规划",
+    description: "组会上导师满眼狂热：“传统砖瓦建筑已经彻底过时了！从今天起，我们组全面进军‘Web3 赛博墓地与数字冥界规划’，申报国家万亿级数字阴间新基建项目！你们每个人这学期给我用虚幻引擎设计三套带 NFT 产权的赛博祖坟，要能扫码上香、支持区块链功德扣费！”",
+    effects: { money: 10, logic: 6, stress: 4 },
+    type: "positive",
   },
   {
     id: "e41", title: "收到第一个面试通知",
@@ -734,16 +739,16 @@ const EVENTS: GameEvent[] = [
     type: "positive",
   },
   {
-    id: "e42", title: "非CS转行分享会",
-    description: "你走进那间拥挤的教室，看到座位上坐满了和你一样神情紧绷的脸——建筑系的、艺术系的、中文系的，你们像一群误入科技丛林的书生。当第一个分享者说'我也曾以为自己是异类'时，你听到周围有人轻轻吸气。那一刻，你突然意识到，原来孤独从来不是一个人的专利，它可以是一场集体的沉默。散会时，你们交换了联系方式，没有人说'加油'，但你们都知道，彼此的存在本身就是一种无声的支撑。走出教学楼，晚风很凉，但你感觉心里某个角落，悄悄升起了一丝温度。",
-    effects: { network: 5, selfDoubt: -7, expression: 3 },
+    id: "e42", title: "非CS转行大厂破局分享会",
+    description: "教室里气氛热烈到了顶点，台上主讲人正在黑板上狂画“转行大厂思维导图”，激情高呼：“今晚加入我的内推VIP特训营，保底年薪四十万！”台下百来号画图画到精神恍惚的建筑生激动得两眼放光，正纷纷掏出手机准备扫码转账。突然教室后门被一脚踹开，你们系主任带着两个保卫处大爷气喘吁吁冲了进来：“抓的就是你！研七还没开题，天天在各个学院串堂卖课！你上周在土木学院卖‘转行跨境电商’，今天又来建筑学院忽悠同门！”全场瞬间从狂热求职变前排吃瓜，大家一边看学长被架走，一边手脚麻利地把讲台上的免费赞助奶茶和茶歇一扫而空。",
+    effects: { network: 6, expression: 5, selfDoubt: -4 },
     type: "positive",
   },
   {
-    id: "e43", title: "宿舍同学轻描淡写",
-    description: "室友推门进来，把腾讯的工牌随手扔在桌上，瘫在椅子上说：'产品其实挺好上手的，主要就是多想用户是谁。'说完他就戴上耳机，沉浸在了游戏的世界里。你盯着他的背影，那个曾经和你一起熬夜画图的少年，现在谈论'用户画像'就像谈论今天的天气一样自然。你突然想起，三年前你们还在一起争论柯布西耶和赖特谁更伟大，现在他已经在思考如何让十亿人更高效地刷短视频。你低下头，继续改你的简历，屏幕的光映在你脸上，像一场无声的告别——告别那个曾经以为建筑可以改变世界的自己。",
-    effects: { selfDoubt: 5, logic: 3 },
-    type: "negative",
+    id: "e43", title: "室友搞赛博风水月入十万劝入伙",
+    description: "室友一脚踢开宿舍门，把两打百元大钞摔在桌上。原来他把你画废的二十张建筑平面图喂给了 DeepSeek，包装成“AI 赛博八宅风水大模型”，在某宝单次算命收费 648，这周爆单了。他搂住你脖子：“兄弟，画什么逼施工图！你负责出图，我负责念咒，咱们是‘科技道教’独角兽公司！”",
+    effects: { money: 10, logic: 4, selfDoubt: -5 },
+    type: "positive",
   },
   {
     id: "e44", title: "海归竞争加剧",
@@ -765,10 +770,10 @@ const EVENTS: GameEvent[] = [
     type: "negative",
   },
   {
-    id: "e55", title: "租房被中介坑",
-    description: "为了离设计院近，你通过中介租了个老破小，签合同时中介拍着胸脯说 “退房当天退押金”。三个月后你要搬走，中介上门检查时突然指着墙面：“这有两处污渍，得扣 500；地板有划痕，扣 300；窗帘有点脏，扣 200。” 你争辩说污渍是原有的、划痕是家具摩擦的，他却掏出合同：“你自己看条款，‘房屋损耗均由租客承担’。” 最后 1000 块押金一分没拿回来，你站在路边看着中介的车消失，想起搬进来时他热情帮你提行李的样子，只觉得讽刺 —— 原来那些殷勤，都是为了最后一次 “收割”。",
-    effects: { money: -10, stress: -5, selfDoubt: 3 },
-    type: "negative",
+    id: "e55", title: "半夜怒砸墙壁爆红成建筑顶流",
+    description: "隔壁租了个跳舞发癫网红，每天凌晨两点狂暴摇花手。在 CAD 崩溃第十次后，你忍无可忍用直角尺疯狂砸墙怒吼：“别摇了！老子梁截面算错三回了！！”声音通过薄板墙完整传进他十万人的直播间。直播间瞬间刷屏“心疼隔壁土木哥”，全网网友当场给你怒刷 50 个火箭求你连麦在线改图。",
+    effects: { network: 10, money: 10, expression: 5 },
+    type: "positive",
   },
   {
     id: "e56", title: "吃到了学妹保研的瓜",
@@ -821,9 +826,9 @@ const EVENTS: GameEvent[] = [
     type: "positive",
   },
   {
-    id: "e46", title: "校友企业交流日",
-    description: "校友交流日上，你认出那位正在演讲的高管正是三年前毕业的直系学长。你鼓起勇气上前，递上你的电子简历。他快速浏览了一遍，突然抬起头，目光里带着惊讶：'你是建筑学院的？'你点点头，准备迎接那句熟悉的质疑。但他却笑了：'你的产品sense比很多CS学生还好，尤其是这种结构化思维——这很建筑。'那一刻，你感觉心里某个紧绷的弦突然松了。原来，那些你以为需要隐藏的过去，在懂行的人眼里，恰恰是你最独特的签名。",
-    effects: { logic: 5, network: 8, selfDoubt: -10 },
+    id: "e46", title: "学长破防怒喷大厂草台班子",
+    description: "直系学长作为大厂总监上台演讲，讲到第十页时 PPT 突然死机。学长看着台下几百个满眼崇拜的学弟学妹，突然扯掉领带当场破防：“老子不装了！什么顶层设计赋能，大厂全他妈是草台班子！我们一个季活几千万的 App，全靠两个外包和一套开源代码撑着！你们建筑生连地下三层管线防撞都能排明白，来大厂做产品简直是神仙下凡修水管！”",
+    effects: { logic: 6, network: 10, selfDoubt: -10 },
     condition: ({ semester }) => semester >= 2,
     type: "positive",
   },
@@ -915,6 +920,57 @@ const EVENTS: GameEvent[] = [
     description: "凌晨两点，导师把你提交的论文初稿发回来。打开文档的瞬间你愣住了——几乎每一段都插满了红色批注，从「这里引用的文献年份不对」到「这个论证逻辑跳了一步」，甚至连标点符号的误用都被圈了出来。文档末尾他写了一行：「你的方向是对的，但学术写作的颗粒度还差很多。再来一版。」你合上电脑，感到一种奇怪的安心——至少他在认真读你写的东西。在建筑学院，被导师逐字批注是一件奢侈的事，它意味着你的论文还没被放弃。",
     effects: { thesisScore: 10, writingDepth: 5, aestheticTheory: 2, stress: -5, mentorFavorability: 3, structured: 3 },
     condition: ({ stats, semester }) => semester >= 3 && stats.mentorFavorability >= 40,
+    type: "positive",
+  },
+  {
+    id: "e79", title: "导师竟是爸爸前妻",
+    description: "入学第一天，你在导师见面会上看到了她的名字——王晓燕。你的大脑短路了整整五秒。你妈当年的那场婚外情，你爸那段你以为烂在家里的历史，原来在建筑学院等着你。她也认出你了——你长得太像你爸了。",
+    effects: { stress: -8, selfDoubt: 6, mentorFavorability: -5 },
+    condition: ({ semester }) => semester === 1,
+    type: "negative",
+  },
+  {
+    id: "e80", title: "同门师兄举报抄袭",
+    description: "你花了两周做的方案，被师兄举报抄袭他去年的一个设计。事实是：你根本没看过他的东西，只是撞了一个相似的体量逻辑。但他截图在导师大群里发了，还@了你。",
+    effects: { stress: -8, selfDoubt: 6, mentorFavorability: -4 },
+    type: "negative",
+  },
+  {
+    id: "e81", title: "导师发圈公开内涵",
+    description: "今天是组会的次日。你昨天当着全组人的面，为自己的方案辩解了三分钟——导师当场沉默，你以为算是过了。今早起床刷朋友圈，发现导师发了一条：‘有些学生，图还没画明白，嘴倒是利索。建筑系不是辩论队，方案说话，不是人说话。’配图是一张虚焦的图板，那是你昨天的初稿。建筑系师生都能看到。",
+    effects: { stress: -6, mentorFavorability: -10, selfDoubt: 8 },
+    condition: ({ stats }) => stats.mentorFavorability <= 45,
+    type: "negative",
+  },
+  {
+    id: "e82", title: "甲方老板是前任父亲",
+    description: "实习第一周，你跟着导师去见甲方。对方西装革履、标准的成功人士面孔——直到他开口叫了你的名字。他见过你，在他女儿家的饭桌上。当年你们分手的原因之一，就是他当面说你‘学建筑没有前途’。",
+    effects: { stress: -8, selfDoubt: 5, expression: -2 },
+    condition: ({ semester }) => semester >= 2,
+    type: "negative",
+  },
+  {
+    id: "e83", title: "同门晒字节工牌被扒出是网购",
+    description: "同门在班群里发九宫格晒工牌和海景下午茶，配文“上岸字节，感谢努力的自己”。你放大图片仔细一查，工牌上的英文工号竟然是拼音 ZHUAN_BI_001，背景的落地窗海景还是绿幕抠图！",
+    effects: { network: 6, selfDoubt: -6, expression: 4 },
+    type: "positive",
+  },
+  {
+    id: "e84", title: "交友软件神秘暗号：“你找什么？”",
+    description: "深夜赶图累瘫在宿舍，你打开交友软件想看看帅哥美女醒醒脑。一个挂着大厂工牌、腹肌照打码的同城优质男神发来经典的四字灵魂拷问：“在吗？你找什么？”此时你刚刷完三套产品真题、脑子被架构塞满，出于职业肌肉记忆秒回：“我找一个QPS超过5万、能抗住十级高并发但容灾下沉的多级缓存中台。你呢？”对面陷入了十分钟的死寂，随后发来一条激动颤抖的语音：“……大半夜的玩这么硬核？哥们，我们组高可用架构正愁没人拉通，加个微信详聊，明天我直接给你推终面！”",
+    effects: { network: 8, logic: 6, selfDoubt: -6 },
+    type: "positive",
+  },
+  {
+    id: "e85", title: "深夜私信传来一句：“看看那里”",
+    description: "社交软件上刚匹配的大厂高级设计师聊得火热，突然发来一句试探性极强的性感私信：“哥哥，想看看你那里……”后面还跟了一个暧昧的眨眼表情。你心头一热，以为懂行的设计师终于要欣赏你最引以为傲的“大跨度异形悬挑核心筒空间”，当场毫不犹豫把 500MB 的《超高层地下连续墙配筋详图与力学剖面分析.dwg》原图砸了过去。半小时后，对方发来一张满头大汗的自拍，红着脸回复：“哥……你这个剪力墙配筋太硬了……我硬是看了半个小时，这个受力节点居然能这么插进去？！能不能发我一份高清带标注的，下周我汇报借用一下！”",
+    effects: { visualTaste: 8, arch: 6, network: 6 },
+    type: "positive",
+  },
+  {
+    id: "e86", title: "大厂总监深夜拷问：“你是1还是0？”",
+    description: "你在交友软件上偶然匹配到了心仪大厂的业务线一号位总监。寒暄两句后，总监发来一条隐晦的数字暗号：“平时你是偏1，还是偏0？”你以为这是大厂最新的底层系统思维与算法哲学考核，当场自信打字：“回总监，我做业务需求时是1（顶在前面主动推进、全栈覆盖），系统高并发锁死时立刻变0（非阻塞异步、甘当底层管道），遇到死锁还能充当二分查找的中间指针！”屏幕对面的总监看完当场倒吸一口凉气，发来一个大大的震惊表情包：“可攻可受、动静皆宜……这是我今年见过最具哲学深度的人才画像！明天九点，带上简历来我办公室！”",
+    effects: { logic: 8, expression: 8, selfDoubt: -8 },
     type: "positive",
   },
 ];
@@ -2893,9 +2949,9 @@ function StatBar({ statKey, value, delta }: { statKey: StatKey; value: number; d
 }
 
 function DeltaBadge({ statKey, value }: { statKey: StatKey; value: EffectValue }) {
-  const meta = STAT_META[statKey];
-  const scale = meta.yuanScale ?? 1;
-  const isYuan = !!meta.yuanScale;
+  const meta = (STAT_META as any)[statKey] || { label: String(statKey), positive: true, color: "#f472b6" };
+  const scale = meta?.yuanScale ?? 1;
+  const isYuan = !!meta?.yuanScale;
 
   let numericValue = 0;
   let displayValue = "";
@@ -4713,8 +4769,6 @@ export function GamePage() {
   /** NPC 社交系统状态（本期新增，可独立清除而不影响其它存档） */
   const [socialState, setSocialState] = useState<SocialState>(createEmptySocialState);
   const [activeSocialNpcId, setActiveSocialNpcId] = useState<string>("professor");
-  const socialUnreadCount = unreadCountFor(socialState, activeSocialNpcId);
-  const socialMessages = getMessagesFor(socialState, activeSocialNpcId);
   const [seenCampusIds, setSeenCampusIds] = useState<Set<string>>(new Set());
   const [chosenAction, setChosenAction] = useState<Action | null>(null);
   const [actionDelta, setActionDelta] = useState<Partial<Stats>>({});
@@ -4736,6 +4790,105 @@ export function GamePage() {
   // 简历查看：存当前展开简历的 mentorId
   const [resumeMentorId, setResumeMentorId] = useState<string | null>(null);
   const [isMentorOfficeOpen, setIsMentorOfficeOpen] = useState(false);
+  const [isPeerModalOpen, setIsPeerModalOpen] = useState(false);
+  const [peerFavorability, setPeerFavorability] = useState(70);
+  const [isLuYuchenModalOpen, setIsLuYuchenModalOpen] = useState(false);
+  const [isLuYuchenUnlocked, setIsLuYuchenUnlocked] = useState(false);
+  const [isLuYuchenFirstMeet, setIsLuYuchenFirstMeet] = useState(false);
+  const [luYuchenFavorability, setLuYuchenFavorability] = useState(50);
+
+  const handleCareerCenterSelect = useCallback(() => {
+    if (!isLuYuchenUnlocked) {
+      setIsLuYuchenUnlocked(true);
+      setIsLuYuchenFirstMeet(true);
+      setIsLuYuchenModalOpen(true);
+    }
+  }, [isLuYuchenUnlocked]);
+  const [isBaiXuModalOpen, setIsBaiXuModalOpen] = useState(false);
+  const [isBaiXuUnlocked, setIsBaiXuUnlocked] = useState(false);
+  const [isBaiXuFirstMeet, setIsBaiXuFirstMeet] = useState(false);
+  const [baiXuFavorability, setBaiXuFavorability] = useState(50);
+
+  const handleCafeSelect = useCallback(() => {
+    if (semester >= 3 && !isBaiXuUnlocked) {
+      setIsBaiXuUnlocked(true);
+      setIsBaiXuFirstMeet(true);
+      setIsBaiXuModalOpen(true);
+    }
+  }, [semester, isBaiXuUnlocked]);
+  const [isJiangHuaiModalOpen, setIsJiangHuaiModalOpen] = useState(false);
+  const [isJiangHuaiUnlocked, setIsJiangHuaiUnlocked] = useState(false);
+  const [isJiangHuaiFirstMeet, setIsJiangHuaiFirstMeet] = useState(false);
+  const [jiangHuaiFavorability, setJiangHuaiFavorability] = useState(60);
+  const [isShenQinghuaiModalOpen, setIsShenQinghuaiModalOpen] = useState(false);
+  const [isShenQinghuaiUnlocked, setIsShenQinghuaiUnlocked] = useState(false);
+  const [isShenQinghuaiFirstMeet, setIsShenQinghuaiFirstMeet] = useState(false);
+  const [shenQinghuaiFavorability, setShenQinghuaiFavorability] = useState(60);
+
+  const handleLibrarySelect = useCallback(() => {
+    if (!isShenQinghuaiUnlocked) {
+      setIsShenQinghuaiUnlocked(true);
+      setIsShenQinghuaiFirstMeet(true);
+      setIsShenQinghuaiModalOpen(true);
+    }
+  }, [isShenQinghuaiUnlocked]);
+
+  // 社交系统好感度与解锁状态全双工实时同步
+  const syncedSocialState = useMemo<SocialState>(() => {
+    const profBond = getBond(socialState, "professor", stats?.mentorFavorability ?? 30, (semester - 1) * 4 + round);
+    const peerBond = getBond(socialState, "peer", peerFavorability, (semester - 1) * 4 + round);
+    const luBond = getBond(socialState, "lu_yuchen", luYuchenFavorability, (semester - 1) * 4 + round);
+    const baiBond = getBond(socialState, "bai_xu", baiXuFavorability, (semester - 1) * 4 + round);
+    const jiangBond = getBond(socialState, "jiang_huai", jiangHuaiFavorability, (semester - 1) * 4 + round);
+    const shenBond = getBond(socialState, "lab_senior", shenQinghuaiFavorability, (semester - 1) * 4 + round);
+
+    return {
+      ...socialState,
+      bonds: {
+        ...socialState.bonds,
+        professor: {
+          ...profBond,
+          favorability: stats?.mentorFavorability ?? 30,
+        },
+        peer: {
+          ...peerBond,
+          favorability: peerFavorability,
+        },
+        lu_yuchen: {
+          ...luBond,
+          favorability: luYuchenFavorability,
+        },
+        bai_xu: {
+          ...baiBond,
+          favorability: baiXuFavorability,
+        },
+        jiang_huai: {
+          ...jiangBond,
+          favorability: jiangHuaiFavorability,
+        },
+        lab_senior: {
+          ...shenBond,
+          favorability: shenQinghuaiFavorability,
+        },
+        shen_qinghuai: {
+          ...shenBond,
+          npcId: "shen_qinghuai",
+          favorability: shenQinghuaiFavorability,
+        },
+      },
+    };
+  }, [socialState, stats?.mentorFavorability, peerFavorability, luYuchenFavorability, baiXuFavorability, jiangHuaiFavorability, shenQinghuaiFavorability, semester, round]);
+
+  const socialUnreadCount = unreadCountFor(syncedSocialState, activeSocialNpcId);
+  const socialMessages = getMessagesFor(syncedSocialState, activeSocialNpcId);
+
+  const handleDormSelect = useCallback(() => {
+    if (!isJiangHuaiUnlocked) {
+      setIsJiangHuaiUnlocked(true);
+      setIsJiangHuaiFirstMeet(true);
+      setIsJiangHuaiModalOpen(true);
+    }
+  }, [isJiangHuaiUnlocked]);
   // 稳定 mentor prop 引用，避免 MentorOfficeModal 因每次重渲染拿到新对象触发 useEffect 重置
   const mentorOfficeMentorProp = useMemo(
     () => (mentor ? { id: mentor.id, name: mentorDisplayName(mentor), title: mentor.title, image: mentor.image } : null),
@@ -5230,7 +5383,7 @@ export function GamePage() {
       customEventEvaluationAbortRef.current?.abort();
       customEventEvaluationAbortRef.current = null;
       setIsEvaluatingCustomEventAction(false);
-      const hasEvent = Math.random() < 0.45;
+      const hasEvent = Math.random() < 0.75;
       if (!hasEvent) {
         setPhase("action_choice");
         return;
@@ -7298,6 +7451,47 @@ export function GamePage() {
               onOpenRound={() => setDesktopGameSection("round")}
               actions={ACTIONS}
               onOpenMentorOffice={() => setIsMentorOfficeOpen(true)}
+              onOpenPeerModal={() => setIsPeerModalOpen(true)}
+              onOpenLuYuchenModal={() => {
+                if (!isLuYuchenUnlocked) {
+                  setIsLuYuchenUnlocked(true);
+                  setIsLuYuchenFirstMeet(true);
+                } else {
+                  setIsLuYuchenFirstMeet(false);
+                }
+                setIsLuYuchenModalOpen(true);
+              }}
+              onSelectCareerCenter={handleCareerCenterSelect}
+              onOpenBaiXuModal={() => {
+                if (!isBaiXuUnlocked) {
+                  setIsBaiXuUnlocked(true);
+                  setIsBaiXuFirstMeet(true);
+                } else {
+                  setIsBaiXuFirstMeet(false);
+                }
+                setIsBaiXuModalOpen(true);
+              }}
+              onSelectCafe={handleCafeSelect}
+              onOpenJiangHuaiModal={() => {
+                if (!isJiangHuaiUnlocked) {
+                  setIsJiangHuaiUnlocked(true);
+                  setIsJiangHuaiFirstMeet(true);
+                } else {
+                  setIsJiangHuaiFirstMeet(false);
+                }
+                setIsJiangHuaiModalOpen(true);
+              }}
+              onOpenShenQinghuaiModal={() => {
+                if (!isShenQinghuaiUnlocked) {
+                  setIsShenQinghuaiUnlocked(true);
+                  setIsShenQinghuaiFirstMeet(true);
+                } else {
+                  setIsShenQinghuaiFirstMeet(false);
+                }
+                setIsShenQinghuaiModalOpen(true);
+              }}
+              onSelectLibrary={handleLibrarySelect}
+              onSelectDorm={handleDormSelect}
               onChooseAction={(actionId) => {
                 const action = ACTIONS.find((candidate) => candidate.id === actionId);
                 if (!action || phase !== "action_choice") return;
@@ -7322,6 +7516,47 @@ export function GamePage() {
               onOpenRound={() => setDesktopGameSection("round")}
               actions={ACTIONS}
               onOpenMentorOffice={() => setIsMentorOfficeOpen(true)}
+              onOpenPeerModal={() => setIsPeerModalOpen(true)}
+              onOpenLuYuchenModal={() => {
+                if (!isLuYuchenUnlocked) {
+                  setIsLuYuchenUnlocked(true);
+                  setIsLuYuchenFirstMeet(true);
+                } else {
+                  setIsLuYuchenFirstMeet(false);
+                }
+                setIsLuYuchenModalOpen(true);
+              }}
+              onSelectCareerCenter={handleCareerCenterSelect}
+              onOpenBaiXuModal={() => {
+                if (!isBaiXuUnlocked) {
+                  setIsBaiXuUnlocked(true);
+                  setIsBaiXuFirstMeet(true);
+                } else {
+                  setIsBaiXuFirstMeet(false);
+                }
+                setIsBaiXuModalOpen(true);
+              }}
+              onSelectCafe={handleCafeSelect}
+              onOpenJiangHuaiModal={() => {
+                if (!isJiangHuaiUnlocked) {
+                  setIsJiangHuaiUnlocked(true);
+                  setIsJiangHuaiFirstMeet(true);
+                } else {
+                  setIsJiangHuaiFirstMeet(false);
+                }
+                setIsJiangHuaiModalOpen(true);
+              }}
+              onOpenShenQinghuaiModal={() => {
+                if (!isShenQinghuaiUnlocked) {
+                  setIsShenQinghuaiUnlocked(true);
+                  setIsShenQinghuaiFirstMeet(true);
+                } else {
+                  setIsShenQinghuaiFirstMeet(false);
+                }
+                setIsShenQinghuaiModalOpen(true);
+              }}
+              onSelectLibrary={handleLibrarySelect}
+              onSelectDorm={handleDormSelect}
               onChooseAction={(actionId) => {
                 const action = ACTIONS.find((candidate) => candidate.id === actionId);
                 if (!action || phase !== "action_choice") return;
@@ -7581,6 +7816,201 @@ export function GamePage() {
           }}
         />
 
+        {/* 同门张一帆工位面谈（带同门人物立绘与互动对话系统） */}
+        <PeerVisitModal
+          isOpen={isPeerModalOpen}
+          onClose={() => setIsPeerModalOpen(false)}
+          favorability={peerFavorability}
+          canChooseAction={phase === "action_choice"}
+          onExecuteOption={(option) => {
+            if (!stats) return;
+            const effectiveDeltas = option.statDeltas ?? {};
+            const { newStats, delta } = applyEffects(stats, effectiveDeltas);
+            setStats(newStats);
+            setActionDelta(delta);
+            setPeerFavorability((prev) => Math.min(100, prev + (option.statDeltas?.favorability ?? 5)));
+
+            const narrationText =
+              option.dialogueSequence?.slice().reverse().find((d) => d.speaker === "narration" || d.speaker === "peer")?.content
+              || option.description
+              || "与张一帆进行了深入交流。";
+
+            setActionNarrative(narrationText);
+
+            const stubAction: Action = {
+              id: "peer_interaction",
+              label: option.label,
+              emoji: option.icon || "☕",
+              description: option.description,
+              effects: effectiveDeltas as Action["effects"],
+              narratives: [narrationText],
+            };
+            setChosenAction(stubAction);
+            setPhase("action_result");
+            setDesktopGameSection("round");
+          }}
+        />
+
+        {/* 同门陆予忱工位面谈（禁欲系 Hot Nerd，带人物立绘与互动对话系统） */}
+        <PeerVisitModal
+          isOpen={isLuYuchenModalOpen}
+          characterId="lu_yuchen"
+          isFirstMeet={isLuYuchenFirstMeet}
+          onCompleteFirstMeet={() => {
+            setIsLuYuchenFirstMeet(false);
+          }}
+          onClose={() => setIsLuYuchenModalOpen(false)}
+          favorability={luYuchenFavorability}
+          canChooseAction={phase === "action_choice"}
+          onExecuteOption={(option) => {
+            if (!stats) return;
+            const effectiveDeltas = option.statDeltas ?? {};
+            const { newStats, delta } = applyEffects(stats, effectiveDeltas);
+            setStats(newStats);
+            setActionDelta(delta);
+            setLuYuchenFavorability((prev) => Math.min(100, prev + (option.statDeltas?.favorability ?? 5)));
+
+            const narrationText =
+              option.dialogueSequence?.slice().reverse().find((d) => d.speaker === "narration" || d.speaker === "peer")?.content
+              || option.description
+              || "与陆予忱进行了深入交流。";
+
+            setActionNarrative(narrationText);
+
+            const stubAction: Action = {
+              id: "peer_interaction",
+              label: option.label,
+              emoji: option.icon || "☕",
+              description: option.description,
+              effects: effectiveDeltas as Action["effects"],
+              narratives: [narrationText],
+            };
+            setChosenAction(stubAction);
+            setPhase("action_result");
+            setDesktopGameSection("round");
+          }}
+        />
+
+        {/* 学弟白栩咖啡馆面谈（软萌粘人小狗学弟，带人物立绘与互动对话系统） */}
+        <PeerVisitModal
+          isOpen={isBaiXuModalOpen}
+          characterId="bai_xu"
+          isFirstMeet={isBaiXuFirstMeet}
+          onCompleteFirstMeet={() => {
+            setIsBaiXuFirstMeet(false);
+          }}
+          onClose={() => setIsBaiXuModalOpen(false)}
+          favorability={baiXuFavorability}
+          canChooseAction={phase === "action_choice"}
+          onExecuteOption={(option) => {
+            if (!stats) return;
+            const effectiveDeltas = option.statDeltas ?? {};
+            const { newStats, delta } = applyEffects(stats, effectiveDeltas);
+            setStats(newStats);
+            setActionDelta(delta);
+            setBaiXuFavorability((prev) => Math.min(100, prev + (option.statDeltas?.favorability ?? 5)));
+
+            const narrationText =
+              option.dialogueSequence?.slice().reverse().find((d) => d.speaker === "narration" || d.speaker === "peer")?.content
+              || option.description
+              || "与白栩进行了深入交流。";
+
+            setActionNarrative(narrationText);
+
+            const stubAction: Action = {
+              id: "peer_interaction",
+              label: option.label,
+              emoji: option.icon || "☕",
+              description: option.description,
+              effects: effectiveDeltas as Action["effects"],
+              narratives: [narrationText],
+            };
+            setChosenAction(stubAction);
+            setPhase("action_result");
+            setDesktopGameSection("round");
+          }}
+        />
+
+        {/* 舍友江淮寝室面谈（健气阳光体育生，带人物立绘与互动对话系统） */}
+        <PeerVisitModal
+          isOpen={isJiangHuaiModalOpen}
+          characterId="jiang_huai"
+          isFirstMeet={isJiangHuaiFirstMeet}
+          onCompleteFirstMeet={() => {
+            setIsJiangHuaiFirstMeet(false);
+          }}
+          onClose={() => setIsJiangHuaiModalOpen(false)}
+          favorability={jiangHuaiFavorability}
+          canChooseAction={phase === "action_choice"}
+          onExecuteOption={(option) => {
+            if (!stats) return;
+            const effectiveDeltas = option.statDeltas ?? {};
+            const { newStats, delta } = applyEffects(stats, effectiveDeltas);
+            setStats(newStats);
+            setActionDelta(delta);
+            setJiangHuaiFavorability((prev) => Math.min(100, prev + (option.statDeltas?.favorability ?? 5)));
+
+            const narrationText =
+              option.dialogueSequence?.slice().reverse().find((d) => d.speaker === "narration" || d.speaker === "peer")?.content
+              || option.description
+              || "与江淮进行了深入交流。";
+
+            setActionNarrative(narrationText);
+
+            const stubAction: Action = {
+              id: "peer_interaction",
+              label: option.label,
+              emoji: option.icon || "☕",
+              description: option.description,
+              effects: effectiveDeltas as Action["effects"],
+              narratives: [narrationText],
+            };
+            setChosenAction(stubAction);
+            setPhase("action_result");
+            setDesktopGameSection("round");
+          }}
+        />
+
+        {/* 图书馆学长 · 沈清淮 拜访与心动弹窗 */}
+        <PeerVisitModal
+          isOpen={isShenQinghuaiModalOpen}
+          characterId="shen_qinghuai"
+          isFirstMeet={isShenQinghuaiFirstMeet}
+          onCompleteFirstMeet={() => {
+            setIsShenQinghuaiFirstMeet(false);
+          }}
+          onClose={() => setIsShenQinghuaiModalOpen(false)}
+          favorability={shenQinghuaiFavorability}
+          canChooseAction={phase === "action_choice"}
+          onExecuteOption={(option) => {
+            if (!stats) return;
+            const effectiveDeltas = option.statDeltas ?? {};
+            const { newStats, delta } = applyEffects(stats, effectiveDeltas);
+            setStats(newStats);
+            setActionDelta(delta);
+            setShenQinghuaiFavorability((prev) => Math.min(100, prev + (option.statDeltas?.favorability ?? 5)));
+
+            const narrationText =
+              option.dialogueSequence?.slice().reverse().find((d) => d.speaker === "narration" || d.speaker === "peer")?.content
+              || option.description
+              || "与沈清淮进行了深入交流。";
+
+            setActionNarrative(narrationText);
+
+            const stubAction: Action = {
+              id: "peer_interaction",
+              label: option.label,
+              emoji: option.icon || "📚",
+              description: option.description,
+              effects: effectiveDeltas as Action["effects"],
+              narratives: [narrationText],
+            };
+            setChosenAction(stubAction);
+            setPhase("action_result");
+            setDesktopGameSection("round");
+          }}
+        />
+
         {/* 月度财务账单弹窗 */}
         <MonthlyBillModal
           settlement={monthlySettlement}
@@ -7733,9 +8163,9 @@ export function GamePage() {
             onAcceptOffer={acceptInternshipOffer}
             onDeclineOffer={declineInternshipOffer}
             onClose={() => { setDesktopGameSection("map"); setActiveInterviewApplicationId(null); }}
-            socialState={socialState}
+            socialState={syncedSocialState}
             socialMessages={socialMessages}
-            socialReplyOptions={getActiveReplyOptions(socialState, activeSocialNpcId)}
+            socialReplyOptions={getActiveReplyOptions(syncedSocialState, activeSocialNpcId)}
             activeNpcId={activeSocialNpcId}
             professorName={mentorDisplayName(mentor)}
             professorFavorability={socialState.bonds.professor?.favorability ?? stats?.mentorFavorability ?? 30}

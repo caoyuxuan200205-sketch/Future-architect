@@ -23,7 +23,7 @@ export interface OfficeDialogueOption {
   id: string;
   label: string;
   emoji: string;
-  category: "academic" | "chat" | "gift" | "opportunity" | "leave";
+  category: "academic" | "chat" | "gift" | "romance" | "opportunity" | "leave";
   description: string;
   costText?: string;
   requireFavor?: number;
@@ -1480,6 +1480,197 @@ export function generateOfficeDialogueOptions(
       resultNarrative: `${mentor.name} 郑重地向你透露了重磅课题机会，并答应在关键时刻为你出具极具分量的学术推荐信！`,
     });
   }
+
+  // 5. 禁忌心动 · 导师攻略分支（荒谬刺激的师生羁绊，精简 5 阶）
+  options.push({
+    id: "mentor_romance_coffee_art",
+    label: "送拉花咖啡",
+    emoji: "☕",
+    category: "romance",
+    requireFavor: 0,
+    description: "送上特调咖啡，暗中试探古板导师的反应。",
+    costText: "好感 ≥ 0 已解锁",
+    statDeltas: { stress: -5, mentorFavorability: 3 },
+    mentorReply: "「……奶沫张力不合流体力学规范。不过，下不为例。」",
+    replyTone: "warm",
+    resultNarrative: `你把拉花的咖啡递到桌前，${mentor.name} 扶了扶眼镜轻咳一声，嘴角掠过一丝不易察觉的弧度。`,
+    acceptanceDialogue: [
+      {
+        speaker: "player",
+        name: "你",
+        content: "老师，给您泡了一杯手冲，顺便拉了个花。",
+      },
+      {
+        speaker: "narration",
+        content: `${mentor.name} 看着杯子里清晰的心形拉花，动作微微一顿。`,
+      },
+      {
+        speaker: "mentor",
+        name: mentor.name,
+        action: "有些不自然地推了推镜框，端起咖啡抿了一口",
+        content: "……奶沫张力不合流体力学规范。不过，下不为例。",
+        tone: "warm",
+      },
+      {
+        speaker: "narration",
+        content: "导师放下杯子，眼神中闪过一丝难得的温和笑意。",
+      },
+    ],
+  });
+
+  options.push({
+    id: "mentor_romance_touch_pen",
+    label: "牵手",
+    emoji: "🤝",
+    category: "romance",
+    requireFavor: 45,
+    description: "在满屏标红的文档前，手背被他温热的大手覆住。",
+    costText: favorability >= 45 ? "好感 ≥ 45 已解锁" : "好感需 ≥ 45",
+    disabled: favorability < 45,
+    disabledReason: "好感度需 ≥ 45",
+    statDeltas: { stress: -8, logic: 6, mentorFavorability: 6 },
+    mentorReply: "「行距调 1.5 倍，手别抖……看着屏幕，别看我。」",
+    replyTone: "vulnerable",
+    resultNarrative: `${mentor.name} 握着鼠标的手覆在你手背上，呼吸拂过发丝，严谨古板的博导耳尖微红。`,
+    acceptanceDialogue: [
+      {
+        speaker: "player",
+        name: "你",
+        content: "老师，这里的空间形制分析总觉得层级不够。",
+      },
+      {
+        speaker: "narration",
+        content: `${mentor.name} 俯下身，温热的大手自然地覆在你的手背上移动鼠标。`,
+      },
+      {
+        speaker: "mentor",
+        name: mentor.name,
+        action: "呼吸近在咫尺，微凉的镜框碰到你的发梢",
+        content: "行距调 1.5 倍，手别抖……看着屏幕，别看我。",
+        tone: "vulnerable",
+      },
+      {
+        speaker: "narration",
+        content: "两人的肩膀轻轻靠在一起，满屏学术文字中只剩彼此清晰的心跳声。",
+      },
+    ],
+  });
+
+  options.push({
+    id: "mentor_romance_office_hug",
+    label: "拥抱",
+    emoji: "🫂",
+    category: "romance",
+    requireFavor: 65,
+    description: "被开题虐哭，他拉下百叶窗反锁门将你揽入怀中。",
+    costText: favorability >= 65 ? "好感 ≥ 65 已解锁" : "好感需 ≥ 65",
+    disabled: favorability < 65,
+    disabledReason: "好感度需 ≥ 65",
+    statDeltas: { stress: -15, logic: 8, mentorFavorability: 8 },
+    mentorReply: "「哭什么。有我给你撑腰，全院没人敢卡你。」",
+    replyTone: "vulnerable",
+    resultNarrative: `${mentor.name} 反锁办公室门将你拥入怀中，带着沉香书卷气的毛呢西装成了全院最安心的依靠。`,
+    acceptanceDialogue: [
+      {
+        speaker: "player",
+        name: "你",
+        content: "老师……盲审意见太苛刻了，我真的好难受……",
+      },
+      {
+        speaker: "narration",
+        content: `${mentor.name} 叹了口气，起身拉下百叶窗反锁门，走到你面前张开双臂。`
+      },
+      {
+        speaker: "mentor",
+        name: mentor.name,
+        action: "将你揽入怀中，宽厚的大手轻拍你的后背",
+        content: "哭什么。有我给你撑腰，全院没人敢卡你。",
+        tone: "vulnerable",
+      },
+      {
+        speaker: "narration",
+        content: "你紧紧靠在他坚实的胸膛前，听着他稳健的心跳，所有的委屈彻底消散。",
+      },
+    ],
+  });
+
+  options.push({
+    id: "mentor_romance_corridor_kiss",
+    label: "接吻",
+    emoji: "💋",
+    category: "romance",
+    requireFavor: 80,
+    description: "学术会议深夜，摘下眼镜的他将你圈在墙角。",
+    costText: favorability >= 80 ? "好感 ≥ 80 已解锁" : "好感需 ≥ 80",
+    disabled: favorability < 80,
+    disabledReason: "好感度需 ≥ 80",
+    statDeltas: { stress: -20, arch: 10, mentorFavorability: 12 },
+    mentorReply: "「你不仅是得意门生，更是我唯一的非理性解。」",
+    replyTone: "vulnerable",
+    resultNarrative: `深夜走廊微光下，摘下眼镜的 ${mentor.name} 吻上你的唇，平日清冷的博导眼神炽热而深情。`,
+    acceptanceDialogue: [
+      {
+        speaker: "player",
+        name: "你",
+        content: "老师，刚才晚宴的红酒好烈，您喝多了吗？",
+      },
+      {
+        speaker: "narration",
+        content: `走廊昏暗处，${mentor.name} 缓缓摘下眼镜，单手将你圈在墙角。`,
+      },
+      {
+        speaker: "mentor",
+        name: mentor.name,
+        action: "目光深邃，修长的手指轻托起你的下巴",
+        content: "你不仅是得意门生，更是我唯一的非理性解。",
+        tone: "vulnerable",
+      },
+      {
+        speaker: "narration",
+        content: "话音未落，他低头深情吻上你的唇，呼吸缠绵而滚烫。",
+      },
+    ],
+  });
+
+  options.push({
+    id: "mentor_romance_defense_proposal",
+    label: "求婚",
+    emoji: "💍",
+    category: "romance",
+    requireFavor: 95,
+    description: "当着全院评委的面，他走下主席台为你戴上戒指。",
+    costText: favorability >= 95 ? "好感 ≥ 95 已解锁" : "好感需 ≥ 95",
+    disabled: favorability < 95,
+    disabledReason: "好感度需 ≥ 95",
+    statDeltas: { stress: -30, arch: 15, mentorFavorability: 20 },
+    mentorReply: "「我的未来人生蓝图，你是唯一的终身架构师。」",
+    replyTone: "vulnerable",
+    resultNarrative: `全优答辩后，${mentor.name} 当众走下评委席紧握你的双手为你戴上银戒，许下一生相伴的承诺！`,
+    acceptanceDialogue: [
+      {
+        speaker: "mentor",
+        name: mentor.name,
+        action: "站在主席台前，当着系主任和所有评委的面注视着你",
+        content: "恭喜全票优秀答辩。这篇论文无可挑剔。",
+        tone: "vulnerable",
+      },
+      {
+        speaker: "narration",
+        content: `${mentor.name} 走下台，当众牵起你的手，为你戴上一枚定制银戒。`,
+      },
+      {
+        speaker: "mentor",
+        name: mentor.name,
+        action: "十指紧扣，眼底满是毫不遮掩的偏爱",
+        content: "我的未来人生蓝图，你是唯一的终身架构师。",
+        tone: "vulnerable",
+      },
+      {
+        speaker: "narration",
+        content: "在全场的惊呼与掌声中，他俯身深吻你的额头，定下一生的誓约。",
+      },
+    ],
+  });
 
   return options;
 }

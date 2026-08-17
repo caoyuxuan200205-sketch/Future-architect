@@ -127,24 +127,28 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
         key={id}
         type="button"
         onClick={() => onChange(id)}
-        className={`group relative flex h-12 w-full items-center gap-3 rounded-xl px-3 outline-none transition-all focus-visible:ring-2 focus-visible:ring-[#c9a84c]/55 ${selected ? "bg-[#c9a84c]/13 text-[#dec678]" : "text-slate-400 hover:bg-white/[0.045] hover:text-slate-100"}`}
+        className={`group relative flex h-12 w-full items-center gap-3 rounded-xl px-3 outline-none transition-all focus-visible:ring-2 focus-visible:ring-[#c9a84c]/55 ${
+          selected
+            ? "bg-[#282114] border border-[#c9a84c]/35 text-[#f5d77f] shadow-[0_0_15px_rgba(201,168,76,0.12)] font-medium"
+            : "text-slate-400 hover:bg-white/[0.045] hover:text-slate-100 border border-transparent"
+        }`}
         aria-current={selected ? "page" : undefined}
       >
-        {selected && <span className="absolute -left-2 top-2 h-8 w-0.5 rounded-r bg-[#c9a84c] xl:-left-3" />}
-        <span className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[#c9a84c]/12" : "bg-white/[0.025]"}`}>
-          <Icon size={19} strokeWidth={selected ? 2.1 : 1.7} />
+        {selected && <span className="absolute -left-2 top-2.5 h-7 w-1 rounded-r bg-[#c9a84c] xl:-left-3 shadow-[0_0_8px_#c9a84c]" />}
+        <span className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[#c9a84c]/20 text-[#f5d77f]" : "bg-white/[0.025]"}`}>
+          <Icon size={19} strokeWidth={selected ? 2.2 : 1.7} />
           {badge && <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-red-500 px-1 text-center text-[11px] font-bold leading-4 text-white">{badge}</span>}
           {showDot && !badge && <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ${(id === "status" && statusAlert) || (id === "round" && roundAlert) ? "bg-red-500" : "bg-amber-400"} ring-2 ring-[#080d18]`} />}
         </span>
-        <span className="hidden truncate text-[15px] font-medium tracking-wide xl:block">{label}</span>
+        <span className="hidden truncate text-[15px] tracking-wide xl:block">{label}</span>
       </button>
     );
   };
 
   return (
     <aside className={`sticky top-0 hidden h-screen w-[76px] shrink-0 flex-col border-r border-[#c9a84c]/18 bg-[#070c17]/96 px-2 py-4 shadow-[14px_0_35px_rgba(0,0,0,0.2)] backdrop-blur-xl lg:flex xl:w-[212px] xl:px-3 ${tutorialActive ? "z-[221] ring-2 ring-inset ring-[#dec678]/80" : "z-30"}`}>
-      <div className="mb-5 flex min-h-14 items-center gap-3 rounded-xl border border-[#c9a84c]/12 bg-white/[0.018] px-2 py-2">
-        <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#c9a84c]/40 bg-white/95 text-[#d7bb66] shadow-[0_0_18px_rgba(201,168,76,0.12)]">
+      <div className="mb-5 flex min-h-14 items-center gap-3 rounded-xl border border-[#c9a84c]/15 bg-white/[0.02] px-2.5 py-2">
+        <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#c9a84c]/50 bg-white/95 text-[#d7bb66] shadow-[0_0_18px_rgba(201,168,76,0.18)]">
           {schoolLogo ? (
             <img src={schoolLogo} alt={schoolName + "校徽"} className="h-full w-full object-contain p-0.5" />
           ) : (
@@ -153,31 +157,35 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
           <span className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-white/10" />
         </span>
         <div className="hidden min-w-0 xl:block">
-          <p className="truncate text-[15px] font-semibold text-slate-100" title={schoolName}>{schoolName}</p>
-          <p className="mt-0.5 truncate text-[11px] tracking-[0.16em] text-[#c9a84c]/70">{schoolTier}</p>
+          <p className="truncate text-[15px] font-bold text-slate-100" title={schoolName}>{schoolName}</p>
+          <p className="mt-0.5 truncate text-[11px] tracking-[0.12em] text-[#c9a84c]/80 font-medium">{schoolTier}</p>
         </div>
       </div>
 
-      <nav className="space-y-1" aria-label="游戏模块">
+      <nav className="space-y-1.5" aria-label="游戏模块">
         {PRIMARY_ITEMS.map((item) => renderItem(item.id === "computer" ? { ...item, badge: computerBadge || undefined } : item))}
       </nav>
 
       <div className="my-4 h-px bg-gradient-to-r from-transparent via-[#c9a84c]/20 to-transparent" />
-      <nav className="space-y-1" aria-label="角色成长">
+      <nav className="space-y-1.5" aria-label="角色成长">
         {GROWTH_ITEMS.map((item) => renderItem(item))}
-        <button type="button" disabled className="group relative flex h-12 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 text-slate-600">
+        <button type="button" disabled className="group relative flex h-12 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 text-slate-600 border border-transparent">
           <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.02]"><BriefcaseBusiness size={18} strokeWidth={1.6} /><LockKeyhole size={9} className="absolute -right-0.5 -top-0.5" /></span>
           <span className="hidden text-[15px] font-medium xl:block">机会</span>
-          <span className="ml-auto hidden rounded border border-white/5 px-1.5 py-0.5 text-[10px] xl:block">规划中</span>
+          <span className="ml-auto hidden rounded border border-white/5 bg-white/[0.02] px-1.5 py-0.5 text-[10px] text-slate-500 xl:block">规划中</span>
         </button>
       </nav>
 
-      <div className="mt-auto space-y-1">
-        <div className="mx-2 mb-3 hidden rounded-xl border border-blue-400/10 bg-blue-400/[0.045] p-3 xl:block">
-          <div className="mb-1 flex items-center gap-2 text-xs text-blue-200"><Bot size={14} /><span>建哥 AI 在线</span><span className="ml-auto h-1.5 w-1.5 rounded-full bg-emerald-400" /></div>
-          <p className="text-[11px] leading-relaxed text-slate-500">右下角随时召唤你的转行军师</p>
+      <div className="mt-auto space-y-2">
+        <div className="mx-1 mb-2 hidden rounded-xl border border-blue-400/15 bg-blue-500/[0.06] p-3 xl:block backdrop-blur-sm">
+          <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-blue-200">
+            <Bot size={15} className="text-blue-300" />
+            <span>建筑 AI 在线</span>
+            <span className="ml-auto h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+          </div>
+          <p className="text-[11px] leading-relaxed text-slate-400">右下角随时召唤导师指导</p>
         </div>
-        <button type="button" onClick={onOpenSettings} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-slate-500 transition-colors hover:bg-white/[0.04] hover:text-slate-300">
+        <button type="button" onClick={onOpenSettings} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-slate-400 transition-colors hover:bg-white/[0.05] hover:text-slate-200">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center"><Settings size={18} /></span>
           <span className="hidden text-[14px] xl:block">设置与存档</span>
         </button>
@@ -212,9 +220,18 @@ interface DesktopMapPreviewProps {
   actions: DesktopMapAction[];
   onChooseAction: (actionId: string) => void;
   onOpenMentorOffice?: () => void;
+  onOpenPeerModal?: () => void;
+  onOpenLuYuchenModal?: () => void;
+  onSelectCareerCenter?: () => void;
+  onOpenBaiXuModal?: () => void;
+  onSelectCafe?: () => void;
+  onOpenJiangHuaiModal?: () => void;
+  onSelectDorm?: () => void;
+  onOpenShenQinghuaiModal?: () => void;
+  onSelectLibrary?: () => void;
 }
 
-export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAction, roundNotice, onOpenRound, actions, onChooseAction, onOpenMentorOffice }: DesktopMapPreviewProps) {
+export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAction, roundNotice, onOpenRound, actions, onChooseAction, onOpenMentorOffice, onOpenPeerModal, onOpenLuYuchenModal, onSelectCareerCenter, onOpenBaiXuModal, onSelectCafe, onOpenJiangHuaiModal, onSelectDorm, onOpenShenQinghuaiModal, onSelectLibrary }: DesktopMapPreviewProps) {
   const [selectedLocationName, setSelectedLocationName] = useState<string | null>(null);
   const isUrgentNotice = roundNotice?.urgent === true;
   const selectedLocation = LOCATIONS.find((location) => location.name === selectedLocationName) ?? null;
@@ -273,6 +290,18 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
                     onOpenMentorOffice();
                     return;
                   }
+                  if (name === "就业中心" && onSelectCareerCenter) {
+                    onSelectCareerCenter();
+                  }
+                  if (name === "咖啡馆" && onSelectCafe) {
+                    onSelectCafe();
+                  }
+                  if (name === "宿舍" && onSelectDorm) {
+                    onSelectDorm();
+                  }
+                  if (name === "图书馆" && onSelectLibrary) {
+                    onSelectLibrary();
+                  }
                   setSelectedLocationName(selected ? null : name);
                 }}
                 aria-label={`${name}，${locationLabel}`}
@@ -308,7 +337,10 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
                 {selectedLocation.name === "导师办公室" && onOpenMentorOffice && (
                   <button
                     type="button"
-                    onClick={onOpenMentorOffice}
+                    onClick={() => {
+                      setSelectedLocationName(null);
+                      onOpenMentorOffice();
+                    }}
                     className="group/action col-span-full rounded-xl border border-[#c9a84c]/60 bg-gradient-to-r from-[#c9a84c]/25 via-[#c9a84c]/15 to-transparent p-3 text-left transition hover:border-[#c9a84c] hover:bg-[#c9a84c]/30 shadow-md"
                   >
                     <span className="flex items-center justify-between">
@@ -321,6 +353,116 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
                     </span>
                     <span className="mt-1 block text-[12px] leading-relaxed text-slate-300">
                       敲门拜访导师，展开学术请教、探讨近代建筑史课题、交流心声或送礼关怀。
+                    </span>
+                  </button>
+                )}
+                {selectedLocation.name === "建筑学院" && onOpenPeerModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedLocationName(null);
+                      onOpenPeerModal();
+                    }}
+                    className="group/action col-span-full rounded-xl border border-sky-400/60 bg-gradient-to-r from-sky-500/25 via-sky-500/15 to-transparent p-3 text-left transition hover:border-sky-400 hover:bg-sky-500/30 shadow-md"
+                  >
+                    <span className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm font-bold text-sky-200">
+                        <span className="text-lg">☕</span> 拜访同门 · 张一帆
+                      </span>
+                      <span className="rounded-full bg-sky-500/25 border border-sky-400/40 px-2.5 py-0.5 text-[10px] font-semibold text-sky-200">
+                        立绘与同门互动
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[12px] leading-relaxed text-slate-300">
+                      去工位找同门聊聊天，探讨图纸方案、吐槽导师改图、交流大厂与就业情报。
+                    </span>
+                  </button>
+                )}
+                {selectedLocation.name === "就业中心" && onOpenLuYuchenModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedLocationName(null);
+                      onOpenLuYuchenModal();
+                    }}
+                    className="group/action col-span-full rounded-xl border border-indigo-400/60 bg-gradient-to-r from-indigo-500/25 via-indigo-500/15 to-transparent p-3 text-left transition hover:border-indigo-400 hover:bg-indigo-500/30 shadow-md"
+                  >
+                    <span className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm font-bold text-indigo-200">
+                        <span className="text-lg">☕</span> 拜访同门 · 陆予忱
+                      </span>
+                      <span className="rounded-full bg-indigo-500/25 border border-indigo-400/40 px-2.5 py-0.5 text-[10px] font-semibold text-indigo-200">
+                        禁欲系 Hot Nerd
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[12px] leading-relaxed text-slate-300">
+                      去 204 职业指导室找予忱，拆解大厂群面、重构简历逻辑、探讨 AI 与空间算法。
+                    </span>
+                  </button>
+                )}
+                {selectedLocation.name === "咖啡馆" && semester >= 3 && onOpenBaiXuModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedLocationName(null);
+                      onOpenBaiXuModal();
+                    }}
+                    className="group/action col-span-full rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-500/25 via-amber-500/15 to-transparent p-3 text-left transition hover:border-amber-400 hover:bg-amber-500/30 shadow-md"
+                  >
+                    <span className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm font-bold text-amber-200">
+                        <span className="text-lg">☕</span> 拜访学弟 · 白栩
+                      </span>
+                      <span className="rounded-full bg-amber-500/25 border border-amber-400/40 px-2.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                        治愈系小狗学弟
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[12px] leading-relaxed text-slate-300">
+                      去咖啡馆阳光卡座找白栩，指导快题方案、一起拼装椴木模型、享受甜点与治愈陪伴。
+                    </span>
+                  </button>
+                )}
+                {selectedLocation.name === "图书馆" && onOpenShenQinghuaiModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedLocationName(null);
+                      onOpenShenQinghuaiModal();
+                    }}
+                    className="group/action col-span-full rounded-xl border border-emerald-400/60 bg-gradient-to-r from-emerald-500/25 via-emerald-500/15 to-transparent p-3 text-left transition hover:border-emerald-400 hover:bg-emerald-500/30 shadow-md"
+                  >
+                    <span className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm font-bold text-emerald-200">
+                        <span className="text-lg">📚</span> 拜访学长 · 沈清淮
+                      </span>
+                      <span className="rounded-full bg-emerald-500/25 border border-emerald-400/40 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-200">
+                        温润手绘白月光
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[12px] leading-relaxed text-slate-300">
+                      去古籍特藏区找清淮，切磋手绘透视速写、考据文献断代、享受静谧自习时光。
+                    </span>
+                  </button>
+                )}
+                {selectedLocation.name === "宿舍" && onOpenJiangHuaiModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedLocationName(null);
+                      onOpenJiangHuaiModal();
+                    }}
+                    className="group/action col-span-full rounded-xl border border-blue-400/60 bg-gradient-to-r from-blue-500/25 via-blue-500/15 to-transparent p-3 text-left transition hover:border-blue-400 hover:bg-blue-500/30 shadow-md"
+                  >
+                    <span className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm font-bold text-blue-200">
+                        <span className="text-lg">☕</span> 拜访舍友 · 江淮
+                      </span>
+                      <span className="rounded-full bg-blue-500/25 border border-blue-400/40 px-2.5 py-0.5 text-[10px] font-semibold text-blue-200">
+                        健气体育生舍友
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-[12px] leading-relaxed text-slate-300">
+                      去 502 寝室找江淮，约打羽毛球暴汗、验算力学结构、吃深夜烧烤解压。
                     </span>
                   </button>
                 )}

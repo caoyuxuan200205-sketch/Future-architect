@@ -283,7 +283,10 @@ export function unreadCountFor(state: SocialState, npcId: string): number {
 const UNLOCK_RULES: Record<string, (ctx: UnlockContext) => boolean> = {
   peer: (ctx) => ctx.totalRound >= 2,
   lab_senior: (ctx) => ctx.totalRound >= 3,
+  lu_yuchen: (ctx) => ctx.totalRound >= 4,
   college_friend: (ctx) => ctx.totalRound >= 5,
+  bai_xu: (ctx) => ctx.semester >= 3,
+  jiang_huai: (ctx) => ctx.totalRound >= 1,
 };
 
 /** 单个 NPC 是否已满足解锁条件（默认未配置的 NPC 视为不解锁） */

@@ -432,6 +432,41 @@ export const EVENT_META: Record<string, EventMeta> = {
     theme: "social", mood: "positive", baseWeight: 1.0,
     behaviorModifier: (_m, s) => clampFactor(s.network >= 70 ? 2.0 : 0.2),
   },
+
+  // ---------- 狗血新事件 e79-e83 ----------
+  "e79": {
+    theme: "mentor", mood: "negative", baseWeight: 1.2,
+    guaranteed: (_m, _s, semester) => semester === 1,
+  },
+  "e80": {
+    theme: "mentor", mood: "negative", baseWeight: 1.0,
+    stateGate: (s) => clampFactor(s.mentorFavorability <= 45 ? 1.8 : 0.6),
+  },
+  "e81": {
+    theme: "mentor", mood: "negative", baseWeight: 1.0,
+    stateGate: (s) => clampFactor(s.mentorFavorability <= 35 ? 2.5 : s.mentorFavorability <= 45 ? 1.5 : 0.4),
+    guaranteed: (_m, s) => s.mentorFavorability <= 20,
+  },
+  "e82": {
+    theme: "job", mood: "negative", baseWeight: 0.8,
+    behaviorModifier: (m) => clampFactor(get(m.totalActions, "internship") >= 2 ? 2.0 : 0.5),
+  },
+  "e83": {
+    theme: "social", mood: "positive", baseWeight: 1.0,
+    stateGate: (s) => clampFactor(s.selfDoubt >= 40 ? 1.8 : 0.8),
+  },
+  "e84": {
+    theme: "job", mood: "positive", baseWeight: 1.1,
+    stateGate: (s) => clampFactor(s.infoChannels >= 40 ? 1.6 : 1.0),
+  },
+  "e85": {
+    theme: "academic", mood: "positive", baseWeight: 1.0,
+    stateGate: (s) => clampFactor(s.visualTaste >= 45 ? 1.5 : 1.0),
+  },
+  "e86": {
+    theme: "job", mood: "positive", baseWeight: 1.2,
+    stateGate: (s) => clampFactor(s.logic >= 45 ? 1.6 : 1.0),
+  },
 };
 
 // ================================================================
