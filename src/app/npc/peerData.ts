@@ -2124,7 +2124,7 @@ export const CONFESSION_SCRIPTS: Record<string, ConfessionScript> = {
       {
         speaker: "peer",
         tone: "shy",
-        content: "师兄……从研一进组那天起，我就总爱找借口蹭你的工位、给你带双份浓缩的拿铁。",
+        content: "哥哥……从研一进组那天起，我就总爱找借口蹭你的工位、给你带双份浓缩的拿铁。",
       },
       {
         speaker: "peer",
@@ -2138,7 +2138,7 @@ export const CONFESSION_SCRIPTS: Record<string, ConfessionScript> = {
       {
         speaker: "peer",
         tone: "shy",
-        content: "师兄，我不想只做你的同门师弟了……你愿意让我做你的男朋友吗？",
+        content: "哥哥，我不想只做你的同班同学了……你愿意让我做你的男朋友吗？",
       },
     ],
     choices: [
@@ -2154,7 +2154,7 @@ export const CONFESSION_SCRIPTS: Record<string, ConfessionScript> = {
           {
             speaker: "peer",
             tone: "excited",
-            content: "太好了……师兄！我保证，以后不管是改图通宵还是走过余生，我永远是你最坚定的靠山！",
+            content: "太好了……哥哥！我保证，以后不管是改图通宵还是走过余生，我永远是你最坚定的靠山！",
           },
         ],
       },

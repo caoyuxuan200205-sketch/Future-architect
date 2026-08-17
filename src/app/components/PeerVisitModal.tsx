@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles,
   Heart,
@@ -118,15 +118,19 @@ export function PeerVisitModal({
           ? SHEN_QINGHUAI_ROMANCE_OPTIONS
           : PEER_ROMANCE_OPTIONS;
 
+  const prevIsOpenRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       setActiveCategory("study");
       setSelectedOption(null);
       setIsExecuting(false);
       setHasExecuted(false);
+      setIsConfessing(false);
+      setHasChosenConfession(false);
       setCurrentMoodIndex(Math.floor(Math.random() * profile.currentMoods.length));
 
-      // 初次见面特别剧情
+      // 初次见面特别剧情 vs 好感度>=80被表白剧情 vs 日常拜访问候剧情
       if (isFirstMeet && characterId === "lu_yuchen") {
         setDialogueSequence(LU_YUCHEN_FIRST_MEET);
         setDialogueIndex(0);
@@ -143,6 +147,12 @@ export function PeerVisitModal({
         setDialogueSequence(SHEN_QINGHUAI_FIRST_MEET);
         setDialogueIndex(0);
         setDialogueComplete(false);
+      } else if (favorability >= 80 && !hasBeenConfessed && CONFESSION_SCRIPTS[characterId]) {
+        // 触发专属被表白剧情
+        setIsConfessing(true);
+        setDialogueSequence(CONFESSION_SCRIPTS[characterId].introTurns);
+        setDialogueIndex(0);
+        setDialogueComplete(false);
       } else {
         const pool = DAILY_VISIT_GREETINGS[characterId] || [];
         if (pool.length > 0) {
@@ -157,7 +167,8 @@ export function PeerVisitModal({
         }
       }
     }
-  }, [isOpen, characterId, isFirstMeet, profile.currentMoods.length]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, characterId, isFirstMeet, favorability, hasBeenConfessed, profile.currentMoods.length]);
 
   if (!isOpen) return null;
 
@@ -401,30 +412,32 @@ export function PeerVisitModal({
                     const turn = dialogueSequence[dialogueIndex];
                     if (!turn) return null;
 
+                    const isLastTurn = dialogueIndex === dialogueSequence.length - 1;
+                    const showConfessionChoices = isConfessing && isLastTurn && !hasChosenConfession && Boolean(CONFESSION_SCRIPTS[characterId]);
+
                     if (turn.speaker === "narration") {
                       return (
                         <div
-                          onClick={advanceDialogue}
-                          className="cursor-pointer rounded-2xl border border-amber-400/20 bg-amber-950/20 p-4 text-[13px] leading-relaxed text-amber-100/90 italic shadow-inner"
+                          onClick={showConfessionChoices ? undefined : advanceDialogue}
+                          className={`rounded-2xl border border-amber-400/20 bg-amber-950/20 p-4 text-[13px] leading-relaxed text-amber-100/90 italic shadow-inner ${showConfessionChoices ? "" : "cursor-pointer"}`}
                         >
                           <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase font-bold text-amber-300/70">
                             <Sparkles size={11} />
                             <span>场景叙述</span>
                           </div>
                           {turn.content}
-                          <div className="mt-3 text-right text-[11px] font-sans not-italic text-amber-300/80 animate-pulse">
-                            点击继续 ▶
-                          </div>
+                          {!showConfessionChoices && (
+                            <div className="mt-3 text-right text-[11px] font-sans not-italic text-amber-300/80 animate-pulse">
+                              点击继续 ▶
+                            </div>
+                          )}
                         </div>
                       );
                     }
 
                     const isPlayer = turn.speaker === "player";
                     return (
-                      <div
-                        onClick={advanceDialogue}
-                        className="cursor-pointer flex items-start gap-3 p-2 rounded-2xl hover:bg-white/[0.02] transition"
-                      >
+                      <div className="flex items-start gap-3 p-2 rounded-2xl">
                         <img
                           src={isPlayer ? "/assets/visuals/avatars/user-avatar.png" : profile.avatarImage}
                           alt="发言者头像"
@@ -433,14 +446,55 @@ export function PeerVisitModal({
                           }}
                           className={`h-11 w-11 shrink-0 rounded-2xl border ${isPlayer ? "border-amber-400/40" : "border-rose-400/40"} object-cover shadow-md`}
                         />
-                        <div className="flex-1 rounded-2xl p-4 text-sm leading-relaxed text-slate-100 shadow-lg bg-[#111e33] border border-white/10">
-                          <p className={`font-bold text-xs mb-1 ${isPlayer ? "text-amber-300" : "text-rose-300"}`}>
-                            {isPlayer ? "你" : profile.name}：
-                          </p>
-                          <p>{turn.content}</p>
-                          <div className="mt-3 text-right text-[11px] text-sky-300/80 animate-pulse">
-                            点击继续 ▶
+                        <div className="flex-1">
+                          <div
+                            onClick={showConfessionChoices ? undefined : advanceDialogue}
+                            className={`rounded-2xl p-4 text-sm leading-relaxed text-slate-100 shadow-lg bg-[#111e33] border border-white/10 ${showConfessionChoices ? "" : "cursor-pointer hover:border-amber-400/40"}`}
+                          >
+                            <p className={`font-bold text-xs mb-1 ${isPlayer ? "text-amber-300" : "text-rose-300"}`}>
+                              {isPlayer ? "你" : profile.name}：
+                            </p>
+                            <p>{turn.content}</p>
+                            {!showConfessionChoices && (
+                              <div className="mt-3 text-right text-[11px] text-sky-300/80 animate-pulse">
+                                点击继续 ▶
+                              </div>
+                            )}
                           </div>
+
+                          {/* 专属沉浸式表白台词分支选项 */}
+                          {showConfessionChoices && CONFESSION_SCRIPTS[characterId] && (
+                            <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                              <p className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                                <Heart size={14} className="fill-rose-400 text-rose-400 animate-pulse" />
+                                <span>此时此刻，你的内心抉择：</span>
+                              </p>
+                              {CONFESSION_SCRIPTS[characterId].choices.map((choice) => (
+                                <button
+                                  key={choice.id}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectConfessionChoice(choice);
+                                  }}
+                                  className={`w-full p-3.5 rounded-2xl border text-left transition-all shadow-lg active:scale-[0.99] cursor-pointer ${
+                                    choice.id === "accept"
+                                      ? "border-rose-400/80 bg-gradient-to-r from-rose-500/20 via-pink-500/15 to-rose-950/30 text-rose-100 hover:border-rose-300 hover:bg-rose-500/30"
+                                      : "border-slate-600/50 bg-slate-800/60 text-slate-200 hover:border-slate-400 hover:bg-slate-700/60"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border ${
+                                      choice.id === "accept" ? "bg-rose-500/30 text-rose-200 border-rose-400/40" : "bg-slate-700/60 text-slate-300 border-slate-600"
+                                    }`}>
+                                      {choice.badgeText}
+                                    </span>
+                                  </div>
+                                  <p className="text-[13px] font-normal leading-relaxed text-slate-200">{choice.label}</p>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     );

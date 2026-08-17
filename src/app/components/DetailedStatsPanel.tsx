@@ -358,10 +358,24 @@ export function DetailedStatsPanel({
     professor: "导师 · " + mentorName,
   };
 
+  const effectivePartners = useMemo(() => {
+    if (partners && partners.length > 0) return partners;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("arch_sim_partners");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  }, [partners]);
+
   const partnersDisplay = useMemo(() => {
-    if (!partners || partners.length === 0) return "单身（暂无）";
-    return partners.map((id) => partnerNameMap[id] || id).join("、");
-  }, [partners, mentorName]);
+    if (!effectivePartners || effectivePartners.length === 0) return "单身（暂无）";
+    return effectivePartners.map((id) => partnerNameMap[id] || id).join("、");
+  }, [effectivePartners, mentorName]);
 
 
   const thesisGrade = useMemo(() => calculateThesisGrade(safeStats.thesisScore ?? 0), [safeStats.thesisScore]);
@@ -503,8 +517,8 @@ export function DetailedStatsPanel({
                   <span className="text-slate-400 flex items-center gap-1">
                     <span>❤️</span> 恋爱关系
                   </span>
-                  <span className={`font-semibold text-[12px] max-w-[150px] truncate text-right ${partners && partners.length > 0 ? "text-rose-300 font-bold" : "text-slate-400"}`} title={partnersDisplay}>
-                    {partners && partners.length > 0 ? `${partnersDisplay} 💕` : "单身（暂无）"}
+                  <span className={`font-semibold text-[12px] max-w-[150px] truncate text-right ${effectivePartners && effectivePartners.length > 0 ? "text-rose-300 font-bold" : "text-slate-400"}`} title={partnersDisplay}>
+                    {effectivePartners && effectivePartners.length > 0 ? `${partnersDisplay} 💕` : "单身（暂无）"}
                   </span>
                 </div>
                 <div className="flex justify-between py-2">

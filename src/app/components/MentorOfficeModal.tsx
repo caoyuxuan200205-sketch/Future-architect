@@ -122,8 +122,10 @@ export function MentorOfficeModal({
 
   const mentorId = mentor?.id;
 
+  const prevIsOpenRef = React.useRef(false);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevIsOpenRef.current) {
       setSelectedOption(null);
       setHasExecuted(false);
       setCurrentNarrative(null);
@@ -164,6 +166,7 @@ export function MentorOfficeModal({
       setIsAway(!present);
       setAwayScene(present ? null : getMentorAwayScene(profile));
     }
+    prevIsOpenRef.current = isOpen;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mentorId]);
 

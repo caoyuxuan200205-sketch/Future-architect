@@ -4866,6 +4866,7 @@ export function GamePage() {
     });
   }, []);
 
+  // 伴侣与表白羁绊状态（支持多对象）
   const handleLibrarySelect = useCallback(() => {
     if (!isShenQinghuaiUnlocked) {
       setIsShenQinghuaiUnlocked(true);
@@ -7479,7 +7480,7 @@ export function GamePage() {
         {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "map" && (
           <>
             <MobileMapView
-              partners={partners}
+          partners={partners}
           confessedNpcIds={confessedNpcIds}
           onAcceptConfession={handleAcceptConfession}
           onMarkConfessed={handleMarkConfessed}
@@ -7548,7 +7549,7 @@ export function GamePage() {
               semesterLabel={SEMESTER_LABELS[semester]}
               semester={semester}
               round={round}
-              partners={partners}
+          partners={partners}
           confessedNpcIds={confessedNpcIds}
           onAcceptConfession={handleAcceptConfession}
           onMarkConfessed={handleMarkConfessed}
