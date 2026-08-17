@@ -467,6 +467,16 @@ export const EVENT_META: Record<string, EventMeta> = {
     theme: "job", mood: "positive", baseWeight: 1.2,
     stateGate: (s) => clampFactor(s.logic >= 45 ? 1.6 : 1.0),
   },
+
+  // ---------- 多伴侣修罗场线 social/mentor ----------
+  // 由 GamePage EVENTS 的 condition 按 partners 列表挂载，这里只配置节奏权重
+  "e87": { theme: "social", mood: "negative", baseWeight: 2.2 },
+  "e88": { theme: "social", mood: "negative", baseWeight: 2.2 },
+  "e89": { theme: "social", mood: "negative", baseWeight: 2.2 },
+  "e90": {
+    theme: "mentor", mood: "negative", baseWeight: 2.6,
+    stateGate: (s) => clampFactor(s.mentorFavorability >= 85 ? 1.3 : 1.0),
+  },
 };
 
 // ================================================================
@@ -513,7 +523,7 @@ function getMeta(eventId: string): EventMeta {
 export interface CausalEventLike {
   id: string;
   type?: "positive" | "negative";
-  condition?: (ctx: { stats: CausalStats; isOverseas: boolean; semester: number }) => boolean;
+  condition?: (ctx: { stats: CausalStats; isOverseas: boolean; semester: number; partners: string[] }) => boolean;
 }
 
 /**
@@ -523,7 +533,7 @@ export interface CausalEventLike {
  * @param seenIds     已触发过的事件 ID（用于一次性事件过滤）
  * @param stats       当前属性
  * @param memory      行为记忆
- * @param ctx         上下文（isOverseas、semester）
+ * @param ctx         上下文（isOverseas、semester、partners 伴侣列表）
  * @returns 命中的事件对象；若无可用事件返回 null
  */
 export function getCausalEvent<T extends CausalEventLike>(
@@ -531,12 +541,12 @@ export function getCausalEvent<T extends CausalEventLike>(
   seenIds: Set<string>,
   stats: CausalStats,
   memory: ActionMemory,
-  ctx: { isOverseas: boolean; semester: number },
+  ctx: { isOverseas: boolean; semester: number; partners: string[] },
 ): T | null {
   // 1. 过滤可见事件：保持原有 condition 检查 + 已见过滤
   const available = events.filter((e) => {
     if (seenIds.has(e.id)) return false;
-    if (e.condition && !e.condition({ stats, isOverseas: ctx.isOverseas, semester: ctx.semester })) return false;
+    if (e.condition && !e.condition({ stats, isOverseas: ctx.isOverseas, semester: ctx.semester, partners: ctx.partners })) return false;
     return true;
   });
   if (available.length === 0) return null;

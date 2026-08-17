@@ -37,11 +37,16 @@ import {
   SHEN_QINGHUAI_FIRST_MEET,
   DAILY_VISIT_GREETINGS,
   CONFESSION_SCRIPTS,
+  getPortraitClickLines,
+  getPortraitBubbleTop,
+  getPortraitBubbleAlign,
+  getPortraitClickZones,
   type ConfessionChoice,
   type PeerProfile,
   type PeerOption,
   type DialogueTurn,
 } from "../npc/peerData";
+import { PortraitClickLayer } from "./PortraitClickLayer";
 
 export interface PeerVisitModalProps {
   isOpen: boolean;
@@ -329,6 +334,14 @@ export function PeerVisitModal({
                 alt={profile.name}
                 className="max-h-full max-w-full w-auto h-auto object-contain transition-all duration-700 animate-avg-breathe"
                 style={{ filter: "brightness(1.02) contrast(1.04)" }}
+              />
+              {/* 立绘点击互动：点击位置涟漪 + 角色即兴台词 */}
+              <PortraitClickLayer
+                lines={getPortraitClickLines(characterId, isPartner)}
+                zones={getPortraitClickZones(characterId)}
+                disabled={isDialoguePlaying}
+                bubbleTop={getPortraitBubbleTop(characterId)}
+                bubbleAlign={getPortraitBubbleAlign(characterId)}
               />
             </div>
           </div>

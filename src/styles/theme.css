@@ -299,5 +299,107 @@
   will-change: transform;
 }
 
+/* —— 立绘点击互动：涟漪扩散动画 —— */
+@keyframes portrait-ripple-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(0.15);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes portrait-ripple-core {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+}
+
+.portrait-ripple-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 104px;
+  height: 104px;
+  border: 3px solid rgba(244, 114, 182, 0.95);
+  border-radius: 9999px;
+  box-shadow: 0 0 18px rgba(244, 114, 182, 0.45);
+  pointer-events: none;
+  animation: portrait-ripple-ring 0.75s ease-out forwards;
+}
+
+.portrait-ripple-core {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(251, 113, 133, 1) 0%, rgba(251, 113, 133, 0) 70%);
+  box-shadow: 0 0 14px rgba(251, 113, 133, 0.8);
+  pointer-events: none;
+  animation: portrait-ripple-core 0.55s ease-out forwards;
+}
+
+/* —— 立绘点击互动：台词气泡弹入 —— */
+@keyframes portrait-speech-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.portrait-speech-bubble {
+  position: relative;
+  animation: portrait-speech-in 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 尾巴朝下（居中气泡） */
+.speech-tail-bottom::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid rgba(6, 12, 22, 0.88);
+}
+
+/* 尾巴朝右（气泡在左侧，指向右边的人物） */
+.speech-tail-right::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 7px solid rgba(6, 12, 22, 0.88);
+}
+
+/* 尾巴朝左（气泡在右侧，指向左边的人物） */
+.speech-tail-left::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-right: 7px solid rgba(6, 12, 22, 0.88);
+}
+
 
 

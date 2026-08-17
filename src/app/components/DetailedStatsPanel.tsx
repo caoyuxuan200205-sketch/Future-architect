@@ -933,7 +933,7 @@ export function DetailedStatsPanel({
                   ● 在读·随时入职
                 </span>
               </div>
-              <div className="mt-3 space-y-1 text-[12.5px] text-slate-300">
+              <div className="mt-3 space-y-1 pl-4 text-[12.5px] text-slate-300">
                 <p className="flex items-center gap-1.5">
                   <span className="text-slate-400">求职意向：</span>
                   <strong className="text-white font-medium">{selectedTrack.name}</strong>
@@ -956,7 +956,7 @@ export function DetailedStatsPanel({
                 <h3 className="font-bold text-white text-sm tracking-wide">教育背景 (Education)</h3>
               </div>
 
-              <div className="space-y-3.5 text-[12.5px]">
+              <div className="space-y-3.5 pl-4 text-[12.5px]">
                 <div>
                   <div className="flex items-center justify-between gap-2">
                     <h4 className="text-[14px] font-bold text-slate-100">{playerSchool}</h4>
@@ -996,7 +996,7 @@ export function DetailedStatsPanel({
                 <Sparkles className="text-emerald-400" size={16} />
                 <h3 className="font-bold text-white text-sm tracking-wide">核心专业优势</h3>
               </div>
-              <div className="space-y-1.5 text-xs text-slate-300">
+              <div className="space-y-1.5 pl-4 text-xs text-slate-300">
                 {strengths.map((s, i) => (
                   <p key={i} className="flex items-start gap-1.5 leading-relaxed">
                     <span className="text-emerald-400 font-bold">•</span>
@@ -1012,7 +1012,7 @@ export function DetailedStatsPanel({
                 <Wallet className="text-amber-400" size={16} />
                 <h3 className="font-bold text-white text-sm tracking-wide">资金与资源储备</h3>
               </div>
-              <div className="space-y-2 text-xs">
+              <div className="space-y-2 pl-4 text-xs">
                 <div className="flex justify-between py-1 border-b border-white/[.04]">
                   <span className="text-slate-400">储蓄流动资金</span>
                   <span className="font-mono font-bold text-emerald-400 text-sm">
@@ -1035,7 +1035,7 @@ export function DetailedStatsPanel({
                   <span className="text-amber-400 text-xs">✦</span>
                   <h3 className="font-bold text-white text-sm tracking-wide">已解锁特质 ({activePerks.length})</h3>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 pl-4">
                   {activePerks.map((perk) => (
                     <span
                       key={perk.id}
@@ -1071,7 +1071,7 @@ export function DetailedStatsPanel({
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-white/[.06]">
+              <div className="divide-y divide-white/[.06] pl-4">
                 {[...pastInternships].reverse().map((internship, idx) => (
                   <ResumeInternshipRow
                     key={`${internship.id}-${idx}`}

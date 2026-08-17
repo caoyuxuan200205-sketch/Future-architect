@@ -1309,7 +1309,6 @@ function ChatDetail({
                   ? TONE_BUBBLE_COLOR[msg.tone]
                   : "rgba(148, 163, 184, 0.16)"
                 : "rgba(201, 168, 76, 0.18)";
-              const toneLabel = isNpc && msg.tone ? TONE_LABEL[msg.tone] : null;
               return (
                 <div key={msg.id} className={`flex animate-[fadein_0.28s_ease-out] items-end gap-2 ${isNpc ? "justify-start" : "justify-end"}`}>
                   {/* NPC 头像（仅 NPC 消息显示，且在气泡左侧底部对齐） */}
@@ -1334,6 +1333,14 @@ function ChatDetail({
                     >
                       {msg.text}
                     </div>
+                    {isNpc && typeof msg.favorDelta === "number" && msg.favorDelta !== 0 && (
+                      <p
+                        className="mt-1 text-[11px] font-semibold tracking-[0.06em]"
+                        style={{ color: msg.favorDelta >= 0 ? "#f9a8d4" : "#ef9a9a" }}
+                      >
+                        {msg.favorDelta >= 0 ? `💗 好感 +${msg.favorDelta}` : `💔 好感 ${msg.favorDelta}`}
+                      </p>
+                    )}
                     <p className={`mt-0.5 text-[11px] text-slate-600 ${isNpc ? "text-left" : "text-right"}`}>{msg.timeLabel}</p>
                   </div>
                 </div>

@@ -9,7 +9,10 @@ export type EventBranchStatKey =
     | "money"
     | "selfDoubt"
     | "ageAnxiety"
-    | "mentorFavorability";
+    | "mentorFavorability"
+    | "commercial"
+    | "reputation"
+    | "thesisScore";
 
 export interface EventBranchOption {
     id: string;
@@ -17,6 +20,20 @@ export interface EventBranchOption {
     tag: string;
     effects: Partial<Record<EventBranchStatKey, number>>;
     resultText: string;
+    /** 选项属性门槛：未达标时锁定不可选（如"顶级端水话术"需跨职能拉通 ≥ 60）；key 可为任意 Stats 字段名 */
+    requireStat?: { key: string; min: number };
+    /** NPC 专属好感度变化（npcId → 增减值），用于修罗场等多对象事件 */
+    npcEffects?: Record<string, number>;
+    /** 将该好感变化分摊给所有「未在 npcEffects 中列出的」当前伴侣（修罗场连锁反应） */
+    npcEffectsOtherPartners?: number;
+    /** 条件变体：选择时若指定属性达标，改用变体的效果与结果（如导师好感 ≥ 85 网开一面） */
+    variant?: {
+        when: { stat: EventBranchStatKey; min: number };
+        tag?: string;
+        effects: Partial<Record<EventBranchStatKey, number>>;
+        npcEffects?: Record<string, number>;
+        resultText: string;
+    };
 }
 
 export const EVENT_BRANCHES: Record<string, EventBranchOption[]> = {
@@ -2789,6 +2806,161 @@ export const EVENT_BRANCHES: Record<string, EventBranchOption[]> = {
                 "selfDoubt": -8
             },
             "resultText": "你匿名发帖《如何用1/0系统论回答大厂总监的深夜拷问》，一夜斩获十万浏览和三千收藏，数百名大厂打工人直呼‘学到了’，猎头更是把你的私信塞得水泄不通。"
+        }
+    ],
+    "e87": [
+        {
+            "id": "A",
+            "label": "强行端水：大家都是同门，一帆快来尝尝蛋糕，白栩也尝尝咖啡！",
+            "tag": "高情商端水",
+            "effects": {
+                "stress": -5
+            },
+            "npcEffects": {
+                "zhang_yifan": -3,
+                "bai_xu": -3
+            },
+            "resultText": "你把蛋糕往一帆面前推，又把咖啡往白栩面前推，打着哈哈圆场。两人各怀心思地冷笑一声——张一帆一口闷掉咖啡说要回去改方案，白栩放下蛋糕盒说宿舍还有面粉要筛。三分钟后工位空了，只剩你对着一桌渐渐凉掉的茶点，忽然觉得空调有点冷。"
+        },
+        {
+            "id": "B",
+            "label": "（接过一帆的咖啡）我们在对模型大样，白栩你先放桌上回去自习吧。",
+            "tag": "当众偏爱",
+            "effects": {
+                "selfDoubt": 5
+            },
+            "npcEffects": {
+                "zhang_yifan": 8,
+                "bai_xu": -15
+            },
+            "resultText": "张一帆眉眼间的笑意藏都藏不住，故意把椅子拉近了几厘米，扬言要帮你把大样图渲染到位。白栩僵在原地，耳尖从粉涨到红、又从红褪到白，最后轻轻把玛德琳放在桌角，用蚊子般的声音说了句‘学长记得吃’，转身离开时后颈都是红的。当晚你在微信上收到一个‘晚安’的表情，莫名心里一沉。"
+        },
+        {
+            "id": "C",
+            "label": "（咬一口蛋糕又喝一口咖啡）一帆的咖啡配白栩的甜品简直绝配，有你们在，我改图一辈子都不累。",
+            "tag": "顶级端水",
+            "requireStat": {
+                "key": "alignment",
+                "min": 60
+            },
+            "effects": {
+                "stress": 8
+            },
+            "npcEffects": {
+                "zhang_yifan": 5,
+                "bai_xu": 5
+            },
+            "resultText": "你先咬了一口玛德琳，再啜一口手冲，一脸真诚地赞叹风味互补，又顺势感慨一句‘咖啡配甜品，天生一对’。两人同时愣住，又几乎同时红了耳尖。张一帆挠头说以后每天帮你冲咖啡，白栩小声说那他每天带甜品。火药味散了，取而代之的是一种微妙的甜蜜——你淡定地继续改图，深藏功与名。"
+        }
+    ],
+    "e88": [
+        {
+            "id": "A",
+            "label": "挑起路线之辩：陆师兄主张商业闭环，沈师兄坚持古建纯粹，你们先辩，谁说服我听谁的。",
+            "tag": "坐山观虎斗",
+            "effects": {
+                "arch": 6,
+                "commercial": 6,
+                "stress": -10
+            },
+            "resultText": "两人对视一眼，当场展开神级学术对决。陆予忱甩出一份 SWOT 推演，论证‘营造遗产 IP 参数化变现是最优解’；沈清淮翻着《营造学社汇刊》逐页反驳‘建筑的温度不能折现’。两人从午后辩到闭馆铃响，旁听的你被两边轮番轰炸，头大如斗——但确实学到了真东西。"
+        },
+        {
+            "id": "B",
+            "label": "沈师兄帮我把关学术底蕴，陆师兄帮我规划商业前途，缺少你们任何一个我都无法毕业。",
+            "tag": "端水大师",
+            "effects": {},
+            "npcEffects": {
+                "lu_yuchen": 5,
+                "shen_qinghuai": 5
+            },
+            "resultText": "这句话精准命中要害。陆予忱合上笔记本推了推金丝眼镜：‘逻辑闭环成立，职业路径归我。’沈清淮也合上手稿微微一笑：‘那学术脉络归我，两边都不能落下。’两人对视一眼，竟默契地达成了分工。你坐在中间，第一次体会到被两位大佬同时 carry 的感觉——代价是良心上有一点点过不去。"
+        },
+        {
+            "id": "C",
+            "label": "（当场手滑）把给陆师兄买的限量领夹，顺手递给了沈学长",
+            "tag": "大型翻车",
+            "effects": {
+                "reputation": -5
+            },
+            "npcEffects": {
+                "lu_yuchen": -15,
+                "shen_qinghuai": -15
+            },
+            "resultText": "礼物盒打开的瞬间，空气凝固了。陆予忱一眼认出那只领夹——他购物车里躺了很久没舍得下单的限量款。两人缓缓抬头，目光在空中交汇，又同时落到你身上。‘原来如此。’他们异口同声，语气平静得可怕。这天之后，图书馆三楼少了两位常客，而‘建筑系有人脚踏两条船’的传闻，开始在书架间悄悄流传。"
+        }
+    ],
+    "e89": [
+        {
+            "id": "A",
+            "label": "迅速挣扎落地：舍友日常打闹而已，我们每天都这样！",
+            "tag": "装傻充愣",
+            "effects": {},
+            "npcEffects": {
+                "jiang_huai": -2
+            },
+            "npcEffectsOtherPartners": -3,
+            "resultText": "江淮不情不愿地把你放下，捏着你脸颊撇嘴：‘什么叫打闹，我这是正经公主抱。’来送图纸的对象目光在他无袖背心上扫过，又落在你涨红的脸上，慢慢把图纸卷放在桌上：‘你们……感情真好。’语气冷得像冰柜，眼神里的狐疑怎么也藏不住。"
+        },
+        {
+            "id": "B",
+            "label": "大方承认：别多想，他就是我的力量担当。",
+            "tag": "官宣现场",
+            "effects": {},
+            "npcEffects": {
+                "jiang_huai": 6
+            },
+            "npcEffectsOtherPartners": -10,
+            "resultText": "江淮豪迈大笑，当场把你又举高了一截炫耀：‘听见没！我室友，眼光顶级！’另一位对象的脸肉眼可见地黑了，醋坛子打翻在地，把图纸卷往你怀里一塞：‘那你力气大，图纸自己扛。’转身出门前还补了一句：‘祝你们幸福。’门被甩得震天响，江淮挠头：‘他怎么了？’"
+        },
+        {
+            "id": "C",
+            "label": "当场提议：今晚宿舍火锅联谊，谁都不许走！（消耗 500 元）",
+            "tag": "火锅破冰",
+            "requireStat": {
+                "key": "money",
+                "min": 1
+            },
+            "effects": {
+                "money": -1,
+                "network": 8
+            },
+            "resultText": "当晚 502 宿舍的火锅咕嘟作响，白雾蒸腾间，下午的尴尬被翻滚的红油涮得一干二净。江淮跟送图纸的对象勾肩搭背对吹了一瓶王老吉，两人从陌生人变成了约球兄弟。你端着漏勺站在中间，深藏功与名——世上没有一顿火锅化解不了的尴尬，如果有，那就再加一盘毛肚。"
+        }
+    ],
+    "e90": [
+        {
+            "id": "A",
+            "label": "霍然起身：老师，我们正在讨论综述框架，我现在就给您汇报！",
+            "tag": "学术遮羞布",
+            "effects": {
+                "thesisScore": 5,
+                "stress": -15
+            },
+            "resultText": "你硬着头皮把对象拉到投影前，现场汇报了四十分钟文献综述框架。导师黑着脸听完，从鼻腔里哼出一声：‘讨论得这么投入，下周交 5 万字综述。’散会后对象冲你直吐舌头，从此两人只敢在文献页边距里传小纸条。说来也怪，你的论文进度竟然真的因此快了一截。"
+        },
+        {
+            "id": "B",
+            "label": "组会散场后，独自敲开导师办公室的门，如实坦白。",
+            "tag": "坦白从宽",
+            "effects": {
+                "mentorFavorability": -10,
+                "stress": -8
+            },
+            "resultText": "导师听完你的坦白，手里的茶慢慢凉了。长久的沉默后，他摆摆手：‘你们的私事我不管。但记住——答辩日期不会等人。’你退出办公室时后背全是汗，知道这一关虽然没有挨骂，但某些印象分已经打了折扣。",
+            "variant": {
+                "when": {
+                    "stat": "mentorFavorability",
+                    "min": 85
+                },
+                "tag": "网开一面",
+                "effects": {
+                    "mentorFavorability": -2,
+                    "stress": 4,
+                    "selfDoubt": -4
+                },
+                "resultText": "导师听完你的坦白，先是错愕，随即指着笑骂：‘你这小兔崽子，眼光倒是不差。’他叹了口气压低声音，语气里藏着一丝不易察觉的酸意：‘那孩子……确实不错。但你要是敢耽误课题，我拿你们是问。’你走出办公室时，走廊的阳光正好——这一关，算是过了。"
+            }
         }
     ]
 };

@@ -227,6 +227,11 @@ export function pushFreeChat(
     ? pool[Math.floor(Math.random() * pool.length)]
     : (NPC_REGISTRY[npcId]?.awayText ?? "…");
 
+  // 轻量好感扰动：±1（先算出实际变化，附在回复消息上供 UI 展示）
+  const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
+  const newFavor = Math.max(0, Math.min(100, bond.favorability + drift));
+  const favorDelta = newFavor - bond.favorability;
+
   const { state: s2, message: npcMsg } = pushMessage(s1, {
     npcId,
     from: "npc",
@@ -235,11 +240,8 @@ export function pushFreeChat(
     round,
     timeLabel: makeTimeLabel(),
     read: false,
+    ...(favorDelta !== 0 ? { favorDelta } : {}),
   });
-
-  // 轻量好感扰动：±1
-  const drift = Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : -1);
-  const newFavor = Math.max(0, Math.min(100, bond.favorability + drift));
 
   return {
     ...s2,
@@ -381,9 +383,18 @@ const SECOND_GREETING_BUSY_TEXT: Record<string, string> = {
   college_friend: "（顾小北正在上课，暂时没有回复你。）",
 };
 
+/** 单回合打招呼达到该次数触发"爆发"（厌恶惩罚 + 导师专属爆发剧情） */
+const GREETING_STORM_THRESHOLD = 5;
+/** 触发爆发时的好感度惩罚 */
+const GREETING_STORM_FAVOR_PENALTY = 5;
+
 /**
- * 玩家每回合可在电脑微信界面主动给每个 NPC 发一条消息（首次发送主动加好感 +2，上限 100）
- * 本回合发送第 2 条及以上消息时，NPC 会显示忙碌/已读未回提示，且不再增加好感度
+ * 玩家每回合可在电脑微信界面主动给每个 NPC 发消息：
+ * - 首次发送：NPC 积极回复，好感 +2（上限 100）
+ * - 第 2~4 条：NPC 忙碌不理会，不加好感
+ * - 第 5 条：触发爆发——NPC 明确反感（好感 -5、进入激怒冷却），
+ *   导师额外触发 professor_storm_out 办公室训话剧情
+ * - 激怒冷却期内再发：返回专属冷却文案，不再产生任何好感变化
  */
 export function sendGreeting(
   state: SocialState,
@@ -397,6 +408,42 @@ export function sendGreeting(
   const playerText = customText?.trim() || "（打了个招呼）";
   const bond = getBond(state, npcId);
   const totalRound = round;
+
+  // —— 激怒冷却期：本回合已爆发过，再发只回冷却文案 ——
+  if (bond.enragedLocked && bond.lastGreetingsResetRound === totalRound) {
+    const cooldownText =
+      GREETING_COOLDOWN_TEXT[npcId] ||
+      "（对方没有回复你。）";
+
+    const { state: s1, message: playerMsg } = pushMessage(state, {
+      npcId,
+      from: "player",
+      text: playerText,
+      round,
+      timeLabel: makeTimeLabel(),
+      read: true,
+    });
+    const { state: s2, message: npcMsg } = pushMessage(s1, {
+      npcId,
+      from: "npc",
+      text: cooldownText,
+      tone: "cold",
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+    });
+    return {
+      ...s2,
+      bonds: {
+        ...s2.bonds,
+        [npcId]: {
+          ...bond,
+          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+          lastInteractionRound: round,
+        },
+      },
+    };
+  }
 
   // —— 本回合已发送消息计数（每回合重置） ——
   const greetingsThisRound =
@@ -416,13 +463,16 @@ export function sendGreeting(
     read: true,
   });
 
-  // 2. 判定是本回合第 1 条还是后续消息
+  // 2. 判定是本回合第 1 条 / 爆发条 / 后续忙碌消息
   if (greetingsThisRound === 0) {
     // 首次发送：NPC 积极回复并主动增加好感度 +2（上限 100）
     const replyText =
       FIRST_GREETING_REPLIES[npcId] ||
       npc.greeting ||
       "收到了，随时保持联系！";
+
+    const newFavor = Math.min(100, (bond.favorability ?? 30) + 2);
+    const favorDelta = newFavor - (bond.favorability ?? 30);
 
     const { state: s2, message: npcMsg } = pushMessage(s1, {
       npcId,
@@ -432,9 +482,9 @@ export function sendGreeting(
       round,
       timeLabel: makeTimeLabel(),
       read: false,
+      ...(favorDelta !== 0 ? { favorDelta } : {}),
     });
 
-    const newFavor = Math.min(100, (bond.favorability ?? 30) + 2);
     return {
       ...s2,
       bonds: {
@@ -449,8 +499,50 @@ export function sendGreeting(
         },
       },
     };
+  } else if (nextCount >= GREETING_STORM_THRESHOLD) {
+    // 第 5 条：爆发——NPC 明确反感，好感 -5，进入激怒冷却
+    const stormText =
+      GREETING_STORM_START[npcId] ||
+      "（对方终于忍无可忍：「别再发了。」）";
+
+    const newFavor = Math.max(0, (bond.favorability ?? 30) - GREETING_STORM_FAVOR_PENALTY);
+    const favorDelta = newFavor - (bond.favorability ?? 30);
+
+    const { state: s2, message: npcMsg } = pushMessage(s1, {
+      npcId,
+      from: "npc",
+      text: stormText,
+      tone: "cold",
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+      ...(favorDelta !== 0 ? { favorDelta } : {}),
+    });
+
+    let s3: SocialState = {
+      ...s2,
+      bonds: {
+        ...s2.bonds,
+        [npcId]: {
+          ...bond,
+          favorability: newFavor,
+          greetingsThisRound: nextCount,
+          lastGreetingsResetRound: totalRound,
+          enragedLocked: true,
+          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+          lastInteractionRound: round,
+        },
+      },
+    };
+
+    // 导师专属：挂载办公室训话剧情树（手动触发器）
+    if (npcId === "professor") {
+      s3 = triggerDialogueTree(s3, "professor_storm_out", totalRound);
+    }
+
+    return s3;
   } else {
-    // 第 2 条及以上消息：对方在忙碌，不理会，不增加好感度
+    // 第 2~4 条消息：对方在忙碌，不理会，不增加好感度
     const busyText =
       SECOND_GREETING_BUSY_TEXT[npcId] ||
       "（对方正在忙碌，暂时没有回复你。）";
@@ -659,9 +751,10 @@ export function advanceDialogue(
       newCompleted = Array.from(new Set([...newCompleted, bond.activeTreeId!]));
     }
   } else {
-    // 推下一节点 NPC 消息
+    // 推下一节点 NPC 消息（附上本选项产生的实际好感变化，供 UI 展示）
     const nextNode = tree.nodes[option.nextNodeId];
     if (nextNode) {
+      const favorDeltaActual = newFavor - bond.favorability;
       const { state: s2, message: npcMsg } = pushMessage(next, {
         npcId,
         from: "npc",
@@ -670,6 +763,7 @@ export function advanceDialogue(
         round,
         timeLabel: makeTimeLabel(),
         read: false,
+        ...(favorDeltaActual !== 0 ? { favorDelta: favorDeltaActual } : {}),
       });
       next = s2;
       newActiveNodeId = option.nextNodeId;

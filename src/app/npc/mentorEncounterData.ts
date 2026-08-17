@@ -1674,3 +1674,74 @@ export function generateOfficeDialogueOptions(
 
   return options;
 }
+
+// ================================================================
+// 立绘点击互动台词池（点击导师立绘时的即兴回应）
+// normal：普通师生关系；intimate：好感 ≥ 80（禁忌心动深入阶段）
+// ================================================================
+
+export const MENTOR_CLICK_LINES: Record<string, { normal: string[]; intimate: string[] }> = {
+  academic: {
+    normal: [
+      "手放好。图纸不会因为你碰它就变好。",
+      "你的精力若用在文献上，早就开题了。",
+      "……这次，我当作没看见。",
+      "有问题用嘴问，不是用手。",
+    ],
+    intimate: [
+      "办公室里……注意影响。",
+      "咳。门没锁，你别得寸进尺。",
+      "下周一组会你最好准备充分。……还有，咖啡谢谢。",
+      "我带过十几个学生，就你最不让人省心。",
+    ],
+  },
+  hands_off: {
+    normal: [
+      "嗯？有事儿说事儿。",
+      "年轻人精力是真旺盛啊。",
+      "别戳了，我这外套挺贵的。",
+      "怎么，又缺经费了？",
+    ],
+    intimate: [
+      "行了行了，被人看见我这老脸往哪搁。",
+      "你啊……比我当年胆子大多了。",
+      "今晚有空的话……算了，先把你的图改完。",
+      "我这人散漫，但你的事，我记着呢。",
+    ],
+  },
+  practice: {
+    normal: [
+      "干嘛？工地上可没人惯着你。",
+      "手闲就去画两个大样。",
+      "行了，回去干活。",
+      "这点小动作，甲方桌上见多了。",
+    ],
+    intimate: [
+      "胆子不小，敢在办公室动手动脚。",
+      "……就这一次，下不为例。",
+      "等这个项目结了，再说你的事。",
+      "我做事讲效率——你要说什么，直接点。",
+    ],
+  },
+  overseas: {
+    normal: [
+      "Excuse me？注意一下 office etiquette。",
+      "在国外的 lab，这样是要发邮件道歉的。",
+      "哈哈，你们年轻人真是有意思。",
+      "Sorry，我的 personal space 可是有红线的。",
+    ],
+    intimate: [
+      "Shh……隔壁办公室的 colleague 还在。",
+      "你让我想起我在剑桥带过最调皮的学生……也是我现在的偏心。",
+      "Well……coffee break 时间，可以陪你十分钟。",
+      "Keep this between us，好吗？",
+    ],
+  },
+};
+
+/** 按导师类型与好感度取点击台词池（好感 ≥ 80 视为禁忌心动深入阶段） */
+export function getMentorClickLines(mentorId: string, favorability: number): string[] {
+  const type = normalizeMentorType(mentorId);
+  const entry = MENTOR_CLICK_LINES[type] ?? MENTOR_CLICK_LINES.academic;
+  return favorability >= 80 ? entry.intimate : entry.normal;
+}

@@ -35,12 +35,14 @@ import {
   writeCashGiftRecord,
   canSendCashGiftThisSemester,
   getMentorAwayScene,
+  getMentorClickLines,
   type OfficeDialogueOption,
   type MentorOfficeProfile,
   type MentorAwayScene,
   type GiftDialogueLine,
 } from "../npc/mentorEncounterData";
 import { TONE_LABEL, TONE_BUBBLE_COLOR, toneFromFavorability } from "../npc/npcRegistry";
+import { PortraitClickLayer } from "./PortraitClickLayer";
 import { moneyToBalance, formatYuan } from "../economy/finance";
 import type { ToneTier } from "../npc/types";
 
@@ -463,6 +465,13 @@ export function MentorOfficeModal({
                     alt={profile.name}
                     className="max-h-full max-w-full w-auto h-auto object-contain transition-all duration-700 animate-avg-breathe"
                     style={{ filter: "brightness(1.02) contrast(1.04)" }}
+                  />
+                  {/* 立绘点击互动：点击位置涟漪 + 导师即兴台词 */}
+                  <PortraitClickLayer
+                    lines={getMentorClickLines(profile.mentorId, favorability)}
+                    disabled={isDialoguePlaying}
+                    bubbleTop="30%"
+                    bubbleAlign="left"
                   />
                 </div>
               </div>

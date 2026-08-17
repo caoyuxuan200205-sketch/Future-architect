@@ -47,6 +47,8 @@ export interface NPCMessage {
   timeLabel: string;
   /** 是否已被玩家阅读 */
   read: boolean;
+  /** 该条消息产生时的好感度实际变化（用于在气泡下方展示 💗+N / 💔-N） */
+  favorDelta?: number;
 }
 
 /** 玩家可选择的回复选项 */

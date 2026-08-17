@@ -345,7 +345,7 @@ export const PEER_ROMANCE_OPTIONS: PeerOption[] = [
   {
     id: "romance_deep_kiss",
     category: "romance",
-    label: "接吻",
+    label: "10",
     tag: "至死不渝",
     icon: "🫀",
     description: "在夜幕降临的工位深处，双手捧起少年的脸，交换炽热深情的吻。",
@@ -2600,3 +2600,175 @@ export const PARTNER_BUFF_DEFINITIONS: Record<string, PartnerBuffInfo> = {
     buffSummary: "每回合论文进度 +6分、科研津贴 +1500元、导师好感锁定满分",
   },
 };
+
+// ================================================================
+// 立绘点击互动台词池（点击立绘时的即兴回应）
+// normal：未确立恋爱关系；partner：已成为恋人
+// ================================================================
+
+export interface PortraitClickLinePool {
+  normal: string[];
+  partner: string[];
+}
+
+export const PORTRAIT_CLICK_LINES: Record<string, PortraitClickLinePool> = {
+  zhang_yifan: {
+    normal: [
+      "别闹，大家都看着呢。",
+      "师兄！别戳啦，我的冰美式要洒了！",
+      "再闹，我就把你的轴网偷偷改成异形曲面哦？",
+      "诶嘿嘿……手怎么凉凉的，是不是又熬夜画图了？",
+      "哎呀，鼠标都要被你抢走了啦！",
+    ],
+    partner: [
+      "唔……这里可是 302 工作室诶。",
+      "再戳就要收费了哦，一杯生椰拿铁，谢谢师兄。",
+      "乖啦，今晚陪你通宵改图好不好？",
+      "被你这样看着，我连 Grasshopper 都要接错线了……",
+    ],
+  },
+  lu_yuchen: {
+    normal: [
+      "请注意你的行为边界。",
+      "……简历改完了吗？",
+      "我的耐心是有置信区间的，建议你先查一下。",
+      "再这样，我要把你从我的最优解里移除了。",
+      "……这次，我当作没发生。",
+    ],
+    partner: [
+      "……下不为例。",
+      "你现在的心率，已经超出静息阈值了。",
+      "别闹。……不过，手可以牵。",
+      "我的逻辑闭环，遇到你就永远缺一个条件。",
+    ],
+  },
+  bai_xu: {
+    normal: [
+      "学长！痒痒！嘿嘿~",
+      "呜，别戳脸啦，会变大饼脸的！",
+      "学长是不是饿了？我刚烤了玛德琳，给你拿！",
+      "学长的手指好长哦……啊，我不是那个意思！",
+      "嘿嘿，学长是在跟我玩点一点的游戏吗？",
+    ],
+    partner: [
+      "学长最好了！再摸一下也可以哦~",
+      "嘿嘿，被学长逮到了！那我就不跑啦。",
+      "学长的手心好温暖，想一直被这样摸头~",
+      "学长学长，我今天超乖的，要奖励！",
+    ],
+  },
+  jiang_huai: {
+    normal: [
+      "喂！摸肌肉要收费的啊！",
+      "哈哈哈别闹，我刚出的汗！",
+      "怎么，不服？球场单挑去！",
+      "你这一下，还没我发球力度大。",
+      "别碰我球拍啊，那可是我的命根子！",
+    ],
+    partner: [
+      "又偷袭？看我反手一个公主抱！",
+      "手这么凉？来，塞我队服里暖暖。",
+      "乖，等我打完这场，带你去吃烤冷面。",
+      "嘘……别让隔壁床听见，怪不好意思的。",
+    ],
+  },
+  shen_qinghuai: {
+    normal: [
+      "嘘……特藏区要保持安静。",
+      "嗯？我袖口是沾了墨渍吗？",
+      "别闹，这份手稿要被你碰皱了。",
+      "你呀，坐下来，我陪你翻完这一册。",
+      "窗外梧桐正好看，你却在看我？",
+    ],
+    partner: [
+      "你呀……真是拿你没办法。",
+      "手心痒了？我用钢笔给你画一朵小花。",
+      "再这样，我可要把你画进速写本私藏了。",
+      "窗外有人在呢……靠近一点再说。",
+    ],
+  },
+};
+
+/** 沈清淮的双 id 兼容：lab_senior 与 shen_qinghuai 指向同一份台词 */
+PORTRAIT_CLICK_LINES.lab_senior = PORTRAIT_CLICK_LINES.shen_qinghuai;
+PORTRAIT_CLICK_LINES.peer = PORTRAIT_CLICK_LINES.zhang_yifan;
+
+/** 按角色与恋人状态取台词池 */
+export function getPortraitClickLines(characterId: string, isPartner: boolean): string[] {
+  const pool = PORTRAIT_CLICK_LINES[characterId];
+  if (!pool) return [];
+  return isPartner ? pool.partner : pool.normal;
+}
+
+/**
+ * 立绘台词气泡垂直位置（距舞台顶部百分比）
+ * 各立绘构图不同：头部偏高的立绘需要把气泡下移，避免遮挡脸部
+ */
+export const PORTRAIT_BUBBLE_TOP: Record<string, string> = {
+  jiang_huai: "30%",
+  bai_xu: "30%",
+  shen_qinghuai: "30%",
+  zhang_yifan: "24%",
+  lu_yuchen: "13%",
+};
+
+export function getPortraitBubbleTop(characterId: string): string {
+  return PORTRAIT_BUBBLE_TOP[characterId] ?? "13%";
+}
+
+/**
+ * 立绘台词气泡水平对齐（人物居中构图时把气泡挪到左侧空白边，避免遮脸）
+ */
+export const PORTRAIT_BUBBLE_ALIGN: Record<string, "center" | "left" | "right"> = {
+  jiang_huai: "left",
+  bai_xu: "left",
+  shen_qinghuai: "left",
+  zhang_yifan: "left",
+  lu_yuchen: "right",
+};
+
+export function getPortraitBubbleAlign(characterId: string): "center" | "left" | "right" {
+  return PORTRAIT_BUBBLE_ALIGN[characterId] ?? "center";
+}
+
+/**
+ * 立绘点击热区（舞台百分比坐标矩形 + 专属台词池）
+ * 点击热区内走个性化回应，热区外保持随机台词
+ */
+export const PORTRAIT_CLICK_ZONES: Record<
+  string,
+  { rect: [number, number, number, number]; lines: string[] }[]
+> = {
+  jiang_huai: [
+    {
+      // 裤子 / 下半身区域：更娇羞慌乱的反应
+      rect: [24, 80, 78, 100],
+      lines: [
+        "喂！那里不行啦……",
+        "你、你手往哪儿放呢！",
+        "哈哈哈痒！别闹了别闹了！",
+        "裤子有什么好戳的啦……变态。",
+        "再戳我可要脸红了啊……",
+      ],
+    },
+  ],
+  zhang_yifan: [
+    {
+      // 腰胯 / 下半身区域：带点撩的涩感反应
+      rect: [20, 78, 80, 100],
+      lines: [
+        "师兄……手放哪呢，我会当真的哦。",
+        "这里不行啦……会被路过的同门看到的。",
+        "再闹……今晚的图，我可就贴着画了。",
+        "再摸！再摸就大了！",
+        "唔……再往下，就要收费了——收你一辈子那种。",
+      ],
+    },
+  ],
+};
+
+export function getPortraitClickZones(
+  characterId: string,
+): { rect: [number, number, number, number]; lines: string[] }[] {
+  return PORTRAIT_CLICK_ZONES[characterId] ?? [];
+}

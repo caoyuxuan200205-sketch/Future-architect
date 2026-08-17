@@ -196,6 +196,19 @@ const STAT_META: Record<string, { label: string; positive: boolean; color: strin
   thesisScore:        { label: "毕业论文",   positive: true,  color: "#7c4dff" },
 };
 
+/** 修罗场等多对象事件结算面板使用的 NPC 显示名 */
+const EVENT_NPC_NAMES: Record<string, string> = {
+  zhang_yifan: "张一帆",
+  peer: "张一帆",
+  lu_yuchen: "陆予忱",
+  bai_xu: "白栩",
+  jiang_huai: "江淮",
+  shen_qinghuai: "沈清淮",
+  lab_senior: "沈清淮",
+  professor: "导师",
+  mentor: "导师",
+};
+
 interface CharacterInfo {
   name: string;
   undergradTier: number;
@@ -221,7 +234,7 @@ interface GameEvent {
   title: string;
   description: string;
   effects: Partial<Record<StatKey, EffectValue>>;
-  condition?: (ctx: { stats: Stats; isOverseas: boolean; semester: number }) => boolean;
+  condition?: (ctx: { stats: Stats; isOverseas: boolean; semester: number; partners: string[] }) => boolean;
   repeatable?: boolean;
   type?: "positive" | "negative";
 }
@@ -975,6 +988,34 @@ const EVENTS: GameEvent[] = [
     description: "你在交友软件上偶然匹配到了心仪大厂的业务线一号位总监。寒暄两句后，总监发来一条隐晦的数字暗号：“平时你是偏1，还是偏0？”你以为这是大厂最新的底层系统思维与算法哲学考核，当场自信打字：“回总监，我做业务需求时是1（顶在前面主动推进、全栈覆盖），系统高并发锁死时立刻变0（非阻塞异步、甘当底层管道），遇到死锁还能充当二分查找的中间指针！”屏幕对面的总监看完当场倒吸一口凉气，发来一个大大的震惊表情包：“可攻可受、动静皆宜……这是我今年见过最具哲学深度的人才画像！明天九点，带上简历来我办公室！”",
     effects: { logic: 8, expression: 8, selfDoubt: -8 },
     type: "positive",
+  },
+  {
+    id: "e87", title: "工位与甜品的撞车",
+    description: "中大院 302 工位，张一帆刚端着现磨手冲咖啡坐到你身边，白栩学弟忽然提着亲手烘焙的爱心玛德琳蛋糕推门而入，甜甜地喊了声“学长”。两人目光在空气中交汇，咖啡杯与蛋糕盒同时摆上你的桌面，火药味瞬间四溢！",
+    effects: {},
+    condition: ({ partners }) => partners.includes("zhang_yifan") && partners.includes("bai_xu"),
+    type: "negative",
+  },
+  {
+    id: "e88", title: "图书馆三楼的战略对决",
+    description: "陆予忱在图书馆落地窗前帮你逐行修改大厂秋招简历，眼神严谨；此时沈清淮抱着一套厚重的《营造学社》特藏手稿走过来，温和地拉开你身边的椅子。一个要带你冲进商业闭环，一个要陪你守住古建纯粹——你被夹在中间，连呼吸都变得小心翼翼。",
+    effects: {},
+    condition: ({ partners }) => partners.includes("lu_yuchen") && partners.includes("shen_qinghuai"),
+    type: "negative",
+  },
+  {
+    id: "e89", title: "502 宿舍的荷尔蒙领地危机",
+    description: "江淮打完球穿着无袖背心满身大汗回寝室，一把从身后打横抱起你，正好撞见推门来宿舍给你送打印图纸的另一位对象……三个人在门口僵住，走廊尽头甚至传来了室友吃瓜的脚步声。",
+    effects: {},
+    condition: ({ partners }) => partners.includes("jiang_huai") && partners.some((p) => p !== "jiang_huai"),
+    type: "negative",
+  },
+  {
+    id: "e90", title: "终极天谴 · 导师组会公审",
+    description: "周四全组组会，导师批改图纸时突然摘下老花镜，冷冷地盯着你和坐在一起眉来眼去的对象……全场鸦雀无声，所有人都在心里默默为你背诵毕业要求。",
+    effects: {},
+    condition: ({ partners }) => partners.some((p) => p !== "professor" && p !== "mentor"),
+    type: "negative",
   },
 ];
 
@@ -4776,6 +4817,8 @@ export function GamePage() {
   const [chosenAction, setChosenAction] = useState<Action | null>(null);
   const [actionDelta, setActionDelta] = useState<Partial<Stats>>({});
   const [eventDelta, setEventDelta] = useState<Partial<Stats>>({});
+  /** 修罗场等多对象事件产生的 NPC 好感度实际变化（npcId → delta），用于结算面板展示 */
+  const [eventNpcDelta, setEventNpcDelta] = useState<Record<string, number>>({});
   const [ending, setEnding] = useState<Ending | null>(null);
   const [actionNarrative, setActionNarrative] = useState("");
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
@@ -5450,7 +5493,7 @@ export function GamePage() {
         seen,
         causalStats,
         actionMemory,
-        { isOverseas: character?.isOverseas || false, semester: sem },
+        { isOverseas: character?.isOverseas || false, semester: sem, partners },
       );
       if (!ev) {
         setPhase("action_choice");
@@ -5459,7 +5502,7 @@ export function GamePage() {
         setPhase("event_view");
       }
     },
-    [character, actionMemory]
+    [character, actionMemory, partners]
   );
 
   const selectMentor = useCallback(
@@ -5535,6 +5578,40 @@ export function GamePage() {
     [stats, maybeShowEvent, rolledMentorNames]
   );
 
+  /**
+   * 把微信侧引擎（打招呼 / 对话树）产生的好感度变化回写到 AVG 侧本地好感状态，
+   * 实现全双工同步：界面展示、恋爱门槛、伴侣 buff、修罗场事件都读本地状态。
+   */
+  const syncNpcFavorDelta = useCallback((npcId: string, delta: number) => {
+    if (!delta) return;
+    const clampFavor = (v: number) => Math.max(0, Math.min(100, v));
+    switch (npcId) {
+      case "professor":
+      case "mentor":
+        setStats((prev) => (prev ? { ...prev, mentorFavorability: clampFavor(prev.mentorFavorability + delta) } : prev));
+        break;
+      case "zhang_yifan":
+      case "peer":
+        setPeerFavorability((prev) => clampFavor(prev + delta));
+        break;
+      case "lu_yuchen":
+        setLuYuchenFavorability((prev) => clampFavor(prev + delta));
+        break;
+      case "bai_xu":
+        setBaiXuFavorability((prev) => clampFavor(prev + delta));
+        break;
+      case "jiang_huai":
+        setJiangHuaiFavorability((prev) => clampFavor(prev + delta));
+        break;
+      case "shen_qinghuai":
+      case "lab_senior":
+        setShenQinghuaiFavorability((prev) => clampFavor(prev + delta));
+        break;
+      default:
+        break;
+    }
+  }, []);
+
   /** 玩家在消息 Tab 选择回复当前 NPC —— 通过对话树引擎推进 */
   const handleSocialReply = useCallback(
     (option: NPCReplyOption) => {
@@ -5559,21 +5636,14 @@ export function GamePage() {
         });
       };
 
-      setSocialState((prev) =>
-        advanceDialogue(prev, targetNpcId, option.id, applyStatEffects, currentRound),
-      );
-
-      // 把好感度变化同步回 stats.mentorFavorability（仅对 professor）
-      if (targetNpcId === "professor" && option.favorDelta) {
-        setStats((prevStats) => {
-          if (!prevStats) return prevStats;
-          const currentFavor = socialState.bonds.professor?.favorability ?? prevStats.mentorFavorability;
-          const next = Math.max(0, Math.min(100, currentFavor + option.favorDelta));
-          return { ...prevStats, mentorFavorability: next };
-        });
-      }
+      // 同步推进引擎，按前后 bond 差值把好感变化回写到 AVG 侧（全 NPC 通用）
+      const prevFavor = socialState.bonds[targetNpcId]?.favorability ?? 30;
+      const nextSocial = advanceDialogue(socialState, targetNpcId, option.id, applyStatEffects, currentRound);
+      setSocialState(nextSocial);
+      const nextFavor = nextSocial.bonds[targetNpcId]?.favorability ?? prevFavor;
+      syncNpcFavorDelta(targetNpcId, nextFavor - prevFavor);
     },
-    [semester, round, activeSocialNpcId, socialState.bonds.professor?.favorability]
+    [semester, round, activeSocialNpcId, socialState, syncNpcFavorDelta]
   );
 
   /** 进入消息 Tab 时标记当前 NPC 已读 */
@@ -5587,11 +5657,18 @@ export function GamePage() {
     setSocialState((prev) => markAllRead(prev, npcId));
   }, []);
 
-  /** 在联系人 Tab 打招呼 */
+  /** 在联系人 Tab / 消息 Tab 主动发消息（打招呼） */
   const handleSocialGreeting = useCallback((npcId: string, customText?: string) => {
-    setSocialState((prev) => sendGreeting(prev, npcId, (semester - 1) * 4 + round, customText));
+    const totalRound = (semester - 1) * 4 + round;
+    // 同步调用引擎：首条消息 +2 好感，后续消息忙碌不回好感（规则在 sendGreeting 内部）
+    const prevFavor = socialState.bonds[npcId]?.favorability ?? 30;
+    const nextSocial = sendGreeting(socialState, npcId, totalRound, customText);
+    setSocialState(nextSocial);
+    // 把引擎产生的好感变化回写 AVG 侧本地状态，否则界面与恋爱系统看不到加成
+    const nextFavor = nextSocial.bonds[npcId]?.favorability ?? prevFavor;
+    syncNpcFavorDelta(npcId, nextFavor - prevFavor);
     setActiveSocialNpcId(npcId);
-  }, [semester, round]);
+  }, [semester, round, socialState, syncNpcFavorDelta]);
 
   // 角色确认后，进入第一回合（先判断事件）
   const beginFirstRound = useCallback(() => {
@@ -5603,14 +5680,100 @@ export function GamePage() {
   const chooseEventBranch = useCallback((branch: EventBranchOption) => {
     if (!currentEvent || !stats || selectedEventBranch) return;
 
+    // 选项属性门槛：未达标不可选（双保险，UI 层同时锁定）
+    if (branch.requireStat) {
+      const current = (stats as Record<string, number | undefined>)[branch.requireStat.key] ?? 0;
+      if (current < branch.requireStat.min) return;
+    }
+
+    // 条件变体：选择时判定（如导师好感 ≥ 85 触发"网开一面"分支）
+    let resolved = branch;
+    if (branch.variant) {
+      const v = (stats as Record<string, number | undefined>)[branch.variant.when.stat] ?? 0;
+      if (v >= branch.variant.when.min) {
+        resolved = {
+          ...branch,
+          tag: branch.variant.tag ?? branch.tag,
+          effects: branch.variant.effects,
+          npcEffects: branch.variant.npcEffects ?? branch.npcEffects,
+          resultText: branch.variant.resultText,
+        };
+      }
+    }
+
     const newSeen = new Set(seenEventIds);
     newSeen.add(currentEvent.id);
     setSeenEventIds(newSeen);
 
-    const { newStats, delta } = applyEffects(stats, branch.effects);
+    // 汇总 NPC 好感变化：显式 npcEffects + 伴侣连锁分摊
+    const npcDeltas: Record<string, number> = { ...(resolved.npcEffects ?? {}) };
+    if (resolved.npcEffectsOtherPartners !== undefined) {
+      for (const pId of partners) {
+        if (!(pId in npcDeltas)) npcDeltas[pId] = resolved.npcEffectsOtherPartners;
+      }
+    }
+
+    // 导师好感并入 stats.mentorFavorability 走统一结算
+    const statEffects: Record<string, number> = { ...resolved.effects };
+    for (const key of ["professor", "mentor"]) {
+      if (npcDeltas[key] !== undefined) {
+        statEffects.mentorFavorability = (statEffects.mentorFavorability ?? 0) + npcDeltas[key];
+        delete npcDeltas[key];
+      }
+    }
+
+    const { newStats, delta } = applyEffects(stats, statEffects);
     setStats(newStats);
     setEventDelta(delta);
-    setSelectedEventBranch(branch);
+
+    // NPC 专属好感结算（clamp 0-100，记录实际变化供结算面板展示）
+    if (Object.keys(npcDeltas).length > 0) {
+      const clampFavor = (v: number) => Math.max(0, Math.min(100, v));
+      const currentFavor: Record<string, number> = {
+        zhang_yifan: peerFavorability,
+        peer: peerFavorability,
+        lu_yuchen: luYuchenFavorability,
+        bai_xu: baiXuFavorability,
+        jiang_huai: jiangHuaiFavorability,
+        shen_qinghuai: shenQinghuaiFavorability,
+        lab_senior: shenQinghuaiFavorability,
+      };
+      const applyFavor = (d: number) => (prev: number) => clampFavor(prev + d);
+      const actual: Record<string, number> = {};
+      for (const [npcId, d] of Object.entries(npcDeltas)) {
+        const prev = currentFavor[npcId];
+        if (typeof prev !== "number") continue;
+        actual[npcId] = clampFavor(prev + d) - prev;
+      }
+      for (const [npcId, d] of Object.entries(npcDeltas)) {
+        switch (npcId) {
+          case "zhang_yifan":
+          case "peer":
+            setPeerFavorability(applyFavor(d));
+            break;
+          case "lu_yuchen":
+            setLuYuchenFavorability(applyFavor(d));
+            break;
+          case "bai_xu":
+            setBaiXuFavorability(applyFavor(d));
+            break;
+          case "jiang_huai":
+            setJiangHuaiFavorability(applyFavor(d));
+            break;
+          case "shen_qinghuai":
+          case "lab_senior":
+            setShenQinghuaiFavorability(applyFavor(d));
+            break;
+          default:
+            break;
+        }
+      }
+      setEventNpcDelta(actual);
+    } else {
+      setEventNpcDelta({});
+    }
+
+    setSelectedEventBranch(resolved);
 
     // 行为记忆：记录事件结算（更新节奏因子 / 锁定必触发标记）
     setActionMemory((prev) => {
@@ -5632,7 +5795,7 @@ export function GamePage() {
     } else if (currentEvent.id === "e47") {
       setOfferBuffs((previous) => ({ ...previous, google: (previous.google || 0) + 20, microsoft: (previous.microsoft || 0) + 20 }));
     }
-  }, [currentEvent, stats, seenEventIds, selectedEventBranch]);
+  }, [currentEvent, stats, seenEventIds, selectedEventBranch, semester, partners, peerFavorability, luYuchenFavorability, baiXuFavorability, jiangHuaiFavorability, shenQinghuaiFavorability]);
 
   const submitCustomEventAction = useCallback(async () => {
     const action = customEventAction.trim();
@@ -5845,6 +6008,7 @@ export function GamePage() {
       setCareerInboxNotificationCount(newCareerInboxMessageCount);
     }
     setEventDelta({});
+    setEventNpcDelta({});
     setSelectedEventBranch(null);
     setIsCustomEventActionOpen(false);
     setCustomEventAction("");
@@ -6036,8 +6200,30 @@ export function GamePage() {
     // ── 社交系统：检查是否有新 NPC 解锁 + 对话树触发 ──
     const nextTotalRound = (nextSem - 1) * 4 + nextRd;
     setSocialState((prevSocial) => {
-      // 1. 先重置本回合聊天计数
-      let next = resetChatsThisRound(prevSocial, nextTotalRound);
+      // 0. 先把 AVG 侧权威好感度回灌 bonds（微信引擎的里程碑/触发检查读 bonds）
+      const favorSync: Record<string, number> = {
+        professor: stats?.mentorFavorability ?? 30,
+        mentor: stats?.mentorFavorability ?? 30,
+        peer: peerFavorability,
+        zhang_yifan: peerFavorability,
+        lu_yuchen: luYuchenFavorability,
+        bai_xu: baiXuFavorability,
+        jiang_huai: jiangHuaiFavorability,
+        lab_senior: shenQinghuaiFavorability,
+        shen_qinghuai: shenQinghuaiFavorability,
+      };
+      let next: SocialState = {
+        ...prevSocial,
+        bonds: Object.fromEntries(
+          Object.entries(prevSocial.bonds).map(([id, bond]) => [
+            id,
+            favorSync[id] !== undefined ? { ...bond, favorability: favorSync[id] } : bond,
+          ]),
+        ),
+      };
+
+      // 1. 重置本回合聊天计数
+      next = resetChatsThisRound(next, nextTotalRound);
 
       // 2. 检查新解锁的 NPC
       const newlyUnlocked = checkAllUnlocks(
@@ -6083,7 +6269,7 @@ export function GamePage() {
     }
 
     maybeShowEvent(statsAfterPassive, nextSem, seenEventIds);
-  }, [stats, semester, round, seenEventIds, seenCampusIds, maybeShowEvent, chosenAction, selectedInternshipIds, internshipChannel, internshipApplications, financeState, partners]);
+  }, [stats, semester, round, seenEventIds, seenCampusIds, maybeShowEvent, chosenAction, selectedInternshipIds, internshipChannel, internshipApplications, financeState, partners, peerFavorability, luYuchenFavorability, baiXuFavorability, jiangHuaiFavorability, shenQinghuaiFavorability]);
 
   const selectInternshipApplication = useCallback((applicationId: string) => {
     setActiveInterviewApplicationId(applicationId || null);
@@ -6386,6 +6572,7 @@ export function GamePage() {
     setSelectedOfferId(null);
     setSelectedInternshipId(null);
     setEventDelta({});
+    setEventNpcDelta({});
     setSelectedEventBranch(null);
     setIsCustomEventActionOpen(false);
     setCustomEventAction("");
@@ -6431,6 +6618,28 @@ export function GamePage() {
     setLocalSaveUpdatedAt(null);
     setLocalSaveFeedback("");
     setDesktopGameSection("map");
+    // ── 恋爱羁绊线：清空伴侣/表白记录（含全局 localStorage，防止跨局残留"开局即恋爱"）──
+    setPartners([]);
+    setConfessedNpcIds([]);
+    localStorage.removeItem("arch_sim_partners");
+    localStorage.removeItem("arch_sim_confessed_npcs");
+    // 各角色好感度回到初始值，解锁/初遇状态重置，保证 80 好感表白流程在新局重新生效
+    setPeerFavorability(70);
+    setLuYuchenFavorability(50);
+    setBaiXuFavorability(50);
+    setJiangHuaiFavorability(60);
+    setShenQinghuaiFavorability(60);
+    setIsLuYuchenUnlocked(false);
+    setIsLuYuchenFirstMeet(false);
+    setIsBaiXuUnlocked(false);
+    setIsBaiXuFirstMeet(false);
+    setIsJiangHuaiUnlocked(false);
+    setIsJiangHuaiFirstMeet(false);
+    setIsShenQinghuaiUnlocked(false);
+    setIsShenQinghuaiFirstMeet(false);
+    // 微信社交状态清空
+    setSocialState(createEmptySocialState());
+    setActiveSocialNpcId("professor");
     tracker.startNewGame();
   }, [ending]);
 
@@ -7218,6 +7427,26 @@ export function GamePage() {
                       <span className="text-[13px]" style={{ color: textSecondary }}>属性已处于边界，本次没有产生实际数值变化</span>
                     )}
                   </div>
+                  {Object.keys(eventNpcDelta).length > 0 && (
+                    <>
+                      <p className="mb-2 text-[11px] uppercase tracking-[0.18em]" style={{ color: textSecondary }}>NPC 好感变化</p>
+                      <div className="mb-5 flex flex-wrap gap-1.5">
+                        {Object.entries(eventNpcDelta).map(([npcId, d]) => (
+                          <span
+                            key={npcId}
+                            className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12px] font-medium"
+                            style={{
+                              borderColor: d >= 0 ? "rgba(244,114,182,0.35)" : "rgba(239,83,80,0.35)",
+                              background: d >= 0 ? "rgba(244,114,182,0.10)" : "rgba(239,83,80,0.10)",
+                              color: d >= 0 ? "#f9a8d4" : "#ef9a9a",
+                            }}
+                          >
+                            💗 {EVENT_NPC_NAMES[npcId] ?? npcId} 好感 {d > 0 ? `+${d}` : d}
+                          </span>
+                        ))}
+                      </div>
+                    </>
+                  )}
                   <div className="flex gap-3">
                     <button
                       type="button"
@@ -7248,24 +7477,40 @@ export function GamePage() {
                     你会怎么做？
                   </p>
                   <div className="space-y-3">
-                    {displayEventBranches.map((branch) => (
-                      <button
-                        key={branch.id}
-                        type="button"
-                        onClick={() => chooseEventBranch(branch)}
-                        className="group w-full rounded-xl border border-white/10 bg-white/[0.025] p-4 text-left outline-none transition-all hover:border-[#c9a84c]/40 hover:bg-[#c9a84c]/[0.06] focus-visible:ring-2 focus-visible:ring-[#c9a84c]/50"
-                      >
-                        <span className="mb-3 flex items-center gap-3">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#c9a84c]/25 bg-[#c9a84c]/10 font-mono text-[12px] text-[#dec678]">
-                            {branch.id}
+                    {displayEventBranches.map((branch) => {
+                      const locked = branch.requireStat
+                        ? ((stats as Record<string, number | undefined> | null)?.[branch.requireStat.key] ?? 0) < branch.requireStat.min
+                        : false;
+                      const reqLabel = branch.requireStat
+                        ? `${STAT_META[branch.requireStat.key]?.label ?? branch.requireStat.key} ≥ ${branch.requireStat.min}`
+                        : null;
+                      return (
+                        <button
+                          key={branch.id}
+                          type="button"
+                          disabled={locked}
+                          onClick={() => chooseEventBranch(branch)}
+                          className={
+                            locked
+                              ? "w-full cursor-not-allowed rounded-xl border border-white/5 bg-white/[0.01] p-4 text-left outline-none opacity-55"
+                              : "group w-full rounded-xl border border-white/10 bg-white/[0.025] p-4 text-left outline-none transition-all hover:border-[#c9a84c]/40 hover:bg-[#c9a84c]/[0.06] focus-visible:ring-2 focus-visible:ring-[#c9a84c]/50"
+                          }
+                        >
+                          <span className={`${locked ? "" : "mb-3 "}flex items-center gap-3`}>
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#c9a84c]/25 bg-[#c9a84c]/10 font-mono text-[12px] text-[#dec678]">
+                              {branch.id}
+                            </span>
+                            <span className="text-[15px] font-medium text-slate-100">{branch.label}</span>
+                            <span className="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-400 transition-colors group-hover:text-slate-200">
+                              {branch.tag}
+                            </span>
                           </span>
-                          <span className="text-[15px] font-medium text-slate-100">{branch.label}</span>
-                          <span className="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] text-slate-400 transition-colors group-hover:text-slate-200">
-                            {branch.tag}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
+                          {locked && reqLabel && (
+                            <span className="mt-2 block text-[11px] text-slate-500">🔒 需要 {reqLabel} 才可使用</span>
+                          )}
+                        </button>
+                      );
+                    })}
 
                     {isCustomEventActionOpen ? (
                       <div className="rounded-xl border border-[#c9a84c]/35 bg-[#c9a84c]/[0.055] p-4" aria-label="自定义行动">
