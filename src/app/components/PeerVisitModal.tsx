@@ -36,6 +36,8 @@ import {
   SHEN_QINGHUAI_ROMANCE_OPTIONS,
   SHEN_QINGHUAI_FIRST_MEET,
   DAILY_VISIT_GREETINGS,
+  CONFESSION_SCRIPTS,
+  type ConfessionChoice,
   type PeerProfile,
   type PeerOption,
   type DialogueTurn,
@@ -50,6 +52,10 @@ export interface PeerVisitModalProps {
   isFirstMeet?: boolean;
   onCompleteFirstMeet?: () => void;
   onExecuteOption?: (option: PeerOption) => void;
+  partners?: string[];
+  onAcceptConfession?: (npcId: string, npcName: string) => void;
+  confessedNpcIds?: string[];
+  onMarkConfessed?: (npcId: string) => void;
 }
 
 export function PeerVisitModal({
@@ -61,6 +67,10 @@ export function PeerVisitModal({
   isFirstMeet = false,
   onCompleteFirstMeet,
   onExecuteOption,
+  partners = [],
+  onAcceptConfession,
+  confessedNpcIds = [],
+  onMarkConfessed,
 }: PeerVisitModalProps) {
   // 一级分类切换：研习互助 vs 私密心动 vs 个人档案
   const [activeCategory, setActiveCategory] = useState<"study" | "romance" | "profile">("study");
@@ -73,7 +83,12 @@ export function PeerVisitModal({
   const [dialogueSequence, setDialogueSequence] = useState<DialogueTurn[]>([]);
   const [dialogueIndex, setDialogueIndex] = useState(0);
   const [dialogueComplete, setDialogueComplete] = useState(false);
+  const [isConfessing, setIsConfessing] = useState(false);
+  const [hasChosenConfession, setHasChosenConfession] = useState(false);
   const isDialoguePlaying = dialogueSequence.length > 0 && !dialogueComplete;
+
+  const isPartner = partners.includes(characterId);
+  const hasBeenConfessed = confessedNpcIds.includes(characterId);
 
   const profile: PeerProfile = characterId === "lu_yuchen"
     ? LU_YUCHEN_PROFILE
@@ -171,7 +186,26 @@ export function PeerVisitModal({
     setIsExecuting(false);
   };
 
+  const handleSelectConfessionChoice = (choice: ConfessionChoice) => {
+    setHasChosenConfession(true);
+    if (choice.id === "accept" && onAcceptConfession) {
+      onAcceptConfession(characterId, profile.name);
+    }
+    if (onMarkConfessed) {
+      onMarkConfessed(characterId);
+    }
+    // 播放后续回应剧情
+    setDialogueSequence(choice.responseTurn);
+    setDialogueIndex(0);
+    setDialogueComplete(false);
+    setIsConfessing(false);
+  };
+
   const advanceDialogue = () => {
+    if (isConfessing && dialogueIndex === dialogueSequence.length - 1 && !hasChosenConfession) {
+      // 在表白最后一幕必须等待玩家做出台词选择
+      return;
+    }
     if (dialogueIndex < dialogueSequence.length - 1) {
       setDialogueIndex(dialogueIndex + 1);
     } else {
@@ -238,13 +272,18 @@ export function PeerVisitModal({
           </div>
 
           <div className="flex items-center gap-4">
-            {/* 好感度徽章 */}
+            {/* 好感度与伴侣徽章 */}
+            {isPartner && (
+              <div className="flex items-center gap-1.5 rounded-full border border-rose-400/60 bg-gradient-to-r from-rose-500/30 to-pink-500/20 px-3 py-1 text-xs font-bold text-rose-200 shadow-[0_0_15px_rgba(244,63,94,0.3)] animate-pulse">
+                <span>💕 恋人关系</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-950/30 px-3.5 py-1.5 backdrop-blur-md">
               <Heart size={15} className="text-rose-400 fill-rose-400/50 animate-pulse" />
               <span className="text-xs text-slate-300">好感度</span>
               <span className="font-semibold text-rose-300 text-sm">{favorability}</span>
               <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-rose-500/20 text-rose-200 border border-rose-400/30">
-                {favorability >= 90 ? "唯一解" : favorability >= 75 ? "智性心动" : favorability >= 55 ? "亲密同门" : "初识搭子"}
+                {isPartner ? "专属恋人" : favorability >= 90 ? "唯一解" : favorability >= 75 ? "智性心动" : favorability >= 55 ? "亲密同门" : "初识搭子"}
               </span>
             </div>
 

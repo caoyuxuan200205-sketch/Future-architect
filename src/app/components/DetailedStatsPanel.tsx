@@ -247,6 +247,7 @@ export function DetailedStatsPanel({
   actionDelta = {},
   eventDelta = {},
   pastInternships = [],
+  partners = [],
   onUpdateInternshipDetails,
   onViewResume,
 }: DetailedStatsPanelProps) {
@@ -347,6 +348,21 @@ export function DetailedStatsPanel({
   const masterTier = character?.masterTier ?? 3;
   const mentorName = mentor?.displayName || mentor?.name || "齐廷宝";
   const semesterStr = `研${Math.ceil(semester / 2)}${semester % 2 === 1 ? "上" : "下"}`;
+  const partnerNameMap: Record<string, string> = {
+    zhang_yifan: "张一帆",
+    lu_yuchen: "陆予忱",
+    bai_xu: "白栩",
+    jiang_huai: "江淮",
+    shen_qinghuai: "沈清淮",
+    lab_senior: "沈清淮",
+    professor: "导师 · " + mentorName,
+  };
+
+  const partnersDisplay = useMemo(() => {
+    if (!partners || partners.length === 0) return "单身（暂无）";
+    return partners.map((id) => partnerNameMap[id] || id).join("、");
+  }, [partners, mentorName]);
+
 
   const thesisGrade = useMemo(() => calculateThesisGrade(safeStats.thesisScore ?? 0), [safeStats.thesisScore]);
 
@@ -482,6 +498,14 @@ export function DetailedStatsPanel({
                       </svg>
                     )}
                   </button>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-slate-400 flex items-center gap-1">
+                    <span>❤️</span> 恋爱关系
+                  </span>
+                  <span className={`font-semibold text-[12px] max-w-[150px] truncate text-right ${partners && partners.length > 0 ? "text-rose-300 font-bold" : "text-slate-400"}`} title={partnersDisplay}>
+                    {partners && partners.length > 0 ? `${partnersDisplay} 💕` : "单身（暂无）"}
+                  </span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-400">流动储蓄</span>

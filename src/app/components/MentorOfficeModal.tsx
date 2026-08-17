@@ -60,8 +60,11 @@ interface MentorOfficeModalProps {
   onExecuteOption: (option: OfficeDialogueOption, rejected: boolean) => void;
   /** 当前学期（用于送钱限频记账） */
   semester?: number;
-  /** 当前回合（用于送钱记录） */
   round?: number;
+  partners?: string[];
+  onAcceptConfession?: (npcId: string, npcName: string) => void;
+  confessedNpcIds?: string[];
+  onMarkConfessed?: (npcId: string) => void;
 }
 
 export function MentorOfficeModal({
@@ -75,6 +78,10 @@ export function MentorOfficeModal({
   onExecuteOption,
   semester = 1,
   round = 0,
+  partners = [],
+  onAcceptConfession,
+  confessedNpcIds = [],
+  onMarkConfessed,
 }: MentorOfficeModalProps) {
   // ===== 所有 Hooks 必须在早期 return 之前声明（React Hook 规则） =====
   const [activeTab, setActiveTab] = useState<"dialogue" | "profile">("dialogue");
@@ -94,6 +101,8 @@ export function MentorOfficeModal({
   const [dialogueSequence, setDialogueSequence] = useState<GiftDialogueLine[]>([]);
   const [dialogueIndex, setDialogueIndex] = useState(0);
   const [dialogueComplete, setDialogueComplete] = useState(false);
+  const [isConfessing, setIsConfessing] = useState(false);
+  const [hasChosenConfession, setHasChosenConfession] = useState(false);
   // 暂存送礼结算数据，等对话序列播完再触发外部回调
   const pendingExecutionRef = React.useRef<{ option: OfficeDialogueOption; rejected: boolean } | null>(null);
 
@@ -128,9 +137,23 @@ export function MentorOfficeModal({
       setCurrentReply(greetings[Math.floor(Math.random() * greetings.length)]);
       setReplyTone(currentTone);
       setGiftRejected(false);
-      setDialogueSequence([]);
-      setDialogueIndex(0);
-      setDialogueComplete(false);
+      setIsConfessing(false);
+      setHasChosenConfession(false);
+      if (favorability >= 80 && !confessedNpcIds.includes("professor") && CONFESSION_SCRIPTS.professor) {
+        setIsConfessing(true);
+        const seq = CONFESSION_SCRIPTS.professor.introTurns.map(t => ({
+          speaker: (t.speaker === "player" ? "player" : t.speaker === "peer" ? "mentor" : "narration") as "player" | "mentor" | "narration",
+          text: t.content,
+          tone: t.tone as any
+        }));
+        setDialogueSequence(seq);
+        setDialogueIndex(0);
+        setDialogueComplete(false);
+      } else {
+        setDialogueSequence([]);
+        setDialogueIndex(0);
+        setDialogueComplete(false);
+      }
       pendingExecutionRef.current = null;
       setCashInputOpen(false);
       setCashAmount(1000);

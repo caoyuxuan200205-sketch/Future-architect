@@ -2093,3 +2093,407 @@ export const DAILY_VISIT_GREETINGS: Record<string, DialogueTurn[][]> = {
     ],
   ],
 };
+
+// ================================================================
+// 好感度 >= 80 被表白专属剧情与分支选项（支持多线对象关系）
+// ================================================================
+
+export interface ConfessionChoice {
+  id: "accept" | "reject";
+  label: string; // 剧情化沉浸台词
+  badgeText: string;
+  responseTurn: DialogueTurn[];
+}
+
+export interface ConfessionScript {
+  npcId: string;
+  npcName: string;
+  introTurns: DialogueTurn[];
+  choices: ConfessionChoice[];
+}
+
+export const CONFESSION_SCRIPTS: Record<string, ConfessionScript> = {
+  zhang_yifan: {
+    npcId: "zhang_yifan",
+    npcName: "张一帆",
+    introTurns: [
+      {
+        speaker: "narration",
+        content: "中大院工位的窗外下着淅淅沥沥的微雨。张一帆关掉了屏幕上的 Rhino 视图，转过椅子，两只手有些紧张地攥着咖啡杯。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "师兄……从研一进组那天起，我就总爱找借口蹭你的工位、给你带双份浓缩的拿铁。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "其实我一点都不缺模型搭子，我只是……想把每天所有画图和呼吸的时间，全都分给你。",
+      },
+      {
+        speaker: "narration",
+        content: "他抬起头，清澈眼眸里倒映着你的身影，耳尖通红，认真地向你递上一枚用 3D 打印精细微雕的建筑同心莫比乌斯环。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "师兄，我不想只做你的同门师弟了……你愿意让我做你的男朋友吗？",
+      },
+    ],
+    choices: [
+      {
+        id: "accept",
+        badgeText: "❤️ 接受心意",
+        label: "“（笑着握紧他的手）傻瓜，我也早就喜欢你了，以后我的图纸和人生都归你管。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "张一帆听到你的回答，愣了半秒，随即眼底爆发出耀眼的光彩，一把将你紧紧拥入怀中！",
+          },
+          {
+            speaker: "peer",
+            tone: "excited",
+            content: "太好了……师兄！我保证，以后不管是改图通宵还是走过余生，我永远是你最坚定的靠山！",
+          },
+        ],
+      },
+      {
+        id: "reject",
+        badgeText: "🤝 委婉做朋友",
+        label: "“一帆，你是我最信任的同门搭子，但我们做一辈子的好哥们更自在吧。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "张一帆手指微微一紧，随后深吸了一口气，脸上重新扬起温柔明亮的笑容。",
+          },
+          {
+            speaker: "peer",
+            tone: "sweet",
+            content: "没关系的师兄！只要能一直陪在你身边和你一起画图，我就已经很满足了。我们永远是最好的搭子！",
+          },
+        ],
+      },
+    ],
+  },
+
+  lu_yuchen: {
+    npcId: "lu_yuchen",
+    npcName: "陆予忱",
+    introTurns: [
+      {
+        speaker: "narration",
+        content: "就业指导室的百叶窗半合着，微光勾勒出陆予忱高挺修长的轮廓。他合上笔记本电脑，摘下了金丝眼镜。",
+      },
+      {
+        speaker: "peer",
+        tone: "focus",
+        content: "在我的职业模型里，所有的变量都可以被量化、归类和建立回归方程。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "但唯独遇到你之后，我所有的理性逻辑与战略推演……全部失效了。",
+      },
+      {
+        speaker: "narration",
+        content: "陆予忱缓缓站起身走到你面前，骨节分明的大手轻轻撑在你的椅背旁，低头注视着你的眼眸，目光炽热而克制。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "我分析过上千份人生路径，但唯一想共同签署的长期合约，只有你。愿意做我的伴侣吗？",
+      },
+    ],
+    choices: [
+      {
+        id: "accept",
+        badgeText: "❤️ 接受心意",
+        label: "“（迎上他认真的目光）陆学长，你这道人生最复杂的决策树，我愿意成为你的唯一解。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "平日里极度严谨克制的陆予忱，眼底泛起深情的波澜，俯身轻轻吻了吻你的额头，将你揽入宽厚温热的怀抱。",
+          },
+          {
+            speaker: "peer",
+            tone: "sweet",
+            content: "从现在开始，我的时间、资源与所有未来，全部对你终身开放特权。",
+          },
+        ],
+      },
+      {
+        id: "reject",
+        badgeText: "🤝 委婉做朋友",
+        label: "“予忱，你的优秀让人仰望，但我更习惯把你当作最可靠的引路人和师兄。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "陆予忱眼中掠过一丝遗憾，但他重新戴上眼镜，神色恢复了一贯的从容与尊重。",
+          },
+          {
+            speaker: "peer",
+            tone: "focus",
+            content: "我尊重你的决定。无论如何，只要你在求职或学术上需要指引，我随时为你预留最高优先级。",
+          },
+        ],
+      },
+    ],
+  },
+
+  bai_xu: {
+    npcId: "bai_xu",
+    npcName: "白栩",
+    introTurns: [
+      {
+        speaker: "narration",
+        content: "咖啡馆午后的阳光落在卡座的软垫上。白栩低着头，手指紧张地揪着围巾下摆，小脸涨得通红。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "学长……我每次借口让你辅导快题、让你帮我拼模型，其实都是我偷偷计划好的。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "我根本不是什么笨蛋学弟……我只是太想找理由多看学长几眼了。",
+      },
+      {
+        speaker: "narration",
+        content: "白栩鼓起全部勇气抬起头，眼眶微红却满含真挚期盼地注视着你，递上一盒亲手烘焙的爱心玛德琳蛋糕。",
+      },
+      {
+        speaker: "peer",
+        tone: "excited",
+        content: "学长，我超级超级喜欢你！你可以……做我的恋人吗？我以后天天做甜品给你吃！",
+      },
+    ],
+    choices: [
+      {
+        id: "accept",
+        badgeText: "❤️ 接受心意",
+        label: "“（伸手揉乱他的头发）好啊，那这只粘人的小狗学弟，从今天起就是我的专属男友了。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "白栩惊喜得几乎要跳起来，一把扑进你的怀里，小脑袋蹭着你的颈窝，开心得眼泪都快掉出来了！",
+          },
+          {
+            speaker: "peer",
+            tone: "excited",
+            content: "哇啊啊学长最好了！我是全天下最幸福的人！我一辈子都不会松开学长的！",
+          },
+        ],
+      },
+      {
+        id: "reject",
+        badgeText: "🤝 委婉做朋友",
+        label: "“白栩，你永远是我最疼爱的小学弟，但恋爱的话可能会破坏我们现在的默契呢。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "白栩吸了吸小鼻子，虽然有些委屈，但依然懂事地用力点了点头，冲你露出大大的笑容。",
+          },
+          {
+            speaker: "peer",
+            tone: "sweet",
+            content: "嗯！只要学长不讨厌我，愿意继续和我喝咖啡拼模型，我就永远是学长最乖的小学弟！",
+          },
+        ],
+      },
+    ],
+  },
+
+  jiang_huai: {
+    npcId: "jiang_huai",
+    npcName: "江淮",
+    introTurns: [
+      {
+        speaker: "narration",
+        content: "深夜的 502 宿舍，台灯泛着暖光。江淮刚打完球回来，坐在你床边的椅子上，神情比平时任何时候都要认真。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "同居快两年了，我看过你熬夜改图崩溃大哭，也看过你拿到奖学金傻笑的样子。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "平时我大大咧咧的，但每次看到你揉太阳穴，我心里就揪得难受。",
+      },
+      {
+        speaker: "narration",
+        content: "他伸出温热粗糙的大手，轻轻握住了你微凉的手腕，目光坚定而炽热。",
+      },
+      {
+        speaker: "peer",
+        tone: "excited",
+        content: "我不想要只做你室友了。做我对象吧！以后你的早饭、夜宵、体力活和所有委屈，我全包了！",
+      },
+    ],
+    choices: [
+      {
+        id: "accept",
+        badgeText: "❤️ 接受心意",
+        label: "“（拍了拍他的胸肌笑着点头）同居这么久了，那就转正当我的正牌男友吧，以后早饭归你买。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "江淮咧开嘴哈哈大笑，一把将你从椅子上打横抱起转了一整圈，充满荷尔蒙的胸膛紧紧贴着你！",
+          },
+          {
+            speaker: "peer",
+            tone: "excited",
+            content: "成交！从今往后你就是我江淮的人了，谁敢在院里欺负你，我第一个找他练练！",
+          },
+        ],
+      },
+      {
+        id: "reject",
+        badgeText: "🤝 委婉做朋友",
+        label: "“淮哥，502 最铁的兄弟情不能变，我们当一辈子的生死铁哥们！”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "江淮有些不好意思地挠了挠后脑勺，哈哈笑着轻轻锤了一下你的肩膀。",
+          },
+          {
+            speaker: "peer",
+            tone: "sweet",
+            content: "行！听你的！反正不管怎么样，哥们永远是你在 502 最硬核的后盾！",
+          },
+        ],
+      },
+    ],
+  },
+
+  shen_qinghuai: {
+    npcId: "shen_qinghuai",
+    npcName: "沈清淮",
+    introTurns: [
+      {
+        speaker: "narration",
+        content: "图书馆三楼的落地窗前，夕阳将整个古籍特藏室染成了温柔的赤金。沈清淮合上了泛黄的图册。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "古建筑在风雨里能伫立数百年，靠的是每一道榫卯结构的严丝合缝与彼此成全。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "以前我以为我的余生只会和这些冰冷的石材文献度过，直到你在那个午后走进了这里。",
+      },
+      {
+        speaker: "narration",
+        content: "沈清淮推了推银丝眼镜，翻开速写本最后一页——上面是用极细腻的水彩工笔画出的你站在霞光中的肖像。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "这幅画的名字叫《余生所向》。你愿意……成为我生命里唯一的白月光与相守之人吗？",
+      },
+    ],
+    choices: [
+      {
+        id: "accept",
+        badgeText: "❤️ 接受心意",
+        label: "“（接过他的速写本微笑着靠在他肩上）沈学长，未来漫长的建筑史和岁月，我想和你一页页画下去。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "沈清淮眼中泛起极尽温柔的光亮，修长的大手轻柔地环过你的肩膀，在静谧的书海晚霞中与你额头相抵。",
+          },
+          {
+            speaker: "peer",
+            tone: "sweet",
+            content: "得你相伴，是我这一生读过最美、也最想用一生守护的篇章。",
+          },
+        ],
+      },
+      {
+        id: "reject",
+        badgeText: "🤝 委婉做朋友",
+        label: "“清淮学长，你像图书馆里最美好的月光，我更想把你珍藏在敬重的知己位置上。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "沈清淮温和地微笑着，轻轻合上速写本，神情依旧儒雅包容如初。",
+          },
+          {
+            speaker: "peer",
+            tone: "sweet",
+            content: "知己亦是极好的缘分。这本速写本依然留给你，无论何时，我身边的座位永远为你留着。",
+          },
+        ],
+      },
+    ],
+  },
+
+  professor: {
+    npcId: "professor",
+    npcName: "导师",
+    introTurns: [
+      {
+        speaker: "narration",
+        content: "中大院 4 楼的导师办公室里，茶香袅袅。导师放下了批改开题报告的红笔，摘下了金丝老花镜。",
+      },
+      {
+        speaker: "peer",
+        tone: "focus",
+        content: "带了这么多年研究生，我一直以治学严谨自居，要求你们遵守一切学术规范。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "但不知从什么时候起，每次组会我的目光总会不自觉落在你身上……看你改图熬夜，我心里比谁都放不下。",
+      },
+      {
+        speaker: "narration",
+        content: "导师站起身走到你面前，递上一支陪伴了他学术生涯二十年的经典万宝龙金笔，目光深沉而动容。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "抛开师生身份，在学术与人生的下半程……你愿意和我建立一份超越师门的亲密契约吗？",
+      },
+    ],
+    choices: [
+      {
+        id: "accept",
+        badgeText: "❤️ 接受心意",
+        label: "“（按住导师批改图纸的红笔，认真地看着他）老师，学术有规范，但心动没有边界。这条路我想陪您一起走。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "一向威严沉稳的导师眼中闪过一丝难得的孩子气与深情，紧紧握住了你的手，将金笔郑重放在你的掌心。",
+          },
+          {
+            speaker: "peer",
+            tone: "sweet",
+            content: "好！从今往后，不管学术界风雨如何，我都将倾尽全力做你最坚实的后盾与伴侣！",
+          },
+        ],
+      },
+      {
+        id: "reject",
+        badgeText: "🤝 委婉做朋友",
+        label: "“老师，您永远是我学术生涯最崇敬的恩师与泰斗，我不敢有任何非分之想。”",
+        responseTurn: [
+          {
+            speaker: "narration",
+            content: "导师沉吟片刻，释然一笑，收回了金笔并重新戴上眼镜，神色恢复了平时的学者威严。",
+          },
+          {
+            speaker: "peer",
+            tone: "focus",
+            content: "好，有定力，不愧是我的得意门生。专心搞好开题与论文，老师全力支持你毕业！",
+          },
+        ],
+      },
+    ],
+  },
+};

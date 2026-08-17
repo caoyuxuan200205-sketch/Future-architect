@@ -4825,6 +4825,47 @@ export function GamePage() {
   const [isShenQinghuaiFirstMeet, setIsShenQinghuaiFirstMeet] = useState(false);
   const [shenQinghuaiFavorability, setShenQinghuaiFavorability] = useState(60);
 
+  // 伴侣与表白羁绊状态（支持多对象）
+  const [partners, setPartners] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("arch_sim_partners");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [confessedNpcIds, setConfessedNpcIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("arch_sim_confessed_npcs");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const handleAcceptConfession = useCallback((npcId: string, npcName: string) => {
+    setPartners((prev) => {
+      if (prev.includes(npcId)) return prev;
+      const next = [...prev, npcId];
+      try {
+        localStorage.setItem("arch_sim_partners", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleMarkConfessed = useCallback((npcId: string) => {
+    setConfessedNpcIds((prev) => {
+      if (prev.includes(npcId)) return prev;
+      const next = [...prev, npcId];
+      try {
+        localStorage.setItem("arch_sim_confessed_npcs", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   const handleLibrarySelect = useCallback(() => {
     if (!isShenQinghuaiUnlocked) {
       setIsShenQinghuaiUnlocked(true);
@@ -7438,7 +7479,11 @@ export function GamePage() {
         {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "map" && (
           <>
             <MobileMapView
-              canChooseAction={phase === "action_choice"}
+              partners={partners}
+          confessedNpcIds={confessedNpcIds}
+          onAcceptConfession={handleAcceptConfession}
+          onMarkConfessed={handleMarkConfessed}
+          canChooseAction={phase === "action_choice"}
               notice={
                 activeCampusEvent
                   ? { title: "收到一条特殊机遇", description: "前往“本回合”查看邀请并作出决定。" }
@@ -7503,7 +7548,11 @@ export function GamePage() {
               semesterLabel={SEMESTER_LABELS[semester]}
               semester={semester}
               round={round}
-              canChooseAction={phase === "action_choice"}
+              partners={partners}
+          confessedNpcIds={confessedNpcIds}
+          onAcceptConfession={handleAcceptConfession}
+          onMarkConfessed={handleMarkConfessed}
+          canChooseAction={phase === "action_choice"}
               roundNotice={
                 activeCampusEvent
                   ? { title: "收到一条特殊机遇", description: "前往“本回合”查看邀请并作出决定。" }
@@ -7754,6 +7803,10 @@ export function GamePage() {
             logic: stats?.logic ?? 50,
             stress: stats?.stress ?? 50,
           }}
+          partners={partners}
+          confessedNpcIds={confessedNpcIds}
+          onAcceptConfession={handleAcceptConfession}
+          onMarkConfessed={handleMarkConfessed}
           canChooseAction={phase === "action_choice"}
           semester={semester}
           round={round}
@@ -7821,6 +7874,10 @@ export function GamePage() {
           isOpen={isPeerModalOpen}
           onClose={() => setIsPeerModalOpen(false)}
           favorability={peerFavorability}
+          partners={partners}
+          confessedNpcIds={confessedNpcIds}
+          onAcceptConfession={handleAcceptConfession}
+          onMarkConfessed={handleMarkConfessed}
           canChooseAction={phase === "action_choice"}
           onExecuteOption={(option) => {
             if (!stats) return;
@@ -7861,6 +7918,10 @@ export function GamePage() {
           }}
           onClose={() => setIsLuYuchenModalOpen(false)}
           favorability={luYuchenFavorability}
+          partners={partners}
+          confessedNpcIds={confessedNpcIds}
+          onAcceptConfession={handleAcceptConfession}
+          onMarkConfessed={handleMarkConfessed}
           canChooseAction={phase === "action_choice"}
           onExecuteOption={(option) => {
             if (!stats) return;
@@ -7901,6 +7962,10 @@ export function GamePage() {
           }}
           onClose={() => setIsBaiXuModalOpen(false)}
           favorability={baiXuFavorability}
+          partners={partners}
+          confessedNpcIds={confessedNpcIds}
+          onAcceptConfession={handleAcceptConfession}
+          onMarkConfessed={handleMarkConfessed}
           canChooseAction={phase === "action_choice"}
           onExecuteOption={(option) => {
             if (!stats) return;
@@ -7941,6 +8006,10 @@ export function GamePage() {
           }}
           onClose={() => setIsJiangHuaiModalOpen(false)}
           favorability={jiangHuaiFavorability}
+          partners={partners}
+          confessedNpcIds={confessedNpcIds}
+          onAcceptConfession={handleAcceptConfession}
+          onMarkConfessed={handleMarkConfessed}
           canChooseAction={phase === "action_choice"}
           onExecuteOption={(option) => {
             if (!stats) return;
@@ -7981,6 +8050,10 @@ export function GamePage() {
           }}
           onClose={() => setIsShenQinghuaiModalOpen(false)}
           favorability={shenQinghuaiFavorability}
+          partners={partners}
+          confessedNpcIds={confessedNpcIds}
+          onAcceptConfession={handleAcceptConfession}
+          onMarkConfessed={handleMarkConfessed}
           canChooseAction={phase === "action_choice"}
           onExecuteOption={(option) => {
             if (!stats) return;
