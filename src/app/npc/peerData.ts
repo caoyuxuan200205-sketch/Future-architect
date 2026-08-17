@@ -2497,3 +2497,106 @@ export const CONFESSION_SCRIPTS: Record<string, ConfessionScript> = {
     ],
   },
 };
+
+// ================================================================
+// 男朋友专属回合常驻羁绊加成定义与结算模块
+// ================================================================
+
+export interface PartnerBuffInfo {
+  npcId: string;
+  name: string;
+  tag: string;
+  perTurnEffects: {
+    moneyYuan?: number;
+    money?: number;
+    stress?: number;
+    network?: number;
+    commercial?: number;
+    industryResearch?: number;
+    selfDoubt?: number;
+    health?: number;
+    ageAnxiety?: number;
+    thesisScore?: number;
+    arch?: number;
+    mentorFavorabilityLock?: number;
+    randomStatBonus?: { amount: number; desc: string };
+  };
+  buffSummary: string;
+}
+
+export const PARTNER_BUFF_DEFINITIONS: Record<string, PartnerBuffInfo> = {
+  zhang_yifan: {
+    npcId: "zhang_yifan",
+    name: "张一帆",
+    tag: "外包分红 · 情绪后盾",
+    perTurnEffects: {
+      moneyYuan: 800,
+      money: 2.5,
+      stress: 2,
+    },
+    buffSummary: "每回合资金 +800元、抗压 +2",
+  },
+  lu_yuchen: {
+    npcId: "lu_yuchen",
+    name: "陆予忱",
+    tag: "大厂人脉 · 商业研判",
+    perTurnEffects: {
+      network: 3,
+      commercial: 2,
+      industryResearch: 2,
+    },
+    buffSummary: "每回合人脉 +3、商业与行研 +2",
+  },
+  bai_xu: {
+    npcId: "bai_xu",
+    name: "白栩",
+    tag: "神秘盲盒 · 治愈自信",
+    perTurnEffects: {
+      selfDoubt: -3,
+      randomStatBonus: { amount: 4, desc: "神秘盲盒属性 +4" },
+    },
+    buffSummary: "每回合随机属性 +4、自疑 -3",
+  },
+  jiang_huai: {
+    npcId: "jiang_huai",
+    name: "江淮",
+    tag: "体能超人 · 抗疲劳",
+    perTurnEffects: {
+      health: 4,
+      ageAnxiety: -3,
+    },
+    buffSummary: "每回合体能 +4、同辈焦虑 -3",
+  },
+  shen_qinghuai: {
+    npcId: "shen_qinghuai",
+    name: "沈清淮",
+    tag: "学术护航 · 建筑底蕴",
+    perTurnEffects: {
+      thesisScore: 4,
+      arch: 2,
+    },
+    buffSummary: "每回合论文进度 +4分、建筑力 +2",
+  },
+  lab_senior: {
+    npcId: "lab_senior",
+    name: "沈清淮",
+    tag: "学术护航 · 建筑底蕴",
+    perTurnEffects: {
+      thesisScore: 4,
+      arch: 2,
+    },
+    buffSummary: "每回合论文进度 +4分、建筑力 +2",
+  },
+  professor: {
+    npcId: "professor",
+    name: "导师",
+    tag: "学术特权 · 课题津贴",
+    perTurnEffects: {
+      thesisScore: 6,
+      moneyYuan: 1500,
+      money: 5,
+      mentorFavorabilityLock: 100,
+    },
+    buffSummary: "每回合论文进度 +6分、科研津贴 +1500元、导师好感锁定满分",
+  },
+};

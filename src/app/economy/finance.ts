@@ -184,7 +184,8 @@ export function scholarshipLabel(amount: number): string {
 export function settleMonth(
   finance: FinanceState,
   currentMoney: number,
-  monthIndex: number
+  monthIndex: number,
+  partnerIncomes?: SettlementLine[]
 ): MonthlySettlement {
   const lines: SettlementLine[] = [];
 
@@ -198,6 +199,11 @@ export function settleMonth(
   }
   if (finance.scholarshipPending > 0) {
     lines.push({ label: scholarshipLabel(finance.scholarshipPending), amount: finance.scholarshipPending, type: "in" });
+  }
+  if (partnerIncomes && partnerIncomes.length > 0) {
+    partnerIncomes.forEach((p) => {
+      lines.push(p);
+    });
   }
 
   // —— 支出项 ——

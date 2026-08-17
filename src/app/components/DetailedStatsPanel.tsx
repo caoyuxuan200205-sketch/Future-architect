@@ -13,6 +13,7 @@ import {
   Briefcase,
   Wallet,
 } from "lucide-react";
+import { PARTNER_BUFF_DEFINITIONS } from "../npc/peerData";
 import {
   getActivePerks,
   type Perk,
@@ -128,6 +129,7 @@ export interface DetailedStatsPanelProps {
   phase?: string;
   actionDelta?: Partial<StatusStats>;
   eventDelta?: Partial<StatusStats>;
+  lastRoundDelta?: Partial<StatusStats>;
   pastInternships?: InternshipItem[];
   onUpdateInternshipDetails?: (
     internshipId: string,
@@ -208,6 +210,21 @@ function getStatGradeColor(value: number, positive: boolean): string {
   return "#f87171";
 }
 
+/** 属性升降徽标：▲/▼ 图标 + 悬浮显示详细数值变化 */
+function DeltaBadge({ delta, label }: { delta: number; label: string }) {
+  const up = delta > 0;
+  return (
+    <span className="relative inline-flex group/delta">
+      <span className={`font-mono text-[10px] leading-none ${up ? "text-emerald-400" : "text-rose-400"}`}>
+        {up ? "▲" : "▼"}
+      </span>
+      <span className="pointer-events-none absolute -top-6 left-1/2 z-50 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-white/10 bg-[#0d0a14]/95 px-2 py-0.5 text-[12px] font-mono text-slate-100 shadow-xl group-hover/delta:block">
+        {label} {up ? "+" : ""}{delta}
+      </span>
+    </span>
+  );
+}
+
 function getEvaluationLabel(ovr: number): string {
   if (ovr >= 85) return "领军潜质";
   if (ovr >= 75) return "卓越竞争力";
@@ -246,6 +263,7 @@ export function DetailedStatsPanel({
   phase = "action",
   actionDelta = {},
   eventDelta = {},
+  lastRoundDelta = {},
   pastInternships = [],
   partners = [],
   onUpdateInternshipDetails,
@@ -327,6 +345,11 @@ export function DetailedStatsPanel({
   const currentDelta = useMemo(() => {
     return phase === "action_result" ? { ...eventDelta, ...actionDelta } : eventDelta;
   }, [phase, actionDelta, eventDelta]);
+
+  // 状态页展示的升降：action_result 阶段用即时反馈，其余阶段用「上一回合完整结算」
+  const displayDelta = useMemo(() => {
+    return phase === "action_result" ? currentDelta : lastRoundDelta;
+  }, [phase, currentDelta, lastRoundDelta]);
 
   const hardSkillKeys = useMemo(
     () => (Object.keys(META) as StatusKey[]).filter((k) => META[k].category === "hard"),
@@ -513,13 +536,42 @@ export function DetailedStatsPanel({
                     )}
                   </button>
                 </div>
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-slate-400 flex items-center gap-1">
+                <div className="relative group flex items-center justify-between py-2 cursor-pointer transition-colors hover:bg-white/[0.02] rounded px-1 -mx-1">
+                  <span className="text-slate-400 flex items-center gap-1 shrink-0">
                     <span>❤️</span> 恋爱关系
                   </span>
-                  <span className={`font-semibold text-[12px] max-w-[150px] truncate text-right ${effectivePartners && effectivePartners.length > 0 ? "text-rose-300 font-bold" : "text-slate-400"}`} title={partnersDisplay}>
+                  <span className={`font-semibold text-[12px] max-w-[170px] truncate text-right ${effectivePartners && effectivePartners.length > 0 ? "text-rose-300 font-bold" : "text-slate-400"}`} title={partnersDisplay}>
                     {effectivePartners && effectivePartners.length > 0 ? `${partnersDisplay} 💕` : "单身（暂无）"}
                   </span>
+
+                  {/* 悬浮展示：伴侣羁绊常驻加成气泡 */}
+                  {effectivePartners && effectivePartners.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 z-[100] hidden group-hover:block transition-all duration-200 p-3 rounded-xl border border-rose-500/40 bg-[#0d0a14]/98 shadow-2xl backdrop-blur-lg pointer-events-none">
+                      <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-rose-500/20">
+                        <span className="text-[11.5px] font-bold text-rose-300 flex items-center gap-1.5">
+                          <span>💕</span> 伴侣常驻羁绊加成
+                        </span>
+                        <span className="text-[10px] text-rose-400 font-mono font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-400/25">
+                          {effectivePartners.length} 位对象生效中
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {effectivePartners.map((pId) => {
+                          const def = PARTNER_BUFF_DEFINITIONS[pId];
+                          if (!def) return null;
+                          return (
+                            <div key={pId} className="rounded-lg bg-black/45 border border-white/5 p-2 text-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-rose-200">{def.name}</span>
+                                <span className="text-[10px] text-amber-300 font-medium">{def.tag}</span>
+                              </div>
+                              <p className="text-[11px] text-slate-300 mt-1 leading-snug">{def.buffSummary}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-slate-400">流动储蓄</span>
@@ -543,6 +595,7 @@ export function DetailedStatsPanel({
                   </div>
                 </div>
               </div>
+
 
               {/* 延毕风险与毕业论文评估卡片 (核心保留属性) */}
               <div className="mt-3.5 p-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.04]">
@@ -630,7 +683,7 @@ export function DetailedStatsPanel({
                     const meta = META[key];
                     const val = safeStats[key] ?? 50;
                     const isKeyForSelectedTrack = selectedTrack.keyStats.includes(key);
-                    const delta = currentDelta[key];
+                    const delta = displayDelta[key];
                     return (
                       <div
                         key={key}
@@ -643,9 +696,7 @@ export function DetailedStatsPanel({
                         <span className="text-[12.5px] truncate">{meta.label}</span>
                         <div className="flex items-center gap-1">
                           {delta && delta !== 0 && (
-                            <span className={`font-mono text-[10px] ${delta > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                              {delta > 0 ? `▲` : `▼`}
-                            </span>
+                            <DeltaBadge delta={delta} label={meta.label} />
                           )}
                           <span
                             className="font-mono font-bold text-[13px] tabular-nums"
@@ -669,7 +720,7 @@ export function DetailedStatsPanel({
                     const meta = META[key];
                     const val = safeStats[key] ?? 50;
                     const isKeyForSelectedTrack = selectedTrack.keyStats.includes(key);
-                    const delta = currentDelta[key];
+                    const delta = displayDelta[key];
                     return (
                       <div
                         key={key}
@@ -682,9 +733,7 @@ export function DetailedStatsPanel({
                         <span className="text-[12.5px] truncate">{meta.label}</span>
                         <div className="flex items-center gap-1">
                           {delta && delta !== 0 && (
-                            <span className={`font-mono text-[10px] ${delta > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                              {delta > 0 ? `▲` : `▼`}
-                            </span>
+                            <DeltaBadge delta={delta} label={meta.label} />
                           )}
                           <span
                             className="font-mono font-bold text-[13px] tabular-nums"
@@ -708,7 +757,7 @@ export function DetailedStatsPanel({
                     const meta = META[key];
                     const val = safeStats[key] ?? 50;
                     const isKeyForSelectedTrack = selectedTrack.keyStats.includes(key);
-                    const delta = currentDelta[key];
+                    const delta = displayDelta[key];
                     return (
                       <div
                         key={key}
@@ -721,9 +770,7 @@ export function DetailedStatsPanel({
                         <span className="text-[12.5px] truncate">{meta.label}</span>
                         <div className="flex items-center gap-1">
                           {delta && delta !== 0 && (
-                            <span className={`font-mono text-[10px] ${delta > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                              {delta > 0 ? `▲` : `▼`}
-                            </span>
+                            <DeltaBadge delta={delta} label={meta.label} />
                           )}
                           <span
                             className="font-mono font-bold text-[13px] tabular-nums"

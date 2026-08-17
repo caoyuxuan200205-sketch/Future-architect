@@ -357,7 +357,34 @@ export function greetNpc(
   );
 }
 
-/** 玩家主动打招呼（轻量互动，+1 好感上限 30） */
+const FIRST_GREETING_REPLIES: Record<string, string> = {
+  peer: "在呢！我刚把模型的 Grasshopper 电池调通，晚点要不要一起去二食堂吃烤冷面？",
+  zhang_yifan: "在呢！我刚把模型的 Grasshopper 电池调通，晚点要不要一起去二食堂吃烤冷面？",
+  lu_yuchen: "收到。刚看完你发来的行业报告框架，推演逻辑很严密，继续保持。",
+  bai_xu: "哇学长找我！嘿嘿，我刚烤好了一盘香草曲奇，等会儿顺路给你送过去尝尝！",
+  jiang_huai: "在呢！刚打完球冲完凉，晚上回寝室给你带份现炒河粉，别老饿着肚子改图。",
+  lab_senior: "收到了。我正在图书馆三楼靠窗的位置，这本《营造学社汇刊》图注很精彩，随时过来一起看。",
+  shen_qinghuai: "收到了。我正在图书馆三楼靠窗的位置，这本《营造学社汇刊》图注很精彩，随时过来一起看。",
+  professor: "知道了。抓紧梳理近代建筑史的文献框架，周四组会按时汇报进展。",
+  college_friend: "哈喽！最近忙不忙呀？改天有空一起去逛展喝奶茶！",
+};
+
+const SECOND_GREETING_BUSY_TEXT: Record<string, string> = {
+  peer: "（张一帆正在电脑前渲染大样视图，可能在赶图，暂时没有回复你。）",
+  zhang_yifan: "（张一帆正在电脑前渲染大样视图，可能在赶图，暂时没有回复你。）",
+  lu_yuchen: "（陆予忱正在参加大厂校友闭门研讨会，暂时没有回复你。）",
+  bai_xu: "（白栩正在做快题手绘排版，暂时没有回复你。）",
+  jiang_huai: "（江淮正在田径场进行体能集训，暂时没有回复你。）",
+  lab_senior: "（沈清淮正在特藏古籍阅览室查阅文献，暂时没有回复你。）",
+  shen_qinghuai: "（沈清淮正在特藏古籍阅览室查阅文献，暂时没有回复你。）",
+  professor: "（导师办公室门关着，老师正在修改国家社科基金申报书，暂时没有回复你。）",
+  college_friend: "（顾小北正在上课，暂时没有回复你。）",
+};
+
+/**
+ * 玩家每回合可在电脑微信界面主动给每个 NPC 发一条消息（首次发送主动加好感 +2，上限 100）
+ * 本回合发送第 2 条及以上消息时，NPC 会显示忙碌/已读未回提示，且不再增加好感度
+ */
 export function sendGreeting(
   state: SocialState,
   npcId: string,
@@ -368,185 +395,18 @@ export function sendGreeting(
   if (!npc) return state;
 
   const playerText = customText?.trim() || "（打了个招呼）";
-
   const bond = getBond(state, npcId);
   const totalRound = round;
 
-  // —— 本回合打招呼计数（每回合重置） ——
+  // —— 本回合已发送消息计数（每回合重置） ——
   const greetingsThisRound =
     bond.lastGreetingsResetRound === totalRound
       ? (bond.greetingsThisRound ?? 0)
       : 0;
 
-  // —— 激怒冷却：本回合已触发爆发，不再响应 ——
-  if (bond.enragedLocked && bond.lastGreetingsResetRound === totalRound) {
-    const { state: s1, message: playerMsg } = pushMessage(state, {
-      npcId,
-      from: "player",
-      text: playerText,
-      round,
-      timeLabel: makeTimeLabel(),
-      read: true,
-    });
-    const cooldownText = GREETING_COOLDOWN_TEXT[npcId] ?? GREETING_COOLDOWN_TEXT.professor;
-    const { state: s2 } = pushMessage(s1, {
-      npcId,
-      from: "npc",
-      text: cooldownText,
-      tone: "cold",
-      round,
-      timeLabel: makeTimeLabel(),
-      read: false,
-    });
-    return {
-      ...s2,
-      bonds: {
-        ...s2.bonds,
-        [npcId]: {
-          ...bond,
-          messageIds: [...bond.messageIds, playerMsg.id, s2.messageOrder[s2.messageOrder.length - 1]],
-        },
-      },
-    };
-  }
-
   const nextCount = greetingsThisRound + 1;
 
-  // —— 阶梯式彩蛋反馈 ——
-  // 1-2 次：正常回复，+1 好感（上限 30）
-  // 3 次：不耐烦警告，不加好感
-  // 4 次：明确警告 -2 好感
-  // 5+ 次：触发爆发对话树，-10 好感，锁定
-
-  if (nextCount >= 5) {
-    // 触发爆发
-    const { state: s1, message: playerMsg } = pushMessage(state, {
-      npcId,
-      from: "player",
-      text: playerText,
-      round,
-      timeLabel: makeTimeLabel(),
-      read: true,
-    });
-
-    // 推一条 NPC 即时反应（爆发前的最后一根稻草）
-    const stormStart = GREETING_STORM_START[npcId] ?? GREETING_STORM_START.professor;
-    const { state: s2, message: npcMsg } = pushMessage(s1, {
-      npcId,
-      from: "npc",
-      text: stormStart,
-      tone: "cold",
-      round,
-      timeLabel: makeTimeLabel(),
-      read: false,
-    });
-
-    // -10 好感
-    const newFavor = Math.max(0, bond.favorability - 10);
-
-    // 更新 bond 并触发对话树
-    let next: SocialState = {
-      ...s2,
-      bonds: {
-        ...s2.bonds,
-        [npcId]: {
-          ...bond,
-          favorability: newFavor,
-          greetingsThisRound: nextCount,
-          lastGreetingsResetRound: totalRound,
-          enragedLocked: true,
-          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
-          lastInteractionRound: round,
-        },
-      },
-    };
-
-    // 手动触发爆发对话树（目前只有 professor 有专属爆发树，其他 NPC 走通用冷淡文案）
-    if (npcId === "professor") {
-      next = triggerDialogueTree(next, "professor_storm_out", round);
-    }
-    return next;
-  }
-
-  // —— 4 次：明确警告 ——
-  if (nextCount === 4) {
-    const { state: s1, message: playerMsg } = pushMessage(state, {
-      npcId,
-      from: "player",
-      text: playerText,
-      round,
-      timeLabel: makeTimeLabel(),
-      read: true,
-    });
-    const stormText =
-      npcId === "professor"
-        ? "你又来？我现在手头有三个本子要看，没空陪你聊闲。有事说事，没事别再发了。"
-        : "（对方明显有点烦了：「你今天已经找过我好几次了，我在忙，改天再聊好吗？」）";
-    const { state: s2, message: npcMsg } = pushMessage(s1, {
-      npcId,
-      from: "npc",
-      text: stormText,
-      tone: "cold",
-      round,
-      timeLabel: makeTimeLabel(),
-      read: false,
-    });
-    const newFavor = Math.max(0, bond.favorability - 2);
-    return {
-      ...s2,
-      bonds: {
-        ...s2.bonds,
-        [npcId]: {
-          ...bond,
-          favorability: newFavor,
-          greetingsThisRound: nextCount,
-          lastGreetingsResetRound: totalRound,
-          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
-          lastInteractionRound: round,
-        },
-      },
-    };
-  }
-
-  // —— 3 次：不耐烦警告 ——
-  if (nextCount === 3) {
-    const { state: s1, message: playerMsg } = pushMessage(state, {
-      npcId,
-      from: "player",
-      text: playerText,
-      round,
-      timeLabel: makeTimeLabel(),
-      read: true,
-    });
-    const annoyedText =
-      npcId === "professor"
-        ? "你今天找我几次了？有事就说，没事让我安静一会儿。"
-        : "（对方回得很敷衍：「嗯。」就没下文了。）";
-    const { state: s2, message: npcMsg } = pushMessage(s1, {
-      npcId,
-      from: "npc",
-      text: annoyedText,
-      tone: "cold",
-      round,
-      timeLabel: makeTimeLabel(),
-      read: false,
-    });
-    return {
-      ...s2,
-      bonds: {
-        ...s2.bonds,
-        [npcId]: {
-          ...bond,
-          greetingsThisRound: nextCount,
-          lastGreetingsResetRound: totalRound,
-          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
-          lastInteractionRound: round,
-        },
-      },
-    };
-  }
-
-  // —— 1-2 次：正常回复 ——
+  // 1. 推送玩家发送的消息
   const { state: s1, message: playerMsg } = pushMessage(state, {
     npcId,
     from: "player",
@@ -556,32 +416,69 @@ export function sendGreeting(
     read: true,
   });
 
-  const reply = npc.awayText || "（对方已读，暂时没有回复。）";
-  const { state: s2, message: npcMsg } = pushMessage(s1, {
-    npcId,
-    from: "npc",
-    text: reply,
-    tone: toneFromFavorability(Math.min(bond.favorability, 30)),
-    round,
-    timeLabel: makeTimeLabel(),
-    read: false,
-  });
+  // 2. 判定是本回合第 1 条还是后续消息
+  if (greetingsThisRound === 0) {
+    // 首次发送：NPC 积极回复并主动增加好感度 +2（上限 100）
+    const replyText =
+      FIRST_GREETING_REPLIES[npcId] ||
+      npc.greeting ||
+      "收到了，随时保持联系！";
 
-  const newFavor = Math.min(30, bond.favorability + 1);
-  return {
-    ...s2,
-    bonds: {
-      ...s2.bonds,
-      [npcId]: {
-        ...bond,
-        favorability: newFavor,
-        greetingsThisRound: nextCount,
-        lastGreetingsResetRound: totalRound,
-        messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
-        lastInteractionRound: round,
+    const { state: s2, message: npcMsg } = pushMessage(s1, {
+      npcId,
+      from: "npc",
+      text: replyText,
+      tone: toneFromFavorability(bond.favorability + 2),
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+    });
+
+    const newFavor = Math.min(100, (bond.favorability ?? 30) + 2);
+    return {
+      ...s2,
+      bonds: {
+        ...s2.bonds,
+        [npcId]: {
+          ...bond,
+          favorability: newFavor,
+          greetingsThisRound: nextCount,
+          lastGreetingsResetRound: totalRound,
+          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+          lastInteractionRound: round,
+        },
       },
-    },
-  };
+    };
+  } else {
+    // 第 2 条及以上消息：对方在忙碌，不理会，不增加好感度
+    const busyText =
+      SECOND_GREETING_BUSY_TEXT[npcId] ||
+      "（对方正在忙碌，暂时没有回复你。）";
+
+    const { state: s2, message: npcMsg } = pushMessage(s1, {
+      npcId,
+      from: "npc",
+      text: busyText,
+      tone: "cold",
+      round,
+      timeLabel: makeTimeLabel(),
+      read: false,
+    });
+
+    return {
+      ...s2,
+      bonds: {
+        ...s2.bonds,
+        [npcId]: {
+          ...bond,
+          greetingsThisRound: nextCount,
+          lastGreetingsResetRound: totalRound,
+          messageIds: [...bond.messageIds, playerMsg.id, npcMsg.id],
+          lastInteractionRound: round,
+        },
+      },
+    };
+  }
 }
 
 /** 根据好感度取关系阶段标签 */

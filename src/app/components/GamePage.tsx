@@ -17,8 +17,10 @@ import {
   inferCompanyCity,
   applyCityToFinance,
   formatYuan,
+  MONEY_SCALE,
   type FinanceState,
   type MonthlySettlement,
+  type SettlementLine,
 } from "../economy/finance";
 import { getInitialThesisScore } from "../thesis/thesisScore";
 import { calculateThesisGrade as calcThesisGrade } from "../thesis/thesisScore";
@@ -72,6 +74,7 @@ import {
   setProfessorDisplayName,
   toneFromFavorability,
 } from "../npc/npcRegistry";
+import { PARTNER_BUFF_DEFINITIONS } from "../npc/peerData";
 
 // ================================================================
 // SECTION 1: 数据层（所有数组，方便后续扩展）
@@ -4825,6 +4828,10 @@ export function GamePage() {
   const [isShenQinghuaiFirstMeet, setIsShenQinghuaiFirstMeet] = useState(false);
   const [shenQinghuaiFavorability, setShenQinghuaiFavorability] = useState(60);
 
+  // 上一回合属性净变化结算（供状态页 ▲/▼ 展示）
+  const [lastRoundDelta, setLastRoundDelta] = useState<Partial<Stats>>({});
+  const roundStartStatsRef = useRef<Stats | null>(null);
+
   // 伴侣与表白羁绊状态（支持多对象）
   const [partners, setPartners] = useState<string[]>(() => {
     try {
@@ -5062,6 +5069,7 @@ export function GamePage() {
     isResumeOpen, receivedOffers,
     actionMemory,
     financeState,
+    lastRoundDelta,
   }), [
     phase, character, stats, mentor, semester, round,
     currentEvent, activeCampusEvent, campusEventResult,
@@ -5074,6 +5082,7 @@ export function GamePage() {
     isResumeOpen, receivedOffers,
     actionMemory,
     financeState,
+    lastRoundDelta,
   ]);
 
   const restoreGameState = useCallback((data: Record<string, any>) => {
@@ -5090,7 +5099,10 @@ export function GamePage() {
       setCharacter(savedCharacter);
       setPlayerNameInput(savedCharacter.name);
     }
-    setStats(normalizeStats(data.stats));
+    const restoredStats = normalizeStats(data.stats);
+    setStats(restoredStats);
+    if (restoredStats) roundStartStatsRef.current = restoredStats;
+    setLastRoundDelta(data.lastRoundDelta ?? {});
     if (data.financeState) {
       setFinanceState(data.financeState);
     } else if (data.stats) {
@@ -5384,6 +5396,8 @@ export function GamePage() {
     setPlayerNameError("");
     setCharacter(c);
     setStats(s);
+    roundStartStatsRef.current = s;
+    setLastRoundDelta({});
     setSemester(1);
     setRound(1);
     setSeenEventIds(new Set());
@@ -5846,7 +5860,57 @@ export function GamePage() {
     setSelectedInternshipIds([]);
 
     // 1. 被动增加年龄焦虑 (0-5点)
-    const { newStats: statsAfterPassive } = applyEffects(stats, { ageAnxiety: [0, 5] });
+    let { newStats: statsAfterPassive } = applyEffects(stats, { ageAnxiety: [0, 5] });
+
+    // ── 伴侣常驻羁绊加成（每回合结算，数据来自 peerData 的 PARTNER_BUFF_DEFINITIONS）──
+    const partnerIncomeLines: SettlementLine[] = [];
+    if (partners.length > 0) {
+      const partnerStatEffects: Record<string, number> = {};
+      for (const pId of partners) {
+        const def = PARTNER_BUFF_DEFINITIONS[pId];
+        if (!def) continue;
+        const fx = def.perTurnEffects;
+
+        // 金钱类：恋人津贴（以 moneyYuan 元为准；无则用 money 抽象分 ×500 兜底）
+        const yuan =
+          fx.moneyYuan ?? (typeof fx.money === "number" ? Math.round(fx.money * MONEY_SCALE) : 0);
+        if (yuan > 0) {
+          partnerIncomeLines.push({ label: `${def.name} · 恋人津贴`, amount: yuan, type: "in" });
+        }
+
+        // 普通属性类加成
+        const attrKeys: (keyof Stats)[] = [
+          "stress", "network", "commercial", "industryResearch",
+          "selfDoubt", "health", "ageAnxiety", "thesisScore", "arch",
+        ];
+        const fxMap = fx as unknown as Record<string, unknown>;
+        for (const key of attrKeys) {
+          const v = fxMap[key];
+          if (typeof v === "number" && v !== 0) {
+            partnerStatEffects[key] = (partnerStatEffects[key] ?? 0) + v;
+          }
+        }
+
+        // 白栩 · 神秘盲盒随机属性
+        if (fx.randomStatBonus) {
+          const pool: (keyof Stats)[] = [
+            "arch", "logic", "expression", "commercial", "dataSense", "network", "thesisScore",
+          ];
+          const key = pool[Math.floor(Math.random() * pool.length)];
+          partnerStatEffects[key] = (partnerStatEffects[key] ?? 0) + fx.randomStatBonus.amount;
+        }
+
+        // 导师好感锁定（mentorFavorabilityLock → 把导师好感锁到该值）
+        if (typeof fx.mentorFavorabilityLock === "number") {
+          partnerStatEffects.mentorFavorability =
+            fx.mentorFavorabilityLock - (statsAfterPassive.mentorFavorability ?? 0);
+        }
+      }
+
+      if (Object.keys(partnerStatEffects).length > 0) {
+        statsAfterPassive = applyEffects(statsAfterPassive, partnerStatEffects).newStats;
+      }
+    }
     setStats(statsAfterPassive);
 
     if (statsAfterPassive.mentorFavorability <= 0) {
@@ -5932,7 +5996,7 @@ export function GamePage() {
         currentFinance.scholarshipPending = sch;
       }
     }
-    const settlement = settleMonth(currentFinance, statsAfterPassive.money, totalRound);
+    const settlement = settleMonth(currentFinance, statsAfterPassive.money, totalRound, partnerIncomeLines);
     statsAfterPassive.money = settlement.newMoney;
     setStats(statsAfterPassive);
     setFinanceState({
@@ -5942,6 +6006,22 @@ export function GamePage() {
       scholarshipPending: 0,
     });
     setMonthlySettlement(settlement);
+
+    // ── 结算上一回合净属性变化（对比回合起点快照），供状态页 ▲/▼ 展示 ──
+    if (roundStartStatsRef.current) {
+      const startSnapshot = roundStartStatsRef.current;
+      const delta: Partial<Stats> = {};
+      const deltaKeys = new Set([...Object.keys(startSnapshot), ...Object.keys(statsAfterPassive)]);
+      deltaKeys.forEach((k) => {
+        const before = (startSnapshot as any)[k];
+        const after = (statsAfterPassive as any)[k];
+        if (typeof before === "number" && typeof after === "number" && before !== after) {
+          (delta as any)[k] = Math.round((after - before) * 10) / 10;
+        }
+      });
+      setLastRoundDelta(delta);
+    }
+    roundStartStatsRef.current = { ...statsAfterPassive };
 
     // ── 开题线提醒：进入研二下学期（semester 4）首回合时，检测论文分是否 < 30 ──
     if (nextSem === 4 && nextRd === 1) {
@@ -6003,7 +6083,7 @@ export function GamePage() {
     }
 
     maybeShowEvent(statsAfterPassive, nextSem, seenEventIds);
-  }, [stats, semester, round, seenEventIds, seenCampusIds, maybeShowEvent, chosenAction, selectedInternshipIds, internshipChannel, internshipApplications, financeState]);
+  }, [stats, semester, round, seenEventIds, seenCampusIds, maybeShowEvent, chosenAction, selectedInternshipIds, internshipChannel, internshipApplications, financeState, partners]);
 
   const selectInternshipApplication = useCallback((applicationId: string) => {
     setActiveInterviewApplicationId(applicationId || null);
@@ -6843,6 +6923,7 @@ export function GamePage() {
               phase={phase}
               actionDelta={actionDelta}
               eventDelta={eventDelta}
+              lastRoundDelta={lastRoundDelta as any}
               pastInternships={pastInternships}
               onUpdateInternshipDetails={updateInternshipDetails}
               onViewResume={mentor ? () => setResumeMentorId(mentor.id) : undefined}
