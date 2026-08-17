@@ -320,4 +320,105 @@
   will-change: transform;
 }
 
+/* —— 亲密互动专属立绘动效 —— */
+
+/* 1. 牵手/初级心动：心跳脉冲 */
+@keyframes avg-heartbeat-pulse {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  15% {
+    transform: translateY(-2px) scale(1.02);
+  }
+  30% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-3px) scale(1.025);
+  }
+  65% {
+    transform: translateY(0) scale(1.008);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 2. 害羞微颤 */
+@keyframes avg-shy-tremble {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  20% {
+    transform: translateY(-1.5px) rotate(-0.4deg);
+  }
+  40% {
+    transform: translateY(-1.5px) rotate(0.4deg);
+  }
+  60% {
+    transform: translateY(-0.8px) rotate(-0.3deg);
+  }
+  80% {
+    transform: translateY(0) rotate(0.2deg);
+  }
+}
+
+/* 3. 欢跃/兴奋 */
+@keyframes avg-bounce-gentle {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-4px) scale(1.015);
+  }
+  50% {
+    transform: translateY(0) scale(0.995);
+  }
+  70% {
+    transform: translateY(-2px) scale(1.008);
+  }
+}
+
+/* 4. 浮动浪漫爱心与星光粒子 */
+@keyframes float-heart-up {
+  0% {
+    opacity: 0;
+    transform: translateY(15px) scale(0.6) rotate(-10deg);
+  }
+  25% {
+    opacity: 0.95;
+  }
+  75% {
+    opacity: 0.85;
+    transform: translateY(-50px) scale(1.15) rotate(10deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-90px) scale(0.7) rotate(20deg);
+  }
+}
+
+.animate-avg-pulse {
+  animation: avg-heartbeat-pulse 1.8s ease-in-out infinite;
+  transform-origin: bottom center;
+  will-change: transform;
+}
+
+.animate-avg-shy {
+  animation: avg-shy-tremble 2.5s ease-in-out infinite;
+  transform-origin: bottom center;
+  will-change: transform;
+}
+
+.animate-avg-bounce {
+  animation: avg-bounce-gentle 2.2s ease-in-out infinite;
+  transform-origin: bottom center;
+  will-change: transform;
+}
+
+.animate-float-heart {
+  animation: float-heart-up 3.2s ease-out infinite;
+}
+
+
 
