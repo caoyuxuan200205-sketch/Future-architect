@@ -276,3 +276,48 @@
     line-height: 1.5;
   }
 }
+
+/* —— AVG 立绘微呼吸动效（轻柔微小幅度） —— */
+@keyframes avg-portrait-breathe {
+  0% {
+    transform: translateY(0px) scale(1);
+  }
+  38% {
+    transform: translateY(-2px) scale(1.004);
+  }
+  70% {
+    transform: translateY(-0.8px) scale(1.002);
+  }
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+}
+
+@keyframes avg-portrait-breathe-deep {
+  0% {
+    transform: translateY(0px) scale(1.008);
+  }
+  40% {
+    transform: translateY(-3.5px) scale(1.016);
+  }
+  72% {
+    transform: translateY(-1.2px) scale(1.012);
+  }
+  100% {
+    transform: translateY(0px) scale(1.008);
+  }
+}
+
+.animate-avg-breathe {
+  animation: avg-portrait-breathe 5.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: bottom center;
+  will-change: transform;
+}
+
+.animate-avg-breathe-intimate {
+  animation: avg-portrait-breathe-deep 4.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  transform-origin: bottom center;
+  will-change: transform;
+}
+
+

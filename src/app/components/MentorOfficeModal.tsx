@@ -423,33 +423,25 @@ export function MentorOfficeModal({
           {/* 左侧：沉浸式视觉小说舞台（环境 + 人物立绘/卡片） */}
           <div className="relative flex flex-col overflow-hidden border-b border-white/10 lg:col-span-5 lg:border-b-0 lg:border-r">
             {profile.hasPortrait ? (
-              <>
-                {/* 弱化场景背景（虚化降饱和，给人物立绘让位） */}
-                <img
-                  src={profile.sceneImage}
-                  alt="导师办公室环境"
-                  className="absolute inset-0 h-full w-full object-cover brightness-[0.45] contrast-[0.95] saturate-[0.7] blur-[2px] scale-110"
-                />
-                {/* 氛围渐变遮罩：上下深、左右带阴影 */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#07101d] via-[#07101d]/55 to-[#07101d]/40" />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/35 via-transparent to-black/45" />
-
+              <div className="relative flex flex-col h-full w-full overflow-hidden bg-white">
                 {/* 心境浮窗（贴顶精致小巧） */}
-                <div className="absolute left-4 right-4 top-4 z-20 flex items-center gap-2 rounded-xl border border-white/15 bg-[#060c16]/85 px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur-md shadow-lg">
+                <div className="absolute left-4 right-4 top-4 z-20 flex items-center gap-2 rounded-xl border border-slate-900/10 bg-[#060c16]/85 px-3 py-1.5 text-[11px] text-slate-300 backdrop-blur-md shadow-lg">
                   <Sparkles size={12} className="text-amber-400 shrink-0 animate-pulse" />
                   <span className="truncate">当前状态：<span className="text-amber-200">{currentMood}</span></span>
                 </div>
 
                 {/* 人物立绘主视觉：占据全部可用空间，按比例完整显示 */}
-                <div className="relative z-10 flex-1 flex min-h-0 items-end justify-center px-2 pt-2 pb-2">
+                <div className="relative z-10 flex-1 flex min-h-0 items-end justify-center overflow-hidden bg-white">
                   <img
                     src={profile.avatarImage}
                     alt={profile.name}
-                    className="max-h-full max-w-full w-auto h-auto object-contain drop-shadow-[0_24px_50px_rgba(0,0,0,0.7)]"
-                    style={{ filter: "brightness(1.04) contrast(1.06)" }}
+                    className={`max-h-full max-w-full w-auto h-auto object-contain transition-all duration-700 ${
+                      optionCategory === "romance" ? "animate-avg-breathe-intimate" : "animate-avg-breathe"
+                    }`}
+                    style={{ filter: "brightness(1.02) contrast(1.04)" }}
                   />
                 </div>
-              </>
+              </div>
             ) : (
               <>
                 {/* 背景大图（无立绘时主视觉） */}
