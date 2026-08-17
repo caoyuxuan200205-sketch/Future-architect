@@ -1774,3 +1774,322 @@ export const SHEN_QINGHUAI_ROMANCE_OPTIONS: PeerOption[] = [
     ],
   },
 ];
+
+// ================================================================
+// 各角色日常拜访问候剧情库（每次非初遇拜访时随机触发，纯剧情无负担）
+// ================================================================
+
+export const DAILY_VISIT_GREETINGS: Record<string, DialogueTurn[][]> = {
+  zhang_yifan: [
+    [
+      {
+        speaker: "player",
+        content: "一帆，在工位画图呢？",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "师兄你来啦！快坐快坐，我刚点了一杯生椰拿铁，特意让店员加了双份浓缩，分你半杯！",
+      },
+      {
+        speaker: "narration",
+        content: "张一帆把吸管插好递到你手里，笑眼弯弯地挪了挪转椅，工位上弥漫着清爽的咖啡香气。",
+      },
+      {
+        speaker: "peer",
+        tone: "excited",
+        content: "今天有什么想一起研究的？不管改图还是摸鱼，我都奉陪到底！",
+      },
+    ],
+    [
+      {
+        speaker: "player",
+        content: "今天工位怎么就你一个人？",
+      },
+      {
+        speaker: "peer",
+        tone: "excited",
+        content: "隔壁组全被导师叫去开批斗会了，就剩我在这里守家！",
+      },
+      {
+        speaker: "narration",
+        content: "他神秘兮兮地拉开抽屉，掏出一大包海苔和巧克力威化塞进你手里，笑得格外灿烂。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "趁老齐还没突击检查，快补充点糖分！看你最近眼圈都熬黑了，心疼死我了。",
+      },
+    ],
+    [
+      {
+        speaker: "narration",
+        content: "窗外斜阳西下，金红色的晚霞透过中大院的落地窗洒在两人的绘图桌上。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "师兄你看天边的晚霞，颜色像不像我们上次调的参数化渐变曲面？",
+      },
+      {
+        speaker: "player",
+        content: "你真是魔怔了，看什么都能联想到 Rhino 电池。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "（他嘿嘿一笑，托着下巴看着你）因为只要和你坐在一起，连对着电脑改图都觉得特别浪漫嘛。",
+      },
+    ],
+  ],
+
+  lu_yuchen: [
+    [
+      {
+        speaker: "player",
+        content: "予忱，今天就业中心忙吗？",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "刚帮两个研三的同学改完外企 Case 框架。你来得正好，我刚冲了一壶危地马拉手冲。",
+      },
+      {
+        speaker: "narration",
+        content: "陆予忱将一杯温热醇香的咖啡放在你面前，摘下半框眼镜轻轻揉了揉鼻梁，神色难得有一丝放松。",
+      },
+      {
+        speaker: "peer",
+        tone: "focus",
+        content: "坐。今天想聊聊职业路径，还是纯粹想找我坐一会儿？",
+      },
+    ],
+    [
+      {
+        speaker: "narration",
+        content: "白板上密密麻麻写满了大厂战略咨询框架与结构化面试逻辑。陆予忱握着白板笔回过头。",
+      },
+      {
+        speaker: "peer",
+        tone: "focus",
+        content: "来得正好。我刚把头部互联网大厂的最新题库做完聚类分析，正打算找你一起复盘。",
+      },
+      {
+        speaker: "player",
+        content: "学长工作效率也太恐怖了……",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "（嘴角微微扬起一抹极淡的弧度）对其他人是工作，对你……是专属特供。",
+      },
+    ],
+    [
+      {
+        speaker: "peer",
+        tone: "focus",
+        content: "门带上吧，今天外面有点吵。",
+      },
+      {
+        speaker: "narration",
+        content: "陆予忱合上笔电，双手十指交叉放在桌前，漆黑的眼眸专注地凝视着你。",
+      },
+      {
+        speaker: "player",
+        content: "感觉学长今天看起来心情不错？",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "原本有点枯燥，但看到你推门进来的那一刻，今天的期望值已经达标了。",
+      },
+    ],
+  ],
+
+  bai_xu: [
+    [
+      {
+        speaker: "peer",
+        tone: "excited",
+        content: "学长！学长这里！快过来坐！",
+      },
+      {
+        speaker: "narration",
+        content: "白栩从咖啡馆靠窗的阳光卡座站起身，像只开心的小狗一样拼命朝你招手。",
+      },
+      {
+        speaker: "player",
+        content: "白栩，等很久了吗？",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "没有没有！我也刚到五分钟！我特意给你霸占了采光最好、有软垫的沙发卡座，还给你点了最爱吃的草莓慕斯！",
+      },
+    ],
+    [
+      {
+        speaker: "narration",
+        content: "咖啡桌上摆满了激光雕刻的椴木板与 UHU 胶水，白栩鼻尖上沾了一点木屑，正嘟着嘴小心翼翼地粘合屋顶节点。",
+      },
+      {
+        speaker: "player",
+        content: "噗，鼻尖上沾灰了。",
+      },
+      {
+        speaker: "narration",
+        content: "你伸手轻轻帮他抹去鼻尖的木屑，学长的指尖触碰到他的皮肤，白栩的脸颊瞬间红透了。",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "唔……学长摸我头的话，我今天拼模型的速度可以提升 200%！",
+      },
+    ],
+    [
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "学长，咖啡馆今天放的歌好好听哦……",
+      },
+      {
+        speaker: "narration",
+        content: "白栩双手托着下巴，眼睛亮晶晶地注视着你，阳光在他长长的睫毛上投下温柔的阴影。",
+      },
+      {
+        speaker: "player",
+        content: "怎么一直盯着我看，不专心画图了？",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "因为学长比图纸好看一千倍呀！真想每天都在这里和学长自习一辈子……",
+      },
+    ],
+  ],
+
+  jiang_huai: [
+    [
+      {
+        speaker: "narration",
+        content: "你推开 502 寝室的门，刚冲完凉的江淮正穿着黑色无袖背心，用白毛巾擦拭着短发上的水珠。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "哟，大建筑师回寝室啦！看你这虚脱样，赶快把鞋脱了上床歇会儿。",
+      },
+      {
+        speaker: "narration",
+        content: "他顺手从冰箱里拿出一听冰镇可乐拉开拉环递给你，手臂肌肉线条在白炽灯下结实饱满。",
+      },
+      {
+        speaker: "peer",
+        tone: "excited",
+        content: "今晚寝室我罩着你，老齐要是半夜催图，我就替你回消息说你睡了！",
+      },
+    ],
+    [
+      {
+        speaker: "narration",
+        content: "江淮正单手撑在宿舍地板上做俯卧撑，额头上渗出细密的汗珠。见到你进来，他利落地翻身跃起。",
+      },
+      {
+        speaker: "peer",
+        tone: "excited",
+        content: "回来了？走，换身运动服，跟我去操场跑两圈排排毒！天天坐在电脑前骨头都要生锈了。",
+      },
+      {
+        speaker: "player",
+        content: "我刚改完图，真的一滴力气都没有了……",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "（他哈哈大笑，一把将你架在肩膀上）那我背你去！体能训练一刻也不能落下！",
+      },
+    ],
+    [
+      {
+        speaker: "peer",
+        tone: "excited",
+        content: "喂，舍友，快来看我刚在食堂抢到的现炸鸡米花！",
+      },
+      {
+        speaker: "narration",
+        content: "江淮一边嚼着鸡块，一边把你拉到他书桌前，顺手把最肥的一块肉夹进你嘴里。",
+      },
+      {
+        speaker: "player",
+        content: "唔……真香，还是宿舍有人等的感觉好。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "（他眼神温和地揉了一把你的后颈）废话，同居这么久了，我不疼你谁疼你？",
+      },
+    ],
+  ],
+
+  shen_qinghuai: [
+    [
+      {
+        speaker: "narration",
+        content: "午后阳光斜斜洒在图书馆三楼靠窗的长木桌上。沈清淮正低头翻阅一本泛黄的大开本《中国营造学社汇刊》。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "你来了。脚步放轻，过来坐我身边。",
+      },
+      {
+        speaker: "narration",
+        content: "他微笑着拉开身边的软椅，将一杯温热的白桃乌龙茶轻轻推到你手边。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "特藏室今天人不多，很安静。今天有什么文献想和我一起看吗？",
+      },
+    ],
+    [
+      {
+        speaker: "narration",
+        content: "沈清淮手中的铅笔在速写本上沙沙作响。你凑近一看，画纸上除了精细的古建斗栱，旁边还点缀着一幅生动传神的小像。",
+      },
+      {
+        speaker: "player",
+        content: "学长，这旁边画的是……我？",
+      },
+      {
+        speaker: "peer",
+        tone: "shy",
+        content: "（他脸颊微红，有些不好意思地推了推银丝眼镜）随手勾的……觉得你在认真画图时的神态很好看，就忍不住画下来了。",
+      },
+      {
+        speaker: "narration",
+        content: "微风吹动图书馆的薄纱窗帘，两人的呼吸声在静谧的书海中格外轻柔清晰。",
+      },
+    ],
+    [
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "近代建筑史的文献繁多复杂，不要着急，慢工出细活。",
+      },
+      {
+        speaker: "narration",
+        content: "沈清淮修长温热的手掌轻轻覆在你的草图本边缘，目光清亮而满含鼓励。",
+      },
+      {
+        speaker: "player",
+        content: "有学长在，感觉查资料都没那么枯燥了。",
+      },
+      {
+        speaker: "peer",
+        tone: "sweet",
+        content: "能在这个安静的角落陪着你，也是我一天里最期待的时刻。",
+      },
+    ],
+  ],
+};

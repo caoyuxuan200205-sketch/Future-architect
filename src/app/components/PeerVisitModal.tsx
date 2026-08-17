@@ -35,6 +35,7 @@ import {
   SHEN_QINGHUAI_STUDY_OPTIONS,
   SHEN_QINGHUAI_ROMANCE_OPTIONS,
   SHEN_QINGHUAI_FIRST_MEET,
+  DAILY_VISIT_GREETINGS,
   type PeerProfile,
   type PeerOption,
   type DialogueTurn,
@@ -128,9 +129,17 @@ export function PeerVisitModal({
         setDialogueIndex(0);
         setDialogueComplete(false);
       } else {
-        setDialogueSequence([]);
-        setDialogueIndex(0);
-        setDialogueComplete(false);
+        const pool = DAILY_VISIT_GREETINGS[characterId] || [];
+        if (pool.length > 0) {
+          const randomIndex = Math.floor(Math.random() * pool.length);
+          setDialogueSequence(pool[randomIndex]);
+          setDialogueIndex(0);
+          setDialogueComplete(false);
+        } else {
+          setDialogueSequence([]);
+          setDialogueIndex(0);
+          setDialogueComplete(false);
+        }
       }
     }
   }, [isOpen, characterId, isFirstMeet, profile.currentMoods.length]);
@@ -169,11 +178,9 @@ export function PeerVisitModal({
       setDialogueComplete(true);
       if (isFirstMeet && onCompleteFirstMeet) {
         onCompleteFirstMeet();
-      } else {
+      } else if (selectedOption && onExecuteOption) {
         setHasExecuted(true);
-        if (selectedOption && onExecuteOption) {
-          onExecuteOption(selectedOption);
-        }
+        onExecuteOption(selectedOption);
       }
     }
   };
@@ -182,11 +189,20 @@ export function PeerVisitModal({
     setDialogueComplete(true);
     if (isFirstMeet && onCompleteFirstMeet) {
       onCompleteFirstMeet();
-    } else {
+    } else if (selectedOption && onExecuteOption) {
       setHasExecuted(true);
-      if (selectedOption && onExecuteOption) {
-        onExecuteOption(selectedOption);
-      }
+      onExecuteOption(selectedOption);
+    }
+  };
+
+  const triggerRandomGreeting = () => {
+    const pool = DAILY_VISIT_GREETINGS[characterId] || [];
+    if (pool.length > 0) {
+      setSelectedOption(null);
+      const randomIndex = Math.floor(Math.random() * pool.length);
+      setDialogueSequence(pool[randomIndex]);
+      setDialogueIndex(0);
+      setDialogueComplete(false);
     }
   };
 

@@ -118,11 +118,20 @@ export function MentorOfficeModal({
       setSelectedOption(null);
       setHasExecuted(false);
       setCurrentNarrative(null);
-      setCurrentReply(null);
+      const greetings = [
+        `「你来了。最近的研究进展如何？关于近代建筑史的文献与开题，遇到什么卡点了吗？」`,
+        `「坐。桌上这本刚出的《营造法式新释》你拿去看两周。文献考据要耐得住寂寞，慢慢磨。」`,
+        `「下周组会的大纲准备得怎么样了？别只顾着熬夜赶图，理论逻辑必须经得起推敲。」`,
+        `「刚才院里开会还在讨论你们这届的开题盲审。只要按我的要求扎实做，不用慌。」`,
+        `「（${profile.name} 摘下眼镜推了推镜架）今天找我有什么事？学术上的疑难，还是想聊聊别的？」`,
+      ];
+      setCurrentReply(greetings[Math.floor(Math.random() * greetings.length)]);
+      setReplyTone(currentTone);
       setGiftRejected(false);
       setDialogueSequence([]);
       setDialogueIndex(0);
       setDialogueComplete(false);
+      pendingExecutionRef.current = null;
       setCashInputOpen(false);
       setCashAmount(1000);
       setCashGiftOption(null);
