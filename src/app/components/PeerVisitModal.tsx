@@ -208,50 +208,6 @@ export function PeerVisitModal({
 
   const currentOptions = activeCategory === "study" ? studyOptions : romanceOptions;
 
-  const currentDialogueTurn = isDialoguePlaying && dialogueSequence[dialogueIndex] ? dialogueSequence[dialogueIndex] : null;
-  const currentTone = currentDialogueTurn?.tone;
-  const actionLabel = selectedOption?.label || "";
-
-  // 动态立绘动作动效与氛围计算
-  let portraitAnimationClass = "animate-avg-breathe";
-  let zoomClass = "scale-100";
-  let showHearts = false;
-  let showSparkles = false;
-  let auraGlowClass = "";
-
-  if (actionLabel.includes("接吻") || actionLabel.includes("亲脸颊")) {
-    portraitAnimationClass = "animate-avg-pulse";
-    zoomClass = "scale-[1.10]";
-    showHearts = true;
-    auraGlowClass = "bg-rose-500/10 shadow-[inset_0_0_60px_rgba(244,63,94,0.18)]";
-  } else if (actionLabel.includes("求婚") || actionLabel.includes("誓约")) {
-    portraitAnimationClass = "animate-avg-breathe-intimate";
-    zoomClass = "scale-[1.07]";
-    showSparkles = true;
-    auraGlowClass = "bg-amber-500/10 shadow-[inset_0_0_80px_rgba(251,191,36,0.22)]";
-  } else if (actionLabel.includes("拥抱") || actionLabel.includes("依偎")) {
-    portraitAnimationClass = "animate-avg-breathe-intimate";
-    zoomClass = "scale-[1.05]";
-    showHearts = true;
-    auraGlowClass = "bg-pink-500/8 shadow-[inset_0_0_40px_rgba(236,72,153,0.15)]";
-  } else if (actionLabel.includes("牵手") || actionLabel.includes("抚摸") || actionLabel.includes("触碰")) {
-    portraitAnimationClass = "animate-avg-pulse";
-    zoomClass = "scale-[1.02]";
-    auraGlowClass = "bg-rose-500/5 shadow-[inset_0_0_30px_rgba(244,63,94,0.12)]";
-  } else if (currentTone === "shy") {
-    portraitAnimationClass = "animate-avg-shy";
-    auraGlowClass = "bg-rose-500/5";
-  } else if (currentTone === "sweet") {
-    portraitAnimationClass = "animate-avg-pulse";
-    showHearts = true;
-  } else if (currentTone === "excited") {
-    portraitAnimationClass = "animate-avg-bounce";
-    showSparkles = true;
-  } else if (activeCategory === "romance") {
-    portraitAnimationClass = "animate-avg-breathe-intimate";
-    zoomClass = "scale-[1.015]";
-  }
-
   return (
     <div className="fixed inset-0 z-[220] flex items-center justify-center bg-[#020611]/88 p-3 backdrop-blur-md sm:p-6 animate-in fade-in duration-200">
       <section
@@ -317,28 +273,11 @@ export function PeerVisitModal({
             </div>
 
             {/* 人物立绘主视觉 */}
-            <div className={`relative z-10 flex-1 flex min-h-0 items-end justify-center overflow-hidden bg-white transition-all duration-700 ${auraGlowClass}`}>
-              {/* 浮动浪漫爱心粒子 */}
-              {showHearts && (
-                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-around overflow-hidden">
-                  <span className="animate-float-heart text-rose-400/80 text-xl font-bold" style={{ animationDelay: "0s" }}>💖</span>
-                  <span className="animate-float-heart text-pink-400/80 text-lg font-bold" style={{ animationDelay: "1.1s" }}>💕</span>
-                  <span className="animate-float-heart text-rose-300/80 text-2xl font-bold" style={{ animationDelay: "2.2s" }}>✨</span>
-                </div>
-              )}
-              {/* 浮动璀璨星光粒子 */}
-              {showSparkles && (
-                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-around overflow-hidden">
-                  <span className="animate-float-heart text-amber-400/90 text-2xl font-bold" style={{ animationDelay: "0.3s" }}>✨</span>
-                  <span className="animate-float-heart text-yellow-300/90 text-xl font-bold" style={{ animationDelay: "1.5s" }}>⭐</span>
-                  <span className="animate-float-heart text-amber-300/90 text-2xl font-bold" style={{ animationDelay: "2.5s" }}>💍</span>
-                </div>
-              )}
-
+            <div className="relative z-10 flex-1 flex min-h-0 items-end justify-center overflow-hidden bg-white">
               <img
                 src={profile.avatarImage || (profile as any).avatar || "/characters/shen_qinghuai.jpg"}
                 alt={profile.name}
-                className={`max-h-full max-w-full w-auto h-auto object-contain transition-all duration-700 ${portraitAnimationClass} ${zoomClass}`}
+                className="max-h-full max-w-full w-auto h-auto object-contain transition-all duration-700 animate-avg-breathe"
                 style={{ filter: "brightness(1.02) contrast(1.04)" }}
               />
             </div>
