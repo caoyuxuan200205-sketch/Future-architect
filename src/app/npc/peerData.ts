@@ -1742,10 +1742,10 @@ export const SHEN_QINGHUAI_ROMANCE_OPTIONS: PeerOption[] = [
   {
     id: "shen_romance_proposal",
     category: "romance",
-    label: "求婚",
-    tag: "终身誓约",
-    icon: "💍",
-    description: "在全院毕业展览上，他为你翻开画满你肖像的专属速写本。",
+    label: "side一下",
+    tag: "闭馆越界",
+    icon: "🌙",
+    description: "闭馆后的特藏区侧廊里，他摘下银丝眼镜，贴着你的耳侧问今晚能不能换一种方式读懂彼此。",
     unlockFavorability: 95,
     statDeltas: {
       stress: -30,
@@ -1756,20 +1756,20 @@ export const SHEN_QINGHUAI_ROMANCE_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "sweet",
-        content: "这本速写集是我这两年来所有的心血。前面的每一页是古建筑，而从遇见你的那一天起，后面的每一页全是你。",
+        content: "今晚不想再给你讲古建了。比起图纸上的尺度……我更想知道，你允许我靠近到什么程度。",
       },
       {
         speaker: "narration",
-        content: "在图书馆落日余晖的长桌前，沈清淮递上一枚精雕细琢的银制书签戒指，眼底泛着深情泪光。",
+        content: "闭馆广播在远处响起，特藏区侧廊只剩一盏昏暗壁灯。沈清淮摘下银丝眼镜，将你轻轻困在书架与胸膛之间，指腹若有若无地擦过你的唇角，却仍耐心等着你的回应。",
       },
       {
         speaker: "peer",
         tone: "sweet",
-        content: "历史长河无尽漫长，但我想用余生所有的时间，陪伴你走遍世间每一座建筑。",
+        content: "不用承诺以后，也不必做到最后。只要你点头……今晚让我用别的方式，好好照顾你。",
       },
       {
         speaker: "narration",
-        content: "他轻柔地为你戴上戒指，在漫天霞光中将你紧紧拥入怀中，许下一生的浪漫承诺。",
+        content: "你的默许让他一贯温润克制的呼吸乱了节拍。吻从唇边缓慢落到颈侧，衣料摩擦声混着压低的喘息；他的手始终停在每一道由你允许的边界前，却足以让这场闭馆后的亲密研读变得漫长而难忘。",
       },
     ],
   },

@@ -2,10 +2,19 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Sparkles,
   Heart,
+  Hand,
+  Moon,
+  BedDouble,
   X,
   GraduationCap,
   Quote,
   MessageSquare,
+  FileText,
+  Cpu,
+  PencilRuler,
+  Dumbbell,
+  Utensils,
+  Boxes,
   CheckCircle2,
   ChevronRight,
   Coffee,
@@ -47,6 +56,38 @@ import {
   type DialogueTurn,
 } from "../npc/peerData";
 import { PortraitClickLayer } from "./PortraitClickLayer";
+
+function PeerOptionGlyph({ option, size = 18 }: { option: PeerOption; size?: number }) {
+  const id = option.id.toLowerCase();
+  let Icon = Sparkles;
+
+  if (option.category === "romance") {
+    if (id === "romance_deep_kiss" || id === "shen_romance_proposal") Icon = BedDouble;
+    else if (id.includes("bed")) Icon = BedDouble;
+    else if (id.includes("proposal") || id.includes("promise")) Icon = Moon;
+    else if (id.includes("kiss")) Icon = Heart;
+    else if (id.includes("hug") || id.includes("rain") || id.includes("back_to_back")) Icon = User;
+    else Icon = Hand;
+  } else if (id.includes("battery") || id.includes("ai_")) {
+    Icon = Cpu;
+  } else if (id.includes("resume") || id.includes("interview") || id.includes("case")) {
+    Icon = FileText;
+  } else if (id.includes("sketch") || id.includes("structure") || id.includes("design")) {
+    Icon = PencilRuler;
+  } else if (id.includes("book") || id.includes("docs") || id.includes("dating")) {
+    Icon = BookOpen;
+  } else if (id.includes("badminton") || id.includes("jogging")) {
+    Icon = Dumbbell;
+  } else if (id.includes("snack")) {
+    Icon = Utensils;
+  } else if (id.includes("model") || id.includes("assets")) {
+    Icon = Boxes;
+  } else if (id.includes("complain") || id.includes("mentor")) {
+    Icon = MessageSquare;
+  }
+
+  return <Icon size={size} strokeWidth={1.8} />;
+}
 
 export interface PeerVisitModalProps {
   isOpen: boolean;
@@ -522,8 +563,8 @@ export function PeerVisitModal({
                   </div>
 
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-relaxed text-slate-200">
-                    <p className="font-semibold text-amber-300 mb-1">
-                      {selectedOption.icon} {selectedOption.label}
+                    <p className="flex items-center gap-1.5 font-semibold text-amber-300 mb-1">
+                      <PeerOptionGlyph option={selectedOption} size={15} /> {selectedOption.label}
                     </p>
                     <p className="text-slate-300">
                       {selectedOption.dialogueSequence?.slice().reverse().find((d) => d.speaker === "narration" || d.speaker === "peer")?.content || selectedOption.description}
@@ -673,7 +714,15 @@ export function PeerVisitModal({
                           <div>
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-                                <span className="text-base">{opt.icon}</span>
+                                <span
+                                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border ${
+                                    isRomance
+                                      ? "border-rose-400/20 bg-rose-500/10 text-rose-300"
+                                      : "border-[#c9a84c]/20 bg-[#c9a84c]/10 text-[#dec678]"
+                                  }`}
+                                >
+                                  <PeerOptionGlyph option={opt} />
+                                </span>
                                 {opt.label}
                               </span>
                               {isLocked ? (

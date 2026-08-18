@@ -59,7 +59,7 @@ interface DesktopGameSidebarProps {
 const PRIMARY_ITEMS = [
   { id: "map", label: "地图", icon: Map },
   { id: "computer", label: "电脑", icon: Monitor },
-  { id: "round", label: "本回合", icon: Sparkles },
+  { id: "round", label: "快捷行动", icon: Sparkles },
 ] as const;
 
 const GROWTH_ITEMS = [
