@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  Award,
   Bot,
   BriefcaseBusiness,
   Building2,
@@ -35,10 +36,10 @@ import {
 } from "lucide-react";
 import { ActionBadgeIcon } from "./ActionIcon";
 import type { SocialState, NPCMessage, NPCReplyOption, UnlockContext } from "../npc/types";
-import { TONE_LABEL, TONE_BUBBLE_COLOR, NPC_REGISTRY } from "../npc/npcRegistry";
+import { TONE_BUBBLE_COLOR, NPC_REGISTRY } from "../npc/npcRegistry";
 import { checkAllUnlocks, greetNpc, sendGreeting, stageLabelFor } from "../npc/socialStore";
 
-export type DesktopGameSection = "round" | "computer" | "map" | "status" | "resume";
+export type DesktopGameSection = "round" | "computer" | "map" | "status" | "resume" | "achievements";
 
 interface DesktopGameSidebarProps {
   active: DesktopGameSection;
@@ -46,6 +47,8 @@ interface DesktopGameSidebarProps {
   statusAlert?: boolean;
   resumeUpdated?: boolean;
   computerBadge?: number;
+  achievementBadge?: number;
+  achievementAlert?: boolean;
   roundAlert?: boolean;
   schoolName: string;
   schoolTier: string;
@@ -61,6 +64,7 @@ const PRIMARY_ITEMS = [
 
 const GROWTH_ITEMS = [
   { id: "status", label: "状态", icon: Activity },
+  { id: "achievements", label: "徽章", icon: Award },
 ] as const;
 
 const SCHOOL_LOGOS: Record<string, string> = {
@@ -117,11 +121,11 @@ const SCHOOL_LOGOS: Record<string, string> = {
   "烟台大学": "/assets/visuals/schools/yantai-university.png",
 };
 
-export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdated, computerBadge = 0, roundAlert = false, schoolName, schoolTier, onOpenSettings, tutorialActive = false }: DesktopGameSidebarProps) {
+export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdated, computerBadge = 0, achievementBadge = 0, achievementAlert = false, roundAlert = false, schoolName, schoolTier, onOpenSettings, tutorialActive = false }: DesktopGameSidebarProps) {
   const schoolLogo = SCHOOL_LOGOS[schoolName];
   const renderItem = ({ id, label, icon: Icon, badge, dot }: { id: DesktopGameSection; label: string; icon: typeof Activity; badge?: number; dot?: boolean }) => {
     const selected = active === id;
-    const showDot = dot || (id === "round" && roundAlert) || (id === "status" && statusAlert) || (id === "resume" && resumeUpdated);
+    const showDot = dot || (id === "round" && roundAlert) || (id === "status" && statusAlert) || (id === "resume" && resumeUpdated) || (id === "achievements" && achievementAlert);
     return (
       <button
         key={id}
@@ -138,7 +142,7 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
         <span className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-[#c9a84c]/20 text-[#f5d77f]" : "bg-white/[0.025]"}`}>
           <Icon size={19} strokeWidth={selected ? 2.2 : 1.7} />
           {badge && <span className="absolute -right-1.5 -top-1.5 min-w-4 rounded-full bg-red-500 px-1 text-center text-[11px] font-bold leading-4 text-white">{badge}</span>}
-          {showDot && !badge && <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ${(id === "status" && statusAlert) || (id === "round" && roundAlert) ? "bg-red-500" : "bg-amber-400"} ring-2 ring-[#080d18]`} />}
+          {showDot && !badge && <span className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full ${(id === "status" && statusAlert) || (id === "round" && roundAlert) || (id === "achievements" && achievementAlert) ? "bg-red-500" : "bg-amber-400"} ring-2 ring-[#080d18]`} />}
         </span>
         <span className="hidden truncate text-[15px] tracking-wide xl:block">{label}</span>
       </button>
@@ -168,12 +172,13 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
 
       <div className="my-4 h-px bg-gradient-to-r from-transparent via-[#c9a84c]/20 to-transparent" />
       <nav className="space-y-1.5" aria-label="角色成长">
-        {GROWTH_ITEMS.map((item) => renderItem(item))}
-        <button type="button" disabled className="group relative flex h-12 w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 text-slate-600 border border-transparent">
-          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.02]"><BriefcaseBusiness size={18} strokeWidth={1.6} /><LockKeyhole size={9} className="absolute -right-0.5 -top-0.5" /></span>
-          <span className="hidden text-[15px] font-medium xl:block">机会</span>
-          <span className="ml-auto hidden rounded border border-white/5 bg-white/[0.02] px-1.5 py-0.5 text-[10px] text-slate-500 xl:block">规划中</span>
-        </button>
+        {GROWTH_ITEMS.map((item) =>
+          renderItem(
+            item.id === "achievements"
+              ? { ...item, dot: achievementAlert }
+              : item
+          )
+        )}
       </nav>
 
       <div className="mt-auto space-y-2">
@@ -1322,11 +1327,6 @@ function ChatDetail({
                     </span>
                   )}
                   <div className="max-w-[70%]">
-                    {toneLabel && (
-                      <p className={`mb-0.5 text-[11px] tracking-[0.16em] ${isNpc ? "text-left text-slate-500" : "text-right text-slate-600"}`}>
-                        {toneLabel}
-                      </p>
-                    )}
                     <div
                       className={`rounded-2xl px-3 py-2 text-[14px] leading-relaxed text-slate-100 whitespace-pre-line ${isNpc ? "rounded-tl-sm" : "rounded-tr-sm"}`}
                       style={{ background: bubbleBg }}

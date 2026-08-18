@@ -10,6 +10,19 @@ import { ActionBadgeIcon } from "./ActionIcon";
 import { MentorOfficeModal } from "./MentorOfficeModal";
 import { PeerVisitModal } from "./PeerVisitModal";
 import { MonthlyBillModal } from "./MonthlyBillModal";
+import { AchievementSidebarTab } from "./AchievementSidebarTab";
+import { BadgeWallShowcase } from "./BadgeWallShowcase";
+import { AchievementToast } from "./AchievementToast";
+import {
+  evaluateNewAchievements,
+  type Achievement,
+  type AchievementCheckContext,
+} from "../achievements/achievementRegistry";
+import {
+  clearAllAchievements,
+  persistUnlockedAchievements,
+} from "../achievements/achievementStore";
+import { getActivePerks } from "../perks/perkRegistry";
 import {
   createInitialFinance,
   settleMonth,
@@ -5028,6 +5041,94 @@ export function GamePage() {
   // 开题线提醒：研二下学期 thesisScore < 30 时触发（一次性 banner）
   const [thesisProposalWarning, setThesisProposalWarning] = useState<string | null>(null);
 
+  // ── 荣誉勋章与成就系统状态 ──
+  const [currentRunUnlockedAchievements, setCurrentRunUnlockedAchievements] = useState<string[]>([]);
+  const [achievementToastQueue, setAchievementToastQueue] = useState<Achievement[]>([]);
+  const [achievementAlert, setAchievementAlert] = useState(false);
+  const [chosenEventBranchesRecord, setChosenEventBranchesRecord] = useState<Record<string, string>>({});
+  const [executedNpcOptionIds, setExecutedNpcOptionIds] = useState<string[]>([]);
+  const [usedFreeActionFlag, setUsedFreeActionFlag] = useState(false);
+
+  const checkAndUnlockAchievements = useCallback((override?: Partial<AchievementCheckContext>) => {
+    if (!stats) return;
+    const activePerks = getActivePerks(stats as any).map((p) => p.id);
+
+    const context: AchievementCheckContext = {
+      stats: { ...(stats as any), ...(override?.stats ?? {}) },
+      character,
+      mentor,
+      semester,
+      round,
+      partners: override?.partners ?? partners,
+      confessedNpcIds: override?.confessedNpcIds ?? confessedNpcIds,
+      pastInternships: override?.pastInternships ?? pastInternships,
+      receivedOffers: override?.receivedOffers ?? receivedOffers ?? [],
+      selectedOfferId: override?.selectedOfferId !== undefined ? override.selectedOfferId : selectedOfferId,
+      ending: override?.ending !== undefined ? override.ending : ending,
+      activePerkIds: activePerks,
+      seenEventIds: Array.from(seenEventIds),
+      chosenEventBranches: { ...chosenEventBranchesRecord, ...(override?.chosenEventBranches ?? {}) },
+      actionMemory,
+      npcFavorabilities: {
+        zhang_yifan: peerFavorability,
+        peer: peerFavorability,
+        lu_yuchen: luYuchenFavorability,
+        bai_xu: baiXuFavorability,
+        jiang_huai: jiangHuaiFavorability,
+        shen_qinghuai: shenQinghuaiFavorability,
+        lab_senior: shenQinghuaiFavorability,
+        professor: stats.mentorFavorability,
+        mentor: stats.mentorFavorability,
+      },
+      executedNpcOptionIds: override?.executedNpcOptionIds ?? executedNpcOptionIds,
+      totalSocialMessages: Object.values(socialMessages).reduce((acc, m) => acc + (m?.length ?? 0), 0),
+      usedFreeAction: override?.usedFreeAction ?? usedFreeActionFlag,
+      moneyBalance: financeState.balance,
+    };
+
+    const newAchs = evaluateNewAchievements(context, currentRunUnlockedAchievements);
+    if (newAchs.length > 0) {
+      persistUnlockedAchievements(newAchs, { semester });
+      const newIds = newAchs.map((a) => a.id);
+      setCurrentRunUnlockedAchievements((prev) => Array.from(new Set([...prev, ...newIds])));
+      // 同一次结算可能跨过多个阈值；逐个展示，避免只提示第一枚勋章。
+      setAchievementToastQueue((prev) => [...prev, ...newAchs]);
+      setAchievementAlert(true);
+    }
+  }, [
+    stats,
+    character,
+    mentor,
+    semester,
+    round,
+    partners,
+    confessedNpcIds,
+    pastInternships,
+    receivedOffers,
+    selectedOfferId,
+    ending,
+    seenEventIds,
+    chosenEventBranchesRecord,
+    actionMemory,
+    peerFavorability,
+    luYuchenFavorability,
+    baiXuFavorability,
+    jiangHuaiFavorability,
+    shenQinghuaiFavorability,
+    executedNpcOptionIds,
+    socialMessages,
+    usedFreeActionFlag,
+    financeState.balance,
+    currentRunUnlockedAchievements,
+  ]);
+
+  // 监听属性/伴侣/阶段变化并自动检测成就
+  useEffect(() => {
+    if (stats && phase !== "intro") {
+      checkAndUnlockAchievements();
+    }
+  }, [stats, partners, phase, confessedNpcIds.length, pastInternships.length, checkAndUnlockAchievements]);
+
   useEffect(() => {
     if (!isEvaluatingCustomEventAction) {
       setCustomEventEvaluationStage(0);
@@ -5113,6 +5214,7 @@ export function GamePage() {
     actionMemory,
     financeState,
     lastRoundDelta,
+    currentRunUnlockedAchievements,
   }), [
     phase, character, stats, mentor, semester, round,
     currentEvent, activeCampusEvent, campusEventResult,
@@ -5126,6 +5228,7 @@ export function GamePage() {
     actionMemory,
     financeState,
     lastRoundDelta,
+    currentRunUnlockedAchievements,
   ]);
 
   const restoreGameState = useCallback((data: Record<string, any>) => {
@@ -5182,6 +5285,13 @@ export function GamePage() {
     setReceivedOffers(Array.isArray(data.receivedOffers)
       ? data.receivedOffers.map((savedCompany: Company) => COMPANIES.find((company) => company.id === savedCompany.id) ?? savedCompany)
       : null);
+    setCurrentRunUnlockedAchievements(
+      Array.isArray(data.currentRunUnlockedAchievements)
+        ? data.currentRunUnlockedAchievements.filter((id: unknown): id is string => typeof id === "string")
+        : [],
+    );
+    setAchievementToastQueue([]);
+    setAchievementAlert(false);
     setHasSubmittedResult(data.phase === "ending");
     setDesktopGameSection("map");
     return true;
@@ -5774,6 +5884,13 @@ export function GamePage() {
     }
 
     setSelectedEventBranch(resolved);
+    setChosenEventBranchesRecord((prev) => ({ ...prev, [currentEvent.id]: resolved.id }));
+    setTimeout(() => {
+      checkAndUnlockAchievements({
+        stats: newStats,
+        chosenEventBranches: { [currentEvent.id]: resolved.id },
+      });
+    }, 0);
 
     // 行为记忆：记录事件结算（更新节奏因子 / 锁定必触发标记）
     setActionMemory((prev) => {
@@ -5795,7 +5912,7 @@ export function GamePage() {
     } else if (currentEvent.id === "e47") {
       setOfferBuffs((previous) => ({ ...previous, google: (previous.google || 0) + 20, microsoft: (previous.microsoft || 0) + 20 }));
     }
-  }, [currentEvent, stats, seenEventIds, selectedEventBranch, semester, partners, peerFavorability, luYuchenFavorability, baiXuFavorability, jiangHuaiFavorability, shenQinghuaiFavorability]);
+  }, [currentEvent, stats, seenEventIds, selectedEventBranch, semester, partners, peerFavorability, luYuchenFavorability, baiXuFavorability, jiangHuaiFavorability, shenQinghuaiFavorability, checkAndUnlockAchievements]);
 
   const submitCustomEventAction = useCallback(async () => {
     const action = customEventAction.trim();
@@ -5826,6 +5943,11 @@ export function GamePage() {
         })),
         signal: controller.signal,
       });
+
+      setUsedFreeActionFlag(true);
+      setTimeout(() => {
+        checkAndUnlockAchievements({ usedFreeAction: true });
+      }, 0);
 
       chooseEventBranch({
         id: "D",
@@ -5942,8 +6064,11 @@ export function GamePage() {
       }
 
       setPhase("action_result");
+      setTimeout(() => {
+        checkAndUnlockAchievements({ stats: newStats });
+      }, 0);
     },
-    [stats, internshipApplications]
+    [stats, internshipApplications, checkAndUnlockAchievements]
   );
 
   // 进入下一回合 / 或进入最终 offer 选择阶段
@@ -6565,6 +6690,7 @@ export function GamePage() {
       final_ending_id: ending?.id ?? null,
     });
     localStorage.removeItem(STORAGE_KEY);
+    clearAllAchievements();
     setPhase("intro");
     setCharacter(null);
     setStats(null);
@@ -6611,6 +6737,12 @@ export function GamePage() {
     setPlayerNameError("");
     setShareFeedback("");
     setIsExportingEnding(false);
+    setCurrentRunUnlockedAchievements([]);
+    setAchievementToastQueue([]);
+    setAchievementAlert(false);
+    setChosenEventBranchesRecord({});
+    setExecutedNpcOptionIds([]);
+    setUsedFreeActionFlag(false);
     setShowTutorial(false);
     setIsResumeOpen(false);
     setActionNarrative("");
@@ -7042,10 +7174,12 @@ export function GamePage() {
             onChange={(section) => {
               setDesktopGameSection(section);
               if (section === "computer") setCareerInboxNotificationCount(0);
+              if (section === "achievements") setAchievementAlert(false);
             }}
             statusAlert={stats.mentorFavorability < 15 || stats.stress < 20 || stats.selfDoubt > 75 || stats.ageAnxiety > 75}
             resumeUpdated={pastInternships.length > 0}
             computerBadge={computerPendingCount}
+            achievementAlert={achievementAlert}
             roundAlert={phase === "event_view" || phase === "action_result" || Boolean(activeCampusEvent)}
             schoolName={character.masterSchool}
             schoolTier={character.isOverseas ? "海外留学" : TIER_LABELS[character.masterTier]}
@@ -7070,12 +7204,14 @@ export function GamePage() {
             onChange={(section) => {
               setDesktopGameSection(section);
               if (section === "computer") setCareerInboxNotificationCount(0);
+              if (section === "achievements") setAchievementAlert(false);
             }}
             onOpenSettings={() => { setLocalSaveFeedback(""); setIsSettingsOpen(true); }}
             semesterLabel={SEMESTER_LABELS[semester]}
             round={round}
             progress={progressPct}
             computerBadge={computerPendingCount}
+            achievementAlert={achievementAlert}
             statusAlert={stats.mentorFavorability < 15 || stats.stress < 20 || stats.selfDoubt > 75 || stats.ageAnxiety > 75}
             roundAlert={phase === "event_view" || phase === "action_result" || Boolean(activeCampusEvent)}
           />
@@ -8190,9 +8326,16 @@ export function GamePage() {
               narratives: [option.resultNarrative],
             };
             setChosenAction(stubAction);
+            setExecutedNpcOptionIds((prev) => [...prev, option.id]);
 
             // 关键：进入 action_result 阶段，玩家本轮行动被消耗，且主面板会显示属性 delta 反馈
             setPhase("action_result");
+            setTimeout(() => {
+              checkAndUnlockAchievements({
+                stats: newStats,
+                executedNpcOptionIds: [...executedNpcOptionIds, option.id],
+              });
+            }, 0);
           }}
         />
 
@@ -8230,8 +8373,15 @@ export function GamePage() {
               narratives: [narrationText],
             };
             setChosenAction(stubAction);
+            setExecutedNpcOptionIds((prev) => [...prev, option.id]);
             setPhase("action_result");
             setDesktopGameSection("round");
+            setTimeout(() => {
+              checkAndUnlockAchievements({
+                stats: newStats,
+                executedNpcOptionIds: [...executedNpcOptionIds, option.id],
+              });
+            }, 0);
           }}
         />
 
@@ -8274,8 +8424,15 @@ export function GamePage() {
               narratives: [narrationText],
             };
             setChosenAction(stubAction);
+            setExecutedNpcOptionIds((prev) => [...prev, option.id]);
             setPhase("action_result");
             setDesktopGameSection("round");
+            setTimeout(() => {
+              checkAndUnlockAchievements({
+                stats: newStats,
+                executedNpcOptionIds: [...executedNpcOptionIds, option.id],
+              });
+            }, 0);
           }}
         />
 
@@ -8318,8 +8475,15 @@ export function GamePage() {
               narratives: [narrationText],
             };
             setChosenAction(stubAction);
+            setExecutedNpcOptionIds((prev) => [...prev, option.id]);
             setPhase("action_result");
             setDesktopGameSection("round");
+            setTimeout(() => {
+              checkAndUnlockAchievements({
+                stats: newStats,
+                executedNpcOptionIds: [...executedNpcOptionIds, option.id],
+              });
+            }, 0);
           }}
         />
 
@@ -8362,8 +8526,15 @@ export function GamePage() {
               narratives: [narrationText],
             };
             setChosenAction(stubAction);
+            setExecutedNpcOptionIds((prev) => [...prev, option.id]);
             setPhase("action_result");
             setDesktopGameSection("round");
+            setTimeout(() => {
+              checkAndUnlockAchievements({
+                stats: newStats,
+                executedNpcOptionIds: [...executedNpcOptionIds, option.id],
+              });
+            }, 0);
           }}
         />
 
@@ -8406,8 +8577,15 @@ export function GamePage() {
               narratives: [narrationText],
             };
             setChosenAction(stubAction);
+            setExecutedNpcOptionIds((prev) => [...prev, option.id]);
             setPhase("action_result");
             setDesktopGameSection("round");
+            setTimeout(() => {
+              checkAndUnlockAchievements({
+                stats: newStats,
+                executedNpcOptionIds: [...executedNpcOptionIds, option.id],
+              });
+            }, 0);
           }}
         />
 
@@ -8578,7 +8756,15 @@ export function GamePage() {
             professorAvatar={mentorAvatar(mentor)}
           />
         )}
-        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection !== "status" && (
+        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection === "achievements" && (
+          <main className="relative flex-1 h-screen overflow-hidden bg-[#070d1a]">
+            <AchievementSidebarTab
+              newlyUnlockedIds={currentRunUnlockedAchievements}
+              onClose={() => setDesktopGameSection("map")}
+            />
+          </main>
+        )}
+        {ENABLE_DESKTOP_GAME_SIDEBAR && desktopGameSection !== "status" && desktopGameSection !== "achievements" && (
           <DecisionStatusRail
             stats={stats}
             mentor={mentor}
@@ -8595,8 +8781,17 @@ export function GamePage() {
           />
         )}
 
+        <AchievementToast
+          achievement={achievementToastQueue[0] ?? null}
+          onDismiss={() => setAchievementToastQueue((prev) => prev.slice(1))}
+          onViewGallery={() => {
+            setAchievementToastQueue((prev) => prev.slice(1));
+            setAchievementAlert(false);
+            setDesktopGameSection("achievements");
+          }}
+        />
         <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} tutorialActive={showTutorial && tutorialStep === 3} />
-      </div >
+      </div>
     );
   }
 
@@ -8641,6 +8836,13 @@ export function GamePage() {
       });
       setEnding(finalEnding);
       setPhase("ending");
+      setTimeout(() => {
+        checkAndUnlockAchievements({
+          ending: finalEnding,
+          selectedOfferId,
+          receivedOffers: qualified,
+        });
+      }, 0);
     };
 
     const offerPageStyle: CSSProperties = {
@@ -9053,6 +9255,11 @@ export function GamePage() {
             )}
           </div>
 
+          {/* ── 荣誉徽章墙 · 中大院发疯勋章展柜 ── */}
+          <BadgeWallShowcase
+            currentRunUnlockedIds={currentRunUnlockedAchievements}
+            isExporting={isExportingEnding}
+          />
 
           {/* ── 生涯履历（整合了属性、教育、实习） ── */}
           <div className="rounded-2xl p-6 mb-8" style={{ background: card, border: `1px solid ${border}` }}>

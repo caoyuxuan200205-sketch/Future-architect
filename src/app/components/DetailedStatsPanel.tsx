@@ -7,10 +7,23 @@
  */
 import { useState, useMemo, useCallback, useEffect } from "react";
 import {
+  AlertCircle,
+  AlertTriangle,
+  BarChart3,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardCheck,
+  FileText,
+  Heart,
+  MessageCircle,
   Pencil,
   GraduationCap,
+  Radar,
   Sparkles,
   Briefcase,
+  Target,
+  UserRound,
   Wallet,
 } from "lucide-react";
 import { PARTNER_BUFF_DEFINITIONS } from "../npc/peerData";
@@ -424,7 +437,7 @@ export function DetailedStatsPanel({
         <div className="flex items-center gap-4 min-w-0">
           {/* 头像 */}
           <div className="relative w-13 h-13 sm:w-14 sm:h-14 shrink-0 rounded-2xl bg-gradient-to-br from-[#c9a84c]/25 via-slate-800 to-slate-900 border border-[#c9a84c]/40 p-0.5 shadow-[0_0_15px_rgba(201,168,76,0.15)] flex items-center justify-center overflow-hidden">
-            <span className="text-2xl select-none">👨‍🎓</span>
+            <UserRound size={27} strokeWidth={1.55} className="text-[#dec678]" />
             <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-400 border-2 border-[#0a1122] shadow-[0_0_8px_#34d399]" />
           </div>
 
@@ -486,7 +499,7 @@ export function DetailedStatsPanel({
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-[13px] font-bold text-white tracking-wide flex items-center gap-1.5">
-                    <span>📋</span> 个人简介
+                    <FileText size={14} strokeWidth={1.8} className="text-[#dec678]" /> 个人简介
                   </h3>
                   <p className="text-xs text-[#c9a84c] font-semibold mt-0.5">
                     {selectedTrack.name.split("/")[0]}方向
@@ -500,15 +513,15 @@ export function DetailedStatsPanel({
               {/* 基础学籍信息 */}
               <div className="mt-3 space-y-1.5 text-xs text-slate-300 pb-3 border-b border-white/[.07]">
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-500">🏛️</span>
+                  <Building2 size={14} strokeWidth={1.7} className="text-slate-500" />
                   <span className="text-slate-200">{playerSchool}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-500">🎓</span>
+                  <GraduationCap size={14} strokeWidth={1.7} className="text-slate-500" />
                   <span className="text-slate-200">建筑学硕士</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-500">📅</span>
+                  <CalendarDays size={14} strokeWidth={1.7} className="text-slate-500" />
                   <span className="text-slate-200">{semesterStr}阶段</span>
                 </div>
               </div>
@@ -538,10 +551,10 @@ export function DetailedStatsPanel({
                 </div>
                 <div className="relative group flex items-center justify-between py-2 cursor-pointer transition-colors hover:bg-white/[0.02] rounded px-1 -mx-1">
                   <span className="text-slate-400 flex items-center gap-1 shrink-0">
-                    <span>❤️</span> 恋爱关系
+                    <Heart size={13} strokeWidth={1.8} className="text-rose-400" /> 恋爱关系
                   </span>
                   <span className={`font-semibold text-[12px] max-w-[170px] truncate text-right ${effectivePartners && effectivePartners.length > 0 ? "text-rose-300 font-bold" : "text-slate-400"}`} title={partnersDisplay}>
-                    {effectivePartners && effectivePartners.length > 0 ? `${partnersDisplay} 💕` : "单身（暂无）"}
+                    {effectivePartners && effectivePartners.length > 0 ? partnersDisplay : "单身（暂无）"}
                   </span>
 
                   {/* 悬浮展示：伴侣羁绊常驻加成气泡 */}
@@ -549,7 +562,7 @@ export function DetailedStatsPanel({
                     <div className="absolute left-0 right-0 top-full mt-1 z-[100] hidden group-hover:block transition-all duration-200 p-3 rounded-xl border border-rose-500/40 bg-[#0d0a14]/98 shadow-2xl backdrop-blur-lg pointer-events-none">
                       <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-rose-500/20">
                         <span className="text-[11.5px] font-bold text-rose-300 flex items-center gap-1.5">
-                          <span>💕</span> 伴侣常驻羁绊加成
+                          <Heart size={13} strokeWidth={1.8} /> 伴侣常驻羁绊加成
                         </span>
                         <span className="text-[10px] text-rose-400 font-mono font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 border border-rose-400/25">
                           {effectivePartners.length} 位对象生效中
@@ -601,7 +614,7 @@ export function DetailedStatsPanel({
               <div className="mt-3.5 p-3 rounded-xl border border-amber-500/25 bg-amber-500/[0.04]">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-[11px] tracking-wider font-mono uppercase font-bold text-amber-400 flex items-center gap-1">
-                    <span>⚠️</span> 延毕风险评估
+                    <AlertTriangle size={13} strokeWidth={1.8} /> 延毕风险评估
                   </span>
                   <span
                     className="text-[11px] font-bold font-mono px-2 py-0.5 rounded-full"
@@ -639,7 +652,7 @@ export function DetailedStatsPanel({
             <div className="rounded-xl border border-white/[.07] bg-white/[0.015] p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                  <span>💭</span> 心态与诉求
+                  <MessageCircle size={14} strokeWidth={1.8} className="text-slate-400" /> 心态与诉求
                 </span>
                 <span className="text-[11px] text-emerald-400 font-mono font-medium px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
                   {safeStats.stress >= 50 && safeStats.selfDoubt <= 50 ? "状态积极" : "平稳进阶"}
@@ -666,7 +679,7 @@ export function DetailedStatsPanel({
             <div>
               <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/[.07]">
                 <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="text-amber-400">📊</span> 综合能力属性矩阵
+                  <BarChart3 size={14} strokeWidth={1.8} className="text-amber-400" /> 综合能力属性矩阵
                 </h4>
                 <span className="text-[11px] text-slate-400 font-mono">1-100 标尺</span>
               </div>
@@ -790,7 +803,7 @@ export function DetailedStatsPanel({
             <div className="pt-3.5 border-t border-white/[.07]">
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[.07]">
                 <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="text-emerald-400">🎯</span> 转行与求职赛道匹配度
+                  <Target size={14} strokeWidth={1.8} className="text-emerald-400" /> 转行与求职赛道匹配度
                 </h4>
                 <span className="text-[11px] text-slate-400">点击高亮关键技能</span>
               </div>
@@ -833,7 +846,7 @@ export function DetailedStatsPanel({
             <div>
               <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/[.07]">
                 <span className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <span>🕸️</span> 六维能力图谱
+                  <Radar size={14} strokeWidth={1.8} className="text-slate-400" /> 六维能力图谱
                 </span>
                 <span className="text-[11px] text-emerald-400 font-mono font-semibold">RADAR</span>
               </div>
@@ -847,14 +860,14 @@ export function DetailedStatsPanel({
             <div className="pt-3.5 border-t border-white/[.07] space-y-3">
               <div className="flex items-center justify-between pb-1.5 border-b border-white/[.07]">
                 <h4 className="font-bold text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <span>📋</span> 综合能力诊断
+                  <ClipboardCheck size={14} strokeWidth={1.8} className="text-slate-400" /> 综合能力诊断
                 </h4>
                 <span className="text-[11px] text-amber-400 font-mono font-semibold">DIAGNOSIS</span>
               </div>
 
               <div>
                 <p className="text-[12.5px] font-bold text-emerald-400 mb-1 flex items-center gap-1">
-                  <span>🟢</span> 核心竞争优势
+                  <CheckCircle2 size={13} strokeWidth={1.8} /> 核心竞争优势
                 </p>
                 <div className="space-y-1 text-[12px] text-slate-300 pl-2">
                   {strengths.map((s, idx) => (
@@ -868,7 +881,7 @@ export function DetailedStatsPanel({
 
               <div>
                 <p className="text-[12.5px] font-bold text-amber-400 mb-1 flex items-center gap-1">
-                  <span>🟡</span> 待补强短板
+                  <AlertCircle size={13} strokeWidth={1.8} /> 待补强短板
                 </p>
                 <div className="space-y-1 text-[12px] text-slate-300 pl-2">
                   {weaknesses.map((w, idx) => (
@@ -885,7 +898,7 @@ export function DetailedStatsPanel({
             <div className="pt-3.5 border-t border-white/[.07]">
               <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-white/[.07]">
                 <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                  <span>✦</span> 解锁特质
+                  <Sparkles size={14} strokeWidth={1.8} className="text-amber-300" /> 解锁特质
                 </span>
                 <span className="text-[11px] text-slate-400 font-mono">{activePerks.length} 项</span>
               </div>
@@ -900,7 +913,7 @@ export function DetailedStatsPanel({
                       title={perk.desc}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/[.04] text-slate-200 text-[11.5px] font-medium"
                     >
-                      <span>{perk.icon}</span>
+                      <Sparkles size={12} strokeWidth={1.8} className="text-amber-300" />
                       <span>{perk.name}</span>
                     </span>
                   ))}
@@ -1032,7 +1045,7 @@ export function DetailedStatsPanel({
             {activePerks.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 pb-2 mb-2 border-b border-white/[.08]">
-                  <span className="text-amber-400 text-xs">✦</span>
+                  <Sparkles size={14} strokeWidth={1.8} className="text-amber-400" />
                   <h3 className="font-bold text-white text-sm tracking-wide">已解锁特质 ({activePerks.length})</h3>
                 </div>
                 <div className="flex flex-wrap gap-1.5 pl-4">
@@ -1042,7 +1055,7 @@ export function DetailedStatsPanel({
                       title={perk.desc}
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/[.04] text-slate-200 text-[11.5px] font-medium"
                     >
-                      <span>{perk.icon}</span>
+                      <Sparkles size={12} strokeWidth={1.8} className="text-amber-300" />
                       <span>{perk.name}</span>
                     </span>
                   ))}

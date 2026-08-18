@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import {
   Activity,
+  Award,
   Bell,
   FileText,
   Map,
@@ -24,6 +25,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: "computer", label: "电脑", icon: Monitor },
   { id: "round", label: "回合", icon: Sparkles },
   { id: "status", label: "状态", icon: Activity },
+  { id: "achievements", label: "徽章", icon: Award },
 ];
 
 interface MobileGameShellProps {
@@ -34,6 +36,8 @@ interface MobileGameShellProps {
   round: number;
   progress: number;
   computerBadge?: number;
+  achievementBadge?: number;
+  achievementAlert?: boolean;
   statusAlert?: boolean;
   roundAlert?: boolean;
 }
@@ -46,6 +50,8 @@ export function MobileGameShell({
   round,
   progress,
   computerBadge = 0,
+  achievementBadge = 0,
+  achievementAlert = false,
   statusAlert = false,
   roundAlert = false,
 }: MobileGameShellProps) {
@@ -80,7 +86,7 @@ export function MobileGameShell({
         {NAVIGATION_ITEMS.map(({ id, label, icon: Icon }) => {
           const selected = active === id;
           const badge = id === "computer" ? computerBadge : 0;
-          const hasAlert = (id === "status" && statusAlert) || (id === "round" && roundAlert);
+          const hasAlert = (id === "status" && statusAlert) || (id === "round" && roundAlert) || (id === "achievements" && achievementAlert);
           return (
             <button
               key={id}
