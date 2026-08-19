@@ -1367,8 +1367,6 @@ function ChatDetail({
         {replyOptions.length > 0 && (
           <div className="mb-2 space-y-1.5">
             {replyOptions.map((opt) => {
-              const deltaText = opt.favorDelta > 0 ? `+${opt.favorDelta}` : opt.favorDelta < 0 ? `${opt.favorDelta}` : "";
-              const deltaColor = opt.favorDelta > 0 ? "text-emerald-300" : opt.favorDelta < 0 ? "text-rose-300" : "text-slate-500";
               return (
                 <button
                   key={opt.id}
@@ -1377,7 +1375,6 @@ function ChatDetail({
                   className="group flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] px-3 py-2 text-left transition hover:border-[#c9a84c]/45 hover:bg-[#c9a84c]/8"
                 >
                   <span className="flex-1 text-[13px] font-medium leading-5 text-slate-100">{opt.text}</span>
-                  {deltaText && <span className={`text-[11px] font-mono ${deltaColor}`}>{deltaText}</span>}
                   <Send size={11} className="text-slate-600 group-hover:text-[#dec678]" />
                 </button>
               );

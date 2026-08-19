@@ -129,6 +129,10 @@ public/insert_knowledge_chunks.sql
 # WorkBuddy workspace data
 .workbuddy/
 
+# Trae temporary files
+.trae/
+.trae-html-share-packages/
+
 # 策划文档（保留 README.md，忽略其它根目录策划 .md）
 NPC*.md
 *策划*.md
