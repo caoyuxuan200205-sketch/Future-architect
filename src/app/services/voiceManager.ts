@@ -94,6 +94,85 @@ class VoiceManager {
       "喂，舍友，快来看我刚在食堂抢到的现炸鸡米花！": "/assets/audio/npc/jiang_huai/jh_interact_chicken_1.wav",
       "废话，同居这么久了，我不疼你谁疼你？": "/assets/audio/npc/jiang_huai/jh_interact_chicken_2.wav",
     },
+
+    // 陆予忱（禁欲高智 · 秋招战神）
+    lu_yuchen: {
+      // 常规立绘触摸
+      "请注意你的行为边界。": "/assets/audio/npc/lu_yuchen/lyc_touch_norm_1.wav",
+      "……简历改完了吗？": "/assets/audio/npc/lu_yuchen/lyc_touch_norm_2.wav",
+      "我的耐心是有置信区间的，建议你先查一下。": "/assets/audio/npc/lu_yuchen/lyc_touch_norm_3.wav",
+      "再这样，我要把你从我的最优解里移除了。": "/assets/audio/npc/lu_yuchen/lyc_touch_norm_4.wav",
+      "……这次，我当作没发生。": "/assets/audio/npc/lu_yuchen/lyc_touch_norm_5.wav",
+
+      // 恋人立绘亲密触摸
+      "……下不为例。": "/assets/audio/npc/lu_yuchen/lyc_touch_lover_1.wav",
+      "你现在的心率，已经超出静息阈值了。": "/assets/audio/npc/lu_yuchen/lyc_touch_lover_2.wav",
+      "别闹。……不过，手可以牵。": "/assets/audio/npc/lu_yuchen/lyc_touch_lover_3.wav",
+      "我的逻辑闭环，遇到你就永远缺一个条件。": "/assets/audio/npc/lu_yuchen/lyc_touch_lover_4.wav",
+
+      // 就业中心开场随机小剧场 1（危地马拉手冲）
+      "刚帮两个研三的同学改完外企 Case 框架。你来得正好，我刚冲了一壶危地马拉手冲。": "/assets/audio/npc/lu_yuchen/lyc_interact_coffee_1.wav",
+      "坐。今天想聊聊职业路径，还是纯粹想找我坐一会儿？": "/assets/audio/npc/lu_yuchen/lyc_interact_coffee_2.wav",
+
+      // 就业中心开场随机小剧场 2（大厂题库与特供）
+      "来得正好。我刚把头部互联网大厂的最新题库做完聚类分析，正打算找你一起复盘。": "/assets/audio/npc/lu_yuchen/lyc_interact_case_1.wav",
+      "对其他人是工作，对你……是专属特供。": "/assets/audio/npc/lu_yuchen/lyc_interact_case_2.wav",
+
+      // 就业中心开场随机小剧场 3（关门与期望值达标）
+      "门带上吧，今天外面有点吵。": "/assets/audio/npc/lu_yuchen/lyc_interact_door_1.wav",
+      "原本有点枯燥，但看到你推门进来的那一刻，今天的期望值已经达标了。": "/assets/audio/npc/lu_yuchen/lyc_interact_door_2.wav",
+
+      // 核心名言与常驻问候
+      "投递简历不是概率游戏，而是参数化路径最优解。坐过来，我帮你把底层逻辑重构一遍。": "/assets/audio/npc/lu_yuchen/lyc_quote.wav",
+      "“投递简历不是概率游戏，而是参数化路径最优解。坐过来，我帮你把底层逻辑重构一遍。”": "/assets/audio/npc/lu_yuchen/lyc_quote.wav",
+      "投递简历不是概率游戏，而是参数化路径最优解。": "/assets/audio/npc/lu_yuchen/lyc_quote.wav",
+      "坐过来，我帮你把底层逻辑重构一遍。": "/assets/audio/npc/lu_yuchen/lyc_quote.wav",
+      "逻辑闭环了吗？": "/assets/audio/npc/lu_yuchen/lyc_catchphrase_3.wav",
+      "以后有大厂笔试、战略案例或者简历问题，随时来就业中心 204 找我。": "/assets/audio/npc/lu_yuchen/lyc_greet_main.wav",
+
+      // 就业中心初遇剧情
+      "看第三章的商业拆解模型就行。其他都是给非专业看的废话。": "/assets/audio/npc/lu_yuchen/lyc_meet_01.wav",
+      "嗯。以后来就业中心找资料或者改简历，可以直接来 204 工位找我。坐下来聊，效率更高。": "/assets/audio/npc/lu_yuchen/lyc_meet_02.wav",
+
+      // 高智研讨：探讨 AI
+      "完全可行。我上个月在 GitHub 上开源了一个 Spatial-Agent 库，底层就是基于多智能体博弈。": "/assets/audio/npc/lu_yuchen/lyc_study_ai_1.wav",
+      "这个项目的二作署你的名字吧。未来如果你打算去大厂做 AI 空间算法，这会是你最重磅的背书。": "/assets/audio/npc/lu_yuchen/lyc_study_ai_2.wav",
+
+      // 高智研讨：剖析课题
+      "他那是老一辈文人的唯美叙事。来，我电脑里有近代海关地契数据库，我们用数据打他的脸。": "/assets/audio/npc/lu_yuchen/lyc_study_mentor_1.wav",
+      "下次开题答辩，把这份数据图表甩出来。有我在后面给你兜底，不用怕他卡你。": "/assets/audio/npc/lu_yuchen/lyc_study_mentor_2.wav",
+
+      // 高智研讨：修改简历
+      "好。那我直接说：第一页的空间叙事太冗长，HR 扫一眼只有 6 秒。把‘主导近代建筑空间复原’改成‘通过数字化建模降低 35% 空间冗余度’。": "/assets/audio/npc/lu_yuchen/lyc_study_resume_1.wav",
+      "改完之后质感完全不同了。有这份简历在，大厂第一轮简历筛查你不用担心了。": "/assets/audio/npc/lu_yuchen/lyc_study_resume_2.wav",
+
+      // 高智研讨：拆解案例
+      "把建筑的剖面思维拿出来——空间有竖向传力，商业也有价值链闭环。你看我画的这个 MECE 决策树。": "/assets/audio/npc/lu_yuchen/lyc_study_case_1.wav",
+      "你的悟性比我想象的还要高。这套分析框架你收好，面试遇到任何突发案例，照着这个骨架填肉就行。": "/assets/audio/npc/lu_yuchen/lyc_study_case_2.wav",
+
+      // 恋爱进阶分支：牵手 (好感 45)
+      "手腕放松。运笔要稳……像这样，顺着视平线压下去。": "/assets/audio/npc/lu_yuchen/lyc_romance_hand_1.wav",
+      "学会了吗？……以后所有的草图，我都亲自手把手教你画。": "/assets/audio/npc/lu_yuchen/lyc_romance_hand_2.wav",
+
+      // 恋爱进阶分支：拥抱 (好感 65)
+      "别自己一个人胡思乱想。过来。": "/assets/audio/npc/lu_yuchen/lyc_romance_hug_1.wav",
+      "有我在，你绝不可能输。靠着我歇一会儿……就我们两个。": "/assets/audio/npc/lu_yuchen/lyc_romance_hug_2.wav",
+
+      // 恋爱进阶分支：接吻 (好感 80)
+      "……知不知道摘我眼镜是要付出代价的？": "/assets/audio/npc/lu_yuchen/lyc_romance_kiss_1.wav",
+      "……这是你主动招惹我的。": "/assets/audio/npc/lu_yuchen/lyc_romance_kiss_2.wav",
+
+      // 恋爱进阶分支：终身绑定 (好感 95)
+      "别人都在追求概率最大的通用解，但我用所有的数学模型推演过无数遍——": "/assets/audio/npc/lu_yuchen/lyc_romance_promise_1.wav",
+      "我人生的全局最优解，从始至终只有你一个。签下我吧，永不违约。": "/assets/audio/npc/lu_yuchen/lyc_romance_promise_2.wav",
+
+      // 告白定情大事件
+      "在我的职业模型里，所有的变量都可以被量化、归类和建立回归方程。": "/assets/audio/npc/lu_yuchen/lyc_confess_intro_1.wav",
+      "但唯独遇到你之后，我所有的理性逻辑与战略推演……全部失效了。": "/assets/audio/npc/lu_yuchen/lyc_confess_intro_2.wav",
+      "我分析过上千份人生路径，但唯一想共同签署的长期合约，只有你。愿意做我的伴侣吗？": "/assets/audio/npc/lu_yuchen/lyc_confess_intro_3.wav",
+      "从现在开始，我的时间、资源与所有未来，全部对你终身开放特权。": "/assets/audio/npc/lu_yuchen/lyc_confess_accept.wav",
+      "我尊重你的决定。无论如何，只要你在求职或学术上需要指引，我随时为你预留最高优先级。": "/assets/audio/npc/lu_yuchen/lyc_confess_reject.wav",
+    },
   };
 
   /**
