@@ -468,6 +468,7 @@ export function MentorOfficeModal({
                   />
                   {/* 立绘点击互动：点击位置涟漪 + 导师即兴台词 */}
                   <PortraitClickLayer
+                    characterId={profile.mentorId}
                     lines={getMentorClickLines(profile.mentorId, favorability)}
                     disabled={isDialoguePlaying}
                     bubbleTop="30%"

@@ -56,6 +56,7 @@ import {
   type DialogueTurn,
 } from "../npc/peerData";
 import { PortraitClickLayer } from "./PortraitClickLayer";
+import { voiceManager } from "../services/voiceManager";
 
 function PeerOptionGlyph({ option, size = 18 }: { option: PeerOption; size?: number }) {
   const id = option.id.toLowerCase();
@@ -215,6 +216,27 @@ export function PeerVisitModal({
     }
     prevIsOpenRef.current = isOpen;
   }, [isOpen, characterId, isFirstMeet, favorability, hasBeenConfessed, profile.currentMoods.length]);
+
+  // 剧情对话推进时自动播放 NPC 对应台词语音
+  useEffect(() => {
+    if (isOpen && isDialoguePlaying && dialogueSequence[dialogueIndex]) {
+      const turn = dialogueSequence[dialogueIndex];
+      if (turn.speaker === "peer") {
+        voiceManager.playVoiceByText(characterId, turn.content);
+      } else {
+        voiceManager.stop();
+      }
+    } else if (!isDialoguePlaying) {
+      voiceManager.stop();
+    }
+  }, [isOpen, isDialoguePlaying, dialogueSequence, dialogueIndex, characterId]);
+
+  // 关闭弹窗时停止播放任何残留语音
+  useEffect(() => {
+    if (!isOpen) {
+      voiceManager.stop();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -376,8 +398,9 @@ export function PeerVisitModal({
                 className="max-h-full max-w-full w-auto h-auto object-contain transition-all duration-700 animate-avg-breathe"
                 style={{ filter: "brightness(1.02) contrast(1.04)" }}
               />
-              {/* 立绘点击互动：点击位置涟漪 + 角色即兴台词 */}
+              {/* 立绘点击互动：点击位置涟漪 + 角色即兴台词与真实语音 */}
               <PortraitClickLayer
+                characterId={characterId}
                 lines={getPortraitClickLines(characterId, isPartner)}
                 zones={getPortraitClickZones(characterId)}
                 disabled={isDialoguePlaying}

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { voiceManager } from "../services/voiceManager";
 
 /**
  * 立绘点击互动层
@@ -6,6 +7,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
  * 覆盖在人物立绘舞台（相对定位容器）之上的透明交互层：
  * - 点击任意位置：在该位置播放涟漪扩散动画
  * - 同时角色从台词池中随机说一句简短回应（气泡显示约 2.6 秒）
+ * - 如果该台词配置了语音文件，自动调用 voiceManager 播放
  * - 台词播放期间再次点击只出涟漪不重复说话，避免刷屏
  */
 
@@ -31,12 +33,15 @@ export interface PortraitClickZone {
 let rippleCounter = 0;
 
 export function PortraitClickLayer({
+  characterId,
   lines,
   zones = [],
   disabled = false,
   bubbleTop = "13%",
   bubbleAlign = "center",
 }: {
+  /** 角色 ID（用于语音匹配） */
+  characterId?: string;
   /** 角色台词池（按角色与关系状态在外部选好传入） */
   lines: string[];
   /** 个性化点击热区（如裤子区域更娇羞），区域外使用 lines 随机 */
@@ -97,6 +102,10 @@ export function PortraitClickLayer({
       rippleCounter += 1;
       const speechId = rippleCounter;
       setSpeech({ id: speechId, text });
+
+      // 尝试自动播放对应的角色语音
+      voiceManager.playVoiceByText(characterId, text);
+
       timersRef.current.push(
         window.setTimeout(() => {
           setSpeech((cur) => (cur && cur.id === speechId ? null : cur));
@@ -104,7 +113,7 @@ export function PortraitClickLayer({
         }, 2600),
       );
     },
-    [lines, zones, disabled],
+    [characterId, lines, zones, disabled],
   );
 
   return (
