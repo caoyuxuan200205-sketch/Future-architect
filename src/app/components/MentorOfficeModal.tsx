@@ -36,6 +36,7 @@ import {
   canSendCashGiftThisSemester,
   getMentorAwayScene,
   getMentorClickLines,
+  getMentorFirstMeet,
   type OfficeDialogueOption,
   type MentorOfficeProfile,
   type MentorAwayScene,
@@ -43,7 +44,9 @@ import {
 } from "../npc/mentorEncounterData";
 import { TONE_LABEL, TONE_BUBBLE_COLOR, toneFromFavorability } from "../npc/npcRegistry";
 import { PortraitClickLayer } from "./PortraitClickLayer";
+import { voiceManager } from "../services/voiceManager";
 import { moneyToBalance, formatYuan } from "../economy/finance";
+import { CONFESSION_SCRIPTS, type ConfessionChoice } from "../npc/peerData";
 import type { ToneTier } from "../npc/types";
 
 interface MentorOfficeModalProps {
@@ -67,6 +70,9 @@ interface MentorOfficeModalProps {
   onAcceptConfession?: (npcId: string, npcName: string) => void;
   confessedNpcIds?: string[];
   onMarkConfessed?: (npcId: string) => void;
+  /** 是否首次进入导师办公室（触发初见剧情） */
+  isFirstMeet?: boolean;
+  onCompleteFirstMeet?: () => void;
 }
 
 export function MentorOfficeModal({
@@ -84,6 +90,8 @@ export function MentorOfficeModal({
   onAcceptConfession,
   confessedNpcIds = [],
   onMarkConfessed,
+  isFirstMeet = false,
+  onCompleteFirstMeet,
 }: MentorOfficeModalProps) {
   // ===== 所有 Hooks 必须在早期 return 之前声明（React Hook 规则） =====
   const [activeTab, setActiveTab] = useState<"dialogue" | "profile">("dialogue");
@@ -143,11 +151,18 @@ export function MentorOfficeModal({
       setGiftRejected(false);
       setIsConfessing(false);
       setHasChosenConfession(false);
-      if (favorability >= 80 && !confessedNpcIds.includes("professor") && CONFESSION_SCRIPTS.professor) {
+      if (isFirstMeet) {
+        const seq = getMentorFirstMeet(profile);
+        setDialogueSequence(seq);
+        setDialogueIndex(0);
+        setDialogueComplete(false);
+        setIsAway(false);
+      } else if (favorability >= 80 && !confessedNpcIds.includes("professor") && CONFESSION_SCRIPTS.professor) {
         setIsConfessing(true);
-        const seq = CONFESSION_SCRIPTS.professor.introTurns.map(t => ({
+        const seq: GiftDialogueLine[] = CONFESSION_SCRIPTS.professor.introTurns.map(t => ({
           speaker: (t.speaker === "player" ? "player" : t.speaker === "peer" ? "mentor" : "narration") as "player" | "mentor" | "narration",
-          text: t.content,
+          name: t.speaker === "player" ? "你" : t.speaker === "peer" ? profile.name : undefined,
+          content: t.content,
           tone: t.tone as any
         }));
         setDialogueSequence(seq);
@@ -163,21 +178,44 @@ export function MentorOfficeModal({
       setCashAmount(1000);
       setCashGiftOption(null);
       setCurrentMoodIndex(Math.floor(Math.random() * profile.currentMoods.length));
-      // 判定导师是否在办公室（放养型导师扑空概率大）
-      const present = rollMentorPresence(profile.mentorId);
+      // 判定导师是否在办公室（初次见面必定在；平时放养型导师扑空概率大）
+      const present = isFirstMeet ? true : rollMentorPresence(profile.mentorId);
       setIsAway(!present);
       setAwayScene(present ? null : getMentorAwayScene(profile));
     }
     prevIsOpenRef.current = isOpen;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mentorId]);
+  }, [isOpen, mentorId, isFirstMeet, favorability, confessedNpcIds, currentTone, profile]);
+
+  // 剧情对话推进时自动播放 导师 对应台词语音
+  useEffect(() => {
+    if (isOpen && isDialoguePlaying && dialogueSequence[dialogueIndex]) {
+      const turn = dialogueSequence[dialogueIndex];
+      if (turn.speaker === "mentor") {
+        voiceManager.playVoiceByText(profile.mentorId, turn.content);
+      } else {
+        voiceManager.stop();
+      }
+    } else if (!isDialoguePlaying) {
+      voiceManager.stop();
+    }
+  }, [isOpen, isDialoguePlaying, dialogueSequence, dialogueIndex, profile.mentorId]);
+
+  // 关闭弹窗时停止播放任何残留语音
+  useEffect(() => {
+    if (!isOpen) {
+      voiceManager.stop();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   // 导师不在办公室：渲染扑空场景
   if (isAway && awayScene) {
     return (
-      <div className="fixed inset-0 z-[220] flex items-center justify-center bg-[#020611]/88 p-3 backdrop-blur-md sm:p-6 animate-in fade-in duration-200">
+      <div
+        className="fixed inset-0 z-[220] flex items-center justify-center bg-[#020611]/88 p-3 backdrop-blur-md sm:p-6 animate-in fade-in duration-200"
+        onClick={onClose}
+      >
         <section
           role="dialog"
           aria-modal="true"
@@ -358,18 +396,49 @@ export function MentorOfficeModal({
       // 暂存结算数据，等对话结束再触发
       pendingExecutionRef.current = { option: displayOption, rejected: isRejected };
     } else {
-      // 非送礼选项：立即回调外部
+      // 非送礼选项：播放导师回应语音并立即回调外部
+      if (displayOption.mentorReply) {
+        voiceManager.playVoiceByText(profile.mentorId, displayOption.mentorReply);
+      }
       onExecuteOption(displayOption, isRejected);
     }
     setIsExecuting(false);
   };
 
+  const handleSelectConfessionChoice = (choice: ConfessionChoice) => {
+    setHasChosenConfession(true);
+    if (choice.id === "accept" && onAcceptConfession) {
+      onAcceptConfession("professor", profile.name);
+    }
+    if (onMarkConfessed) {
+      onMarkConfessed("professor");
+    }
+    // 播放后续回应剧情
+    const seq: GiftDialogueLine[] = choice.responseTurn.map((t) => ({
+      speaker: (t.speaker === "player" ? "player" : t.speaker === "peer" ? "mentor" : "narration") as "player" | "mentor" | "narration",
+      name: t.speaker === "player" ? "你" : t.speaker === "peer" ? profile.name : undefined,
+      content: t.content,
+      tone: t.tone as any,
+    }));
+    setDialogueSequence(seq);
+    setDialogueIndex(0);
+    setDialogueComplete(false);
+    setIsConfessing(false);
+  };
+
   const advanceDialogue = () => {
+    if (isConfessing && dialogueIndex === dialogueSequence.length - 1 && !hasChosenConfession) {
+      // 在表白最后一幕必须等待玩家做出台词选择
+      return;
+    }
     if (dialogueIndex < dialogueSequence.length - 1) {
       setDialogueIndex(dialogueIndex + 1);
     } else {
-      // 序列播放完毕：触发外部结算
+      // 序列播放完毕：触发外部结算或初见完成
       setDialogueComplete(true);
+      if (isFirstMeet) {
+        onCompleteFirstMeet?.();
+      }
       const pending = pendingExecutionRef.current;
       if (pending) {
         onExecuteOption(pending.option, pending.rejected);
@@ -379,7 +448,13 @@ export function MentorOfficeModal({
   };
 
   const skipDialogue = () => {
+    if (isConfessing && !hasChosenConfession && onMarkConfessed) {
+      onMarkConfessed("professor");
+    }
     setDialogueComplete(true);
+    if (isFirstMeet) {
+      onCompleteFirstMeet?.();
+    }
     const pending = pendingExecutionRef.current;
     if (pending) {
       onExecuteOption(pending.option, pending.rejected);
@@ -389,11 +464,15 @@ export function MentorOfficeModal({
 
   return (
     <>
-    <div className="fixed inset-0 z-[220] flex items-center justify-center bg-[#020611]/88 p-3 backdrop-blur-md sm:p-6 animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-[220] flex items-center justify-center bg-[#020611]/88 p-3 backdrop-blur-md sm:p-6 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="mentor-office-title"
+        onClick={(e) => e.stopPropagation()}
         className="relative flex h-[92vh] max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-[#c9a84c]/35 bg-[#07101d] shadow-[0_30px_100px_rgba(0,0,0,0.75)]"
       >
         {/* 顶部标题栏 */}
@@ -526,370 +605,424 @@ export function MentorOfficeModal({
           </div>
 
           {/* 右侧：多维剧情对话与互动面板 */}
-          <div className="flex flex-col overflow-y-auto lg:col-span-7 bg-[#07101d]/95 p-6 lg:p-8">
-            {/* 对话回响区域（AVG 对白气泡）—— 送礼剧情播放期间隐藏，把空间让给剧情播放器 */}
-            {!isDialoguePlaying && (
-            <div className="mb-6 flex-1 rounded-2xl border border-white/10 bg-[#0c172a]/70 p-5 shadow-inner backdrop-blur-md">
-              <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    面谈情境对话
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-400">
-                  {hasExecuted ? "最新回应" : "等待发起交流"}
-                </span>
-              </div>
-
-              {/* 导师话语 */}
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <img
-                    src={profile.avatarImage}
-                    alt={profile.name}
-                    className="h-10 w-10 shrink-0 rounded-xl border border-white/20 object-cover"
-                  />
-                  <div
-                    className="flex-1 rounded-2xl p-4 text-sm leading-relaxed text-slate-100 shadow-md"
-                    style={{
-                      backgroundColor: TONE_BUBBLE_COLOR[hasExecuted ? replyTone : currentTone],
-                      border: "1px solid rgba(255,255,255,0.1)",
-                    }}
-                  >
-                    <p className="font-semibold text-xs text-[#d7bb66] mb-1">{profile.name}：</p>
-                    {currentReply || (
-                      <span>
-                        「你来了。最近的研究进展如何？关于近代建筑史的文献与开题，遇到什么卡点了吗？」
+          <div className="flex flex-col justify-between overflow-y-auto lg:col-span-7 bg-[#07101d]/95 p-6 lg:p-8">
+            <div className="space-y-4">
+              {/* 剧情播放器正在播放时展示：沉浸式多轮字幕（支持初见剧情、送礼剧情、告白剧情） */}
+              {isDialoguePlaying ? (
+                <div className="rounded-2xl border border-sky-400/30 bg-[#0c172a]/90 p-5 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-300">
+                  <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2.5 w-2.5 rounded-full bg-rose-400 animate-ping" />
+                      <span className="text-xs font-bold tracking-wider text-rose-200 uppercase">
+                        {isFirstMeet ? "初次相遇剧情" : isConfessing ? "💘 心动告白剧情" : giftRejected ? "拒收剧情" : "情境剧情进行中"} · 第 {dialogueIndex + 1} / {dialogueSequence.length} 幕
                       </span>
-                    )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={skipDialogue}
+                      className="text-xs text-slate-400 hover:text-amber-300 transition"
+                    >
+                      跳过剧情 ⏩
+                    </button>
                   </div>
-                </div>
 
-                {/* 执行后的剧情叙述（拒收用红色警示风，正常用绿色确认风） */}
-                {currentNarrative && (
-                  <div
-                    className={`mt-3 flex items-start gap-2.5 rounded-xl border p-3.5 text-xs leading-relaxed animate-in fade-in duration-300 ${
-                      giftRejected
-                        ? "border-rose-500/40 bg-rose-950/30 text-rose-200"
-                        : "border-emerald-500/20 bg-emerald-950/20 text-emerald-200"
-                    }`}
-                  >
-                    {giftRejected ? (
-                      <XCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
-                    ) : (
-                      <CheckCircle2 size={16} className="text-emerald-400 shrink-0 mt-0.5" />
-                    )}
-                    <span>{currentNarrative}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-            )}
+                  {(() => {
+                    const turn = dialogueSequence[dialogueIndex];
+                    if (!turn) return null;
 
-            {/* 状态分支：① 选择互动 ② 送礼剧情对话播放中 ③ 完成结算 */}
-            {!hasExecuted ? (
-              <div className="space-y-4">
-                {/* 选项分类筛选切换 */}
-                <div className="flex items-center gap-1.5 rounded-2xl bg-black/40 p-1.5 border border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => { setOptionCategory("academic"); setSelectedOption(null); }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "academic" ? "bg-sky-500/25 text-sky-200 border border-sky-400/40 shadow-md" : "text-slate-400 hover:text-slate-200"}`}
-                  >
-                    <BookOpen size={14} />
-                    <span>学术指导</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setOptionCategory("gift"); setSelectedOption(null); }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "gift" ? "bg-amber-500/25 text-amber-200 border border-amber-400/40 shadow-md" : "text-slate-400 hover:text-slate-200"}`}
-                  >
-                    <Gift size={14} />
-                    <span>心意送礼</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setOptionCategory("romance"); setSelectedOption(null); }}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "romance" ? "bg-gradient-to-r from-rose-500/30 to-pink-500/20 text-rose-200 border border-rose-400/50 shadow-md ring-1 ring-rose-400/30" : "text-rose-400/80 hover:text-rose-200 hover:bg-rose-500/10"}`}
-                  >
-                    <Heart size={14} className="text-rose-400 fill-rose-400/50" />
-                    <span>💘 禁忌心动 · 导师攻略</span>
-                  </button>
-                </div>
+                    const isLastTurn = dialogueIndex === dialogueSequence.length - 1;
+                    const showConfessionChoices = isConfessing && isLastTurn && !hasChosenConfession && Boolean(CONFESSION_SCRIPTS.professor);
 
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-                    {optionCategory === "romance" ? "💘 导师禁忌心动 · 羁绊互动" : optionCategory === "gift" ? "🎁 关怀与礼物敬献" : optionCategory === "academic" ? "📖 课题汇报与学术请教" : "选择会面互动事项"}
-                  </h4>
-                  <span className="text-xs text-amber-300/80">
-                    {canChooseAction ? "可消耗本回合行动" : "本回合已有待处理事项"}
-                  </span>
-                </div>
-
-                <div className="grid gap-2.5 sm:grid-cols-2">
-                  {[...options.filter((o) => !(cashGiftOption && o.id === "gift_cash_entry")), ...(cashGiftOption ? [cashGiftOption] : [])]
-                    .filter((opt) => {
-                      if (optionCategory === "all") return true;
-                      if (optionCategory === "academic") return opt.category === "academic" || opt.category === "chat" || opt.category === "opportunity";
-                      if (optionCategory === "gift") return opt.category === "gift";
-                      if (optionCategory === "romance") return opt.category === "romance";
-                      return true;
-                    })
-                    .map((opt) => {
-                      const isRomance = opt.category === "romance";
-                      const isLocked = Boolean(opt.disabled);
-                    const isSelected = selectedOption?.id === opt.id;
-                    return (
-                      <button
-                        key={opt.id}
-                        type="button"
-                        onClick={() => handleSelectOption(opt)}
-                        className={`group relative flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
-                          isLocked
-                            ? "border-white/5 bg-black/30 opacity-60 cursor-not-allowed"
-                            : isSelected
-                              ? isRomance
-                                ? "border-rose-400 bg-rose-500/25 ring-2 ring-rose-400/40 shadow-xl scale-[1.01]"
-                                : "border-[#c9a84c] bg-[#c9a84c]/15 ring-2 ring-[#c9a84c]/30 shadow-lg scale-[1.01]"
-                              : isRomance
-                                ? "border-rose-500/30 bg-rose-950/20 hover:border-rose-400/50 hover:bg-rose-500/15"
-                                : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
-                              <span className="text-base">{opt.emoji}</span>
-                              {opt.label}
-                            </span>
-                            {opt.costText && (
-                              <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">
-                                {opt.costText}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs leading-relaxed text-slate-400 line-clamp-2">
-                            {opt.description}
-                          </p>
-                        </div>
-
-                        {opt.statDeltas && (
-                          <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-2 text-[10px]">
-                            {opt.statDeltas.arch && (
-                              <span className="text-amber-300 font-medium">
-                                建筑底蕴 +{opt.statDeltas.arch}
-                              </span>
-                            )}
-                            {opt.statDeltas.logic && (
-                              <span className="text-sky-300 font-medium">
-                                逻辑思维 +{opt.statDeltas.logic}
-                              </span>
-                            )}
-                            {opt.statDeltas.mentorFavorability && (
-                              <span className="text-rose-300 font-medium">
-                                好感 +{opt.statDeltas.mentorFavorability}
-                              </span>
-                            )}
-                            {opt.statDeltas.money && (
-                              <span className="text-emerald-300 font-medium tabular-nums">
-                                经费 {opt.statDeltas.money > 0 ? "+" : ""}{formatYuan(moneyToBalance(opt.statDeltas.money))}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* 送钱金额输入浮层在组件根层级渲染（fixed 定位独立弹窗） */}
-
-                {/* 底部行动确认栏 */}
-                <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="rounded-xl border border-white/15 px-4 py-2.5 text-xs text-slate-400 transition hover:bg-white/5 hover:text-white"
-                  >
-                    稍后探讨 · 告辞离开
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={!selectedOption || !canChooseAction}
-                    onClick={handleConfirmAction}
-                    className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold shadow-lg transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${
-                      selectedOption?.category === "romance"
-                        ? "border border-rose-400/60 bg-gradient-to-r from-rose-500 to-pink-500 text-white"
-                        : "border border-[#c9a84c]/60 bg-gradient-to-r from-[#c9a84c] to-[#dec678] text-black"
-                    }`}
-                  >
-                    <span>{selectedOption?.category === "romance" ? "发起禁忌心动" : "确认发起该项交流"}</span>
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
-              </div>
-            ) : isDialoguePlaying ? (
-              /* === 送礼剧情对话播放器 === */
-              <div className="mt-auto flex flex-col gap-3 border-t border-white/10 pt-4">
-                {/* 序列顶部标识：进度 + 类型 */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare size={14} className={giftRejected ? "text-rose-400" : "text-emerald-400"} />
-                    <span className={`text-[11px] font-semibold uppercase tracking-wider ${giftRejected ? "text-rose-300" : "text-emerald-300"}`}>
-                      {giftRejected ? "拒收剧情 · 对话进行中" : "收下剧情 · 对话进行中"}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={skipDialogue}
-                    className="text-[11px] text-slate-400 transition hover:text-white"
-                  >
-                    跳过 ⏩
-                  </button>
-                </div>
-
-                {/* 当条对话气泡（横向长大字幕风格，参考交互叙事游戏） */}
-                {(() => {
-                  const line = dialogueSequence[dialogueIndex];
-                  if (!line) return null;
-
-                  if (line.speaker === "narration") {
-                    return (
-                      <div className="w-full animate-in fade-in slide-in-from-bottom-1 duration-300">
-                        <div className={`mx-auto rounded-2xl border px-5 py-4 text-[13px] leading-[1.9] italic backdrop-blur-md ${
-                          giftRejected
-                            ? "border-rose-500/25 bg-rose-950/25 text-rose-100/85"
-                            : "border-white/10 bg-black/30 text-slate-300"
-                        }`}>
-                          <div className="mb-1.5 flex items-center gap-1.5 text-[10px] uppercase tracking-wider opacity-60">
-                            <Sparkles size={10} />
+                    if (turn.speaker === "narration") {
+                      return (
+                        <div
+                          onClick={showConfessionChoices ? undefined : advanceDialogue}
+                          className={`rounded-2xl border border-amber-400/20 bg-amber-950/20 p-4 text-[13px] leading-relaxed text-amber-100/90 italic shadow-inner ${showConfessionChoices ? "" : "cursor-pointer"}`}
+                        >
+                          <div className="mb-1 flex items-center gap-1.5 text-[10px] uppercase font-bold text-amber-300/70">
+                            <Sparkles size={11} />
                             <span>场景叙述</span>
                           </div>
-                          {line.content}
+                          {turn.content}
+                          {!showConfessionChoices && (
+                            <div className="mt-3 text-right text-[11px] font-sans not-italic text-amber-300/80 animate-pulse">
+                              点击继续 ▶
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    );
-                  }
+                      );
+                    }
 
-                  const isPlayer = line.speaker === "player";
-                  const bubbleTone = (!isPlayer && line.tone) || (giftRejected ? "neutral" : "warm");
+                    const isPlayer = turn.speaker === "player";
+                    return (
+                      <div className="p-1 rounded-2xl">
+                        <div
+                          onClick={showConfessionChoices ? undefined : advanceDialogue}
+                          className={`rounded-2xl p-4 text-sm leading-relaxed text-slate-100 shadow-lg bg-[#111e33] border border-white/10 ${showConfessionChoices ? "" : "cursor-pointer hover:border-amber-400/40"}`}
+                        >
+                          <p className={`font-bold text-xs mb-1.5 ${isPlayer ? "text-amber-300" : "text-[#d7bb66]"}`}>
+                            {isPlayer ? "你" : (turn.name || profile.name)}：
+                          </p>
+                          <p className="text-[13.5px] leading-relaxed">{turn.content}</p>
+                          {!showConfessionChoices && (
+                            <div className="mt-3 text-right text-[11px] text-sky-300/80 animate-pulse">
+                              点击继续 ▶
+                            </div>
+                          )}
+                        </div>
 
-                  return (
-                    <div
-                      className={`w-full flex ${isPlayer ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-1 duration-300`}
-                    >
-                      <div className={`flex items-start gap-3 max-w-[92%] ${isPlayer ? "flex-row-reverse" : ""}`}>
-                        {/* 头像 */}
-                        <img
-                          src={isPlayer ? "" : profile.avatarImage}
-                          alt=""
-                          className={`h-11 w-11 shrink-0 rounded-xl border object-cover ${
-                            isPlayer
-                              ? "border-sky-400/40 bg-gradient-to-br from-sky-500/30 to-indigo-500/30"
-                              : "border-white/20"
-                          }`}
-                          style={isPlayer ? { display: "none" } : undefined}
-                        />
-                        {isPlayer && (
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-400/40 bg-gradient-to-br from-sky-500/30 to-indigo-500/30 text-base">
-                            🧑‍🎓
+                        {/* 专属沉浸式表白台词分支选项 */}
+                        {showConfessionChoices && CONFESSION_SCRIPTS.professor && (
+                          <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                            <p className="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                              <Heart size={14} className="fill-rose-400 text-rose-400 animate-pulse" />
+                              <span>此时此刻，你的内心抉择：</span>
+                            </p>
+                            {CONFESSION_SCRIPTS.professor.choices.map((choice) => (
+                              <button
+                                key={choice.id}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectConfessionChoice(choice);
+                                }}
+                                className={`w-full p-3.5 rounded-2xl border text-left transition-all shadow-lg active:scale-[0.99] cursor-pointer ${
+                                  choice.id === "accept"
+                                    ? "border-rose-400/80 bg-gradient-to-r from-rose-500/20 via-pink-500/15 to-rose-950/30 text-rose-100 hover:border-rose-300 hover:bg-rose-500/30"
+                                    : "border-slate-600/50 bg-slate-800/60 text-slate-200 hover:border-slate-400 hover:bg-slate-700/60"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border ${
+                                    choice.id === "accept" ? "bg-rose-500/30 text-rose-200 border-rose-400/40" : "bg-slate-700/60 text-slate-300 border-slate-600"
+                                  }`}>
+                                    {choice.badgeText}
+                                  </span>
+                                </div>
+                                <p className="text-[13px] font-normal leading-relaxed text-slate-200">{choice.label}</p>
+                              </button>
+                            ))}
                           </div>
                         )}
-
-                        {/* 气泡主体 */}
-                        <div
-                          className={`rounded-2xl px-5 py-4 shadow-md min-w-[280px] ${
-                            isPlayer ? "rounded-tr-sm" : "rounded-tl-sm"
-                          }`}
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : hasExecuted && selectedOption ? (
+                /* === 剧情播放完毕后的结算与总结卡片 === */
+                <div className="space-y-4 animate-in fade-in duration-300">
+                  {/* 导师台词专属回应卡片 */}
+                  {currentReply && (
+                    <div className="rounded-2xl border border-[#c9a84c]/40 bg-[#0c172a]/95 p-5 shadow-2xl backdrop-blur-xl">
+                      <div className="flex items-center justify-between mb-2.5 border-b border-white/10 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full bg-[#c9a84c] animate-pulse" />
+                          <span className="text-xs font-bold text-amber-200">
+                            {profile.name} · 即时回应
+                          </span>
+                        </div>
+                        <span
+                          className="rounded-full border px-2.5 py-0.5 text-[11px] font-semibold"
                           style={{
-                            backgroundColor: isPlayer
-                              ? "rgba(56, 132, 255, 0.18)"
-                              : TONE_BUBBLE_COLOR[bubbleTone as ToneTier],
-                            border: `1px solid ${isPlayer ? "rgba(125, 211, 252, 0.25)" : "rgba(255,255,255,0.1)"}`,
+                            borderColor: TONE_BUBBLE_COLOR[replyTone] + "66",
+                            backgroundColor: TONE_BUBBLE_COLOR[replyTone] + "1a",
+                            color: TONE_BUBBLE_COLOR[replyTone],
                           }}
                         >
-                          {/* 说话人 + 动作 */}
-                          <div className={`mb-1.5 flex items-baseline gap-2 ${isPlayer ? "justify-end" : ""}`}>
-                            <span className={`text-xs font-bold ${isPlayer ? "text-sky-300" : "text-[#d7bb66]"}`}>
-                              {line.name || (isPlayer ? "你" : profile.name)}
-                            </span>
-                            {line.action && (
-                              <span className="text-[10px] italic text-slate-300/70">
-                                （{line.action}）
-                              </span>
-                            )}
-                          </div>
+                          {TONE_LABEL[replyTone]}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium leading-relaxed text-slate-100 italic tracking-wide">
+                        “{currentReply}”
+                      </p>
+                    </div>
+                  )}
 
-                          {/* 台词正文 */}
-                          <p className="text-[13.5px] leading-[1.85] text-slate-100">
-                            {line.content}
+                  {/* 结算与总结卡片 */}
+                  <div className="space-y-3.5 rounded-2xl border border-emerald-500/30 bg-[#0c172a]/90 p-5 shadow-2xl backdrop-blur-xl">
+                    {giftRejected ? (
+                      <div className="flex items-center gap-3 rounded-xl border border-rose-500/40 bg-rose-950/40 px-4 py-3 shadow-lg">
+                        <XCircle size={22} className="text-rose-400 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-rose-200">
+                            🚫 礼物被导师婉拒
+                          </p>
+                          <p className="text-[11px] leading-relaxed text-rose-300/90 mt-0.5">
+                            钱未扣除，好感度略受影响——这位导师不吃这一套，换个方式拉近关系吧。
                           </p>
                         </div>
                       </div>
-                    </div>
-                  );
-                })()}
+                    ) : (
+                      <div className="flex items-center gap-2 text-xs text-emerald-300 font-bold border-b border-white/10 pb-3">
+                        <CheckCircle2 size={18} className="text-emerald-400" />
+                        <span>✨ 本轮交流圆满结束，相关属性与好感度已同步更新。</span>
+                      </div>
+                    )}
 
-                {/* 底部推进控制 */}
-                <div className="flex items-center justify-end gap-2 pt-1">
-
-                  <button
-                    type="button"
-                    onClick={advanceDialogue}
-                    className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition hover:brightness-110 active:scale-95 ${
-                      giftRejected
-                        ? "bg-gradient-to-r from-rose-600 to-rose-500"
-                        : "bg-gradient-to-r from-emerald-700 to-emerald-600"
-                    }`}
-                  >
-                    <span>
-                      {dialogueIndex < dialogueSequence.length - 1 ? "继续" : "完成本场对话"}
-                    </span>
-                    {dialogueIndex < dialogueSequence.length - 1 ? <ChevronDown size={14} /> : <CheckCircle2 size={14} />}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* === 完成结算 === */
-              <div className="mt-auto space-y-3 border-t border-white/10 pt-5">
-                {/* 拒收醒目横幅（仅在被拒收时显示） */}
-                {giftRejected ? (
-                  <div className="flex items-center gap-3 rounded-2xl border border-rose-500/40 bg-rose-950/40 px-4 py-3 shadow-lg animate-in fade-in slide-in-from-top-2 duration-300">
-                    <XCircle size={22} className="text-rose-400 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-rose-200">
-                        🚫 礼物被导师婉拒
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-xs leading-relaxed text-slate-200">
+                      <p className="font-semibold text-amber-300 mb-1">
+                        {selectedOption.label}
                       </p>
-                      <p className="text-[11px] leading-relaxed text-rose-300/90 mt-0.5">
-                        钱未扣除，好感度略受影响——这位导师不吃这一套，换个方式拉近关系吧。
+                      <p className="text-slate-300">
+                        {currentNarrative || selectedOption.description}
                       </p>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-xs text-emerald-300">
-                    <CheckCircle2 size={14} />
-                    <span>✨ 本轮交流圆满结束，相关属性与好感度已同步更新。</span>
-                  </div>
-                )}
 
-                <div className="flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold text-black shadow-lg transition hover:brightness-110 ${
-                      giftRejected
-                        ? "border border-rose-400/60 bg-rose-400"
-                        : "border border-[#c9a84c]/60 bg-[#c9a84c]"
-                    }`}
-                  >
-                    <span>{giftRejected ? "知难而退 · 返回地图" : "确认并返回地图"}</span>
-                    <ChevronRight size={14} />
-                  </button>
+                    {/* 属性变动预览 */}
+                    {selectedOption.statDeltas && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {selectedOption.statDeltas.arch && (
+                          <span className="rounded-lg bg-amber-500/15 border border-amber-400/30 px-2.5 py-1 text-xs text-amber-300 font-medium">
+                            建筑底蕴 +{selectedOption.statDeltas.arch}
+                          </span>
+                        )}
+                        {selectedOption.statDeltas.logic && (
+                          <span className="rounded-lg bg-sky-500/15 border border-sky-400/30 px-2.5 py-1 text-xs text-sky-300 font-medium">
+                            逻辑思维 +{selectedOption.statDeltas.logic}
+                          </span>
+                        )}
+                        {selectedOption.statDeltas.stress && selectedOption.statDeltas.stress !== 0 && (
+                          <span className={`rounded-lg px-2.5 py-1 text-xs font-medium border ${
+                            selectedOption.statDeltas.stress < 0
+                              ? "bg-teal-500/15 border-teal-400/30 text-teal-300"
+                              : "bg-rose-500/15 border-rose-400/30 text-rose-300"
+                          }`}>
+                            压力 {selectedOption.statDeltas.stress > 0 ? `+${selectedOption.statDeltas.stress}` : selectedOption.statDeltas.stress}
+                          </span>
+                        )}
+                        {selectedOption.statDeltas.mentorFavorability && selectedOption.statDeltas.mentorFavorability !== 0 && (
+                          <span className="rounded-lg bg-rose-500/15 border border-rose-400/30 px-2.5 py-1 text-xs text-rose-300 font-medium">
+                            好感度 {selectedOption.statDeltas.mentorFavorability > 0 ? `+${selectedOption.statDeltas.mentorFavorability}` : selectedOption.statDeltas.mentorFavorability}
+                          </span>
+                        )}
+                        {selectedOption.statDeltas.money && selectedOption.statDeltas.money !== 0 && (
+                          <span className="rounded-lg bg-amber-500/15 border border-amber-400/30 px-2.5 py-1 text-xs text-amber-300 font-medium">
+                            经费 {selectedOption.statDeltas.money > 0 ? `+${selectedOption.statDeltas.money}` : selectedOption.statDeltas.money}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              ) : (
+                /* === 正常互动模式（包含常规情境气泡与选项） === */
+                <>
+                  <div className="mb-6 flex-1 rounded-2xl border border-white/10 bg-[#0c172a]/70 p-5 shadow-inner backdrop-blur-md">
+                    <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+                        <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                          面谈情境对话
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400">
+                        {hasExecuted ? "最新回应" : "等待发起交流"}
+                      </span>
+                    </div>
+
+                    {/* 导师话语 */}
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={profile.avatarImage}
+                          alt={profile.name}
+                          className="h-10 w-10 shrink-0 rounded-xl border border-white/20 object-cover"
+                        />
+                        <div
+                          className="flex-1 rounded-2xl p-4 text-sm leading-relaxed text-slate-100 shadow-md"
+                          style={{
+                            backgroundColor: TONE_BUBBLE_COLOR[hasExecuted ? replyTone : currentTone],
+                            border: "1px solid rgba(255,255,255,0.1)",
+                          }}
+                        >
+                          <p className="font-semibold text-xs text-[#d7bb66] mb-1">{profile.name}：</p>
+                          {currentReply || (
+                            <span>
+                              「你来了。最近的研究进展如何？关于近代建筑史的文献与开题，遇到什么卡点了吗？」
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 执行后的剧情叙述 */}
+                      {currentNarrative && (
+                        <div
+                          className={`mt-3 flex items-start gap-2.5 rounded-xl border p-3.5 text-xs leading-relaxed animate-in fade-in duration-300 ${
+                            giftRejected
+                              ? "border-rose-500/40 bg-rose-950/30 text-rose-200"
+                              : "border-emerald-500/20 bg-emerald-950/20 text-emerald-200"
+                          }`}
+                        >
+                          {giftRejected ? (
+                            <XCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
+                          ) : (
+                            <CheckCircle2 size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                          )}
+                          <span>{currentNarrative}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    {/* 选项分类筛选切换 */}
+                    <div className="flex items-center gap-1.5 rounded-2xl bg-black/40 p-1.5 border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => { setOptionCategory("academic"); setSelectedOption(null); }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "academic" ? "bg-sky-500/25 text-sky-200 border border-sky-400/40 shadow-md" : "text-slate-400 hover:text-slate-200"}`}
+                      >
+                        <BookOpen size={14} />
+                        <span>学术指导</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setOptionCategory("gift"); setSelectedOption(null); }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "gift" ? "bg-amber-500/25 text-amber-200 border border-amber-400/40 shadow-md" : "text-slate-400 hover:text-slate-200"}`}
+                      >
+                        <Gift size={14} />
+                        <span>心意送礼</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setOptionCategory("romance"); setSelectedOption(null); }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold transition ${optionCategory === "romance" ? "bg-gradient-to-r from-rose-500/30 to-pink-500/20 text-rose-200 border border-rose-400/50 shadow-md ring-1 ring-rose-400/30" : "text-rose-400/80 hover:text-rose-200 hover:bg-rose-500/10"}`}
+                      >
+                        <Heart size={14} className="text-rose-400 fill-rose-400/50" />
+                        <span>💘 禁忌心动 · 导师攻略</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                        {optionCategory === "romance" ? "💘 导师禁忌心动 · 羁绊互动" : optionCategory === "gift" ? "🎁 关怀与礼物敬献" : optionCategory === "academic" ? "📖 课题汇报与学术请教" : "选择会面互动事项"}
+                      </h4>
+                      <span className="text-xs text-amber-300/80">
+                        {canChooseAction ? "可消耗本回合行动" : "本回合已有待处理事项"}
+                      </span>
+                    </div>
+
+                    <div className="grid gap-2.5 sm:grid-cols-2">
+                      {[...options.filter((o) => !(cashGiftOption && o.id === "gift_cash_entry")), ...(cashGiftOption ? [cashGiftOption] : [])]
+                        .filter((opt) => {
+                          if (optionCategory === "all") return true;
+                          if (optionCategory === "academic") return opt.category === "academic" || opt.category === "chat" || opt.category === "opportunity";
+                          if (optionCategory === "gift") return opt.category === "gift";
+                          if (optionCategory === "romance") return opt.category === "romance";
+                          return true;
+                        })
+                        .map((opt) => {
+                          const isRomance = opt.category === "romance";
+                          const isLocked = Boolean(opt.disabled);
+                          const isSelected = selectedOption?.id === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => handleSelectOption(opt)}
+                              className={`group relative flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
+                                isLocked
+                                  ? "border-white/5 bg-black/30 opacity-60 cursor-not-allowed"
+                                  : isSelected
+                                    ? isRomance
+                                      ? "border-rose-400 bg-rose-500/25 ring-2 ring-rose-400/40 shadow-xl scale-[1.01]"
+                                      : "border-[#c9a84c] bg-[#c9a84c]/15 ring-2 ring-[#c9a84c]/30 shadow-lg scale-[1.01]"
+                                    : isRomance
+                                      ? "border-rose-500/30 bg-rose-950/20 hover:border-rose-400/50 hover:bg-rose-500/15"
+                                      : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-100">
+                                    <span className="text-base">{opt.emoji}</span>
+                                    {opt.label}
+                                  </span>
+                                  {opt.costText && (
+                                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-slate-400">
+                                      {opt.costText}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs leading-relaxed text-slate-400 line-clamp-2">
+                                  {opt.description}
+                                </p>
+                              </div>
+
+                              {opt.statDeltas && (
+                                <div className="mt-3 flex flex-wrap gap-1.5 border-t border-white/10 pt-2 text-[10px]">
+                                  {opt.statDeltas.arch && (
+                                    <span className="text-amber-300 font-medium">
+                                      建筑底蕴 +{opt.statDeltas.arch}
+                                    </span>
+                                  )}
+                                  {opt.statDeltas.logic && (
+                                    <span className="text-sky-300 font-medium">
+                                      逻辑思维 +{opt.statDeltas.logic}
+                                    </span>
+                                  )}
+                                  {opt.statDeltas.mentorFavorability && (
+                                    <span className="text-rose-300 font-medium">
+                                      好感 +{opt.statDeltas.mentorFavorability}
+                                    </span>
+                                  )}
+                                  {opt.statDeltas.money && (
+                                    <span className="text-emerald-300 font-medium tabular-nums">
+                                      经费 {opt.statDeltas.money > 0 ? "+" : ""}{formatYuan(moneyToBalance(opt.statDeltas.money))}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* 底部行动确认与离开栏 */}
+            <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-white/15 px-4 py-2.5 text-xs text-slate-400 transition hover:bg-white/5 hover:text-white"
+              >
+                {hasExecuted ? "完成交流 · 返回地图" : "稍后探讨 · 告辞离开"}
+              </button>
+
+              {!hasExecuted && !isDialoguePlaying && (
+                <button
+                  type="button"
+                  disabled={!selectedOption || !canChooseAction}
+                  onClick={handleConfirmAction}
+                  className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold shadow-lg transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${
+                    selectedOption?.category === "romance"
+                      ? "border border-rose-400/60 bg-gradient-to-r from-rose-500 to-pink-500 text-white"
+                      : "border border-[#c9a84c]/60 bg-gradient-to-r from-[#c9a84c] to-[#dec678] text-black"
+                  }`}
+                >
+                  <span>{selectedOption?.category === "romance" ? "发起禁忌心动" : "确认发起该项交流"}</span>
+                  <ChevronRight size={14} />
+                </button>
+              )}
+
+              {hasExecuted && (
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={`flex items-center gap-2 rounded-xl px-6 py-2.5 text-xs font-bold text-black shadow-lg transition hover:brightness-110 ${
+                    giftRejected
+                      ? "border border-rose-400/60 bg-rose-400"
+                      : "border border-[#c9a84c]/60 bg-[#c9a84c]"
+                  }`}
+                >
+                  <span>{giftRejected ? "知难而退 · 返回地图" : "确认并返回地图"}</span>
+                  <ChevronRight size={14} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </section>

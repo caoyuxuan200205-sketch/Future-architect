@@ -67,7 +67,7 @@ export const ZHANG_YIFAN_PROFILE: PeerProfile = {
   locationName: "建筑学院 · 中大院 302 工位",
   personalityTag: "清爽阳光 · 建模鬼才 · 甜系同门",
   atmosphere: "工位上整齐立着三块高清显示器与带刻度的切割垫板，旁边常备两杯刚萃取的冰美式与润喉糖。阳光斜照在桌角，他一边敲着键盘一边哼着歌，笑起来格外温柔治愈。",
-  quote: "“师兄，方案改累了就歇会儿！我刚点了两杯生椰拿铁，顺便帮你看看这版复杂的异形悬挑节点！”",
+  quote: "“哥哥，方案改累了就歇会儿！我刚点了两杯生椰拿铁，顺便帮你看看这版复杂的异形悬挑节点！”",
   currentMoods: [
     "正在戴着降噪耳机专心调整 Rhino 空间曲面",
     "刚撕开两根吸管，正准备递给你一杯冰美式",
@@ -107,7 +107,7 @@ export const PEER_STUDY_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "focus",
-        content: "师兄你把椅子挪过来点！你看——如果把核心筒往右微调 500mm，整个采光中庭的动线瞬间通透了。我顺便用 GH 帮你跑个日照模拟！",
+        content: "哥哥你把椅子挪过来点！你看——如果把核心筒往右微调 500mm，整个采光中庭的动线瞬间通透了。我顺便用 GH 帮你跑个日照模拟！",
       },
       {
         speaker: "narration",
@@ -151,7 +151,7 @@ export const PEER_STUDY_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "sweet",
-        content: "没事的师兄，天塌下来有我陪你一起挨训。有你在组里，熬夜画图都没那么难熬了。",
+        content: "没事的哥哥，天塌下来有我陪你一起挨训。有你在组里，熬夜画图都没那么难熬了。",
       },
     ],
   },
@@ -186,7 +186,7 @@ export const PEER_STUDY_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "sweet",
-        content: "师兄你刚才那个‘空间体验即用户心智’的回答太绝了！这套真题原稿全发你网盘了，秋招我们一起上岸！",
+        content: "哥哥你刚才那个‘空间体验即用户心智’的回答太绝了！这套真题原稿全发你网盘了，秋招我们一起上岸！",
       },
     ],
   },
@@ -211,7 +211,7 @@ export const PEER_STUDY_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "shy",
-        content: "哇真的吗！师兄你什么时候连 Python 代码都写得这么溜了……快坐过来教教我！",
+        content: "哇真的吗！哥哥你什么时候连 Python 代码都写得这么溜了……快坐过来教教我！",
       },
       {
         speaker: "narration",
@@ -220,7 +220,7 @@ export const PEER_STUDY_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "sweet",
-        content: "跑通了！师兄你怎么什么都会啊……突然觉得有你在身边，心里特别有安全感。",
+        content: "跑通了！哥哥你怎么什么都会啊……突然觉得有你在身边，心里特别有安全感。",
       },
     ],
   },
@@ -248,7 +248,7 @@ export const PEER_ROMANCE_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "shy",
-        content: "啊……不好意思师兄，我不是故意……",
+        content: "啊……不好意思哥哥，我不是故意……",
       },
       {
         speaker: "player",
@@ -261,7 +261,7 @@ export const PEER_ROMANCE_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "sweet",
-        content: "师兄……你的手好暖和。那……就这么牵着改图，不准松开哦。",
+        content: "哥哥……你的手好暖和。那……就这么牵着改图，不准松开哦。",
       },
     ],
   },
@@ -286,7 +286,7 @@ export const PEER_ROMANCE_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "sweet",
-        content: "辛苦啦师兄。站起来伸展一下，借你一个‘无限续航能量抱抱’要不要？",
+        content: "辛苦啦哥哥。站起来伸展一下，借你一个‘无限续航能量抱抱’要不要？",
       },
       {
         speaker: "narration",
@@ -320,7 +320,7 @@ export const PEER_ROMANCE_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "focus",
-        content: "师兄你快看这个剖面透视！我加了一道漫反射天光，这里的阴影层次是不是特性感……唔？！",
+        content: "哥哥你快看这个剖面透视！我加了一道漫反射天光，这里的阴影层次是不是特性感……唔？！",
       },
       {
         speaker: "narration",
@@ -329,7 +329,7 @@ export const PEER_ROMANCE_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "shy",
-        content: "师、师兄……！你怎么突然……教研室万一有人进来怎么办……",
+        content: "哥、哥哥……！你怎么突然……教研室万一有人进来怎么办……",
       },
       {
         speaker: "player",
@@ -359,7 +359,7 @@ export const PEER_ROMANCE_OPTIONS: PeerOption[] = [
       {
         speaker: "peer",
         tone: "sweet",
-        content: "师兄，你知道吗？从开学第一天在导师门外见到你起，我就没想过只当你的普通同门。",
+        content: "哥哥，你知道吗？从开学第一天在导师门外见到你起，我就没想过只当你的普通同门。",
       },
       {
         speaker: "player",
@@ -1789,7 +1789,7 @@ export const DAILY_VISIT_GREETINGS: Record<string, DialogueTurn[][]> = {
       {
         speaker: "peer",
         tone: "sweet",
-        content: "师兄你来啦！快坐快坐，我刚点了一杯生椰拿铁，特意让店员加了双份浓缩，分你半杯！",
+        content: "哥哥你来啦！快坐快坐，我刚点了一杯生椰拿铁，特意让店员加了双份浓缩，分你半杯！",
       },
       {
         speaker: "narration",
@@ -1829,7 +1829,7 @@ export const DAILY_VISIT_GREETINGS: Record<string, DialogueTurn[][]> = {
       {
         speaker: "peer",
         tone: "sweet",
-        content: "师兄你看天边的晚霞，颜色像不像我们上次调的参数化渐变曲面？",
+        content: "哥哥你看天边的晚霞，颜色像不像我们上次调的参数化渐变曲面？",
       },
       {
         speaker: "player",
@@ -2170,7 +2170,7 @@ export const CONFESSION_SCRIPTS: Record<string, ConfessionScript> = {
           {
             speaker: "peer",
             tone: "sweet",
-            content: "没关系的师兄！只要能一直陪在你身边和你一起画图，我就已经很满足了。我们永远是最好的搭子！",
+            content: "没关系的哥哥！只要能一直陪在你身边和你一起画图，我就已经很满足了。我们永远是最好的搭子！",
           },
         ],
       },
@@ -2615,14 +2615,14 @@ export const PORTRAIT_CLICK_LINES: Record<string, PortraitClickLinePool> = {
   zhang_yifan: {
     normal: [
       "别闹，大家都看着呢。",
-      "师兄！别戳啦，我的冰美式要洒了！",
+      "哥哥！别戳啦，我的冰美式要洒了！",
       "再闹，我就把你的轴网偷偷改成异形曲面哦？",
       "诶嘿嘿……手怎么凉凉的，是不是又熬夜画图了？",
       "哎呀，鼠标都要被你抢走了啦！",
     ],
     partner: [
       "唔……这里可是 302 工作室诶。",
-      "再戳就要收费了哦，一杯生椰拿铁，谢谢师兄。",
+      "再戳就要收费了哦，一杯生椰拿铁，谢谢哥哥。",
       "乖啦，今晚陪你通宵改图好不好？",
       "被你这样看着，我连 Grasshopper 都要接错线了……",
     ],
@@ -2757,7 +2757,7 @@ export const PORTRAIT_CLICK_ZONES: Record<
       // 腰胯 / 下半身区域：带点撩的涩感反应
       rect: [20, 78, 80, 100],
       lines: [
-        "师兄……手放哪呢，我会当真的哦。",
+        "哥哥……手放哪呢，我会当真的哦。",
         "这里不行啦……会被路过的同门看到的。",
         "再闹……今晚的图，我可就贴着画了。",
         "再摸！再摸就大了！",

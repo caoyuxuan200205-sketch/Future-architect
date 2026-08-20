@@ -21,7 +21,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"game" | "real">("game");
   const [gameMessages, setGameMessages] = useState<LocalChatMessage[]>([
-    { role: "assistant", content: "哈喽！我是建哥，你的转行领路人。游戏攻略这块，有什么不懂的游戏机制或者选错的加点，尽管问我。" }
+    { role: "assistant", content: "哈喽！我是大轩，你的转行领路人。游戏攻略这块，有什么不懂的游戏机制或者选错的加点，尽管问我。" }
   ]);
   const [realMessages, setRealMessages] = useState<LocalChatMessage[]>([
     { role: "assistant", content: "这里是现实转行讨论区。想聊聊真实的建筑狗转行方向、想挑选个靠谱的现实研究生导师，还是准备跳槽转大厂？直接向我提问吧！" }
@@ -208,7 +208,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
       }));
 
       // 3. 请求大模型（流式）—— 首 token 到达后切换 loading 文案
-      setLoadingText("🧠 建哥正在思考...");
+      setLoadingText("🧠 大轩正在思考...");
       const abortController = new AbortController();
       const response = await askAssistantStream(
         userQuery,
@@ -218,7 +218,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
         activeTab,
         (token, fullText) => {
           // 收到首 token 后切文案，提示用户正在输出
-          if (streamingText === "") setLoadingText("✍️ 建哥正在输出...");
+          if (streamingText === "") setLoadingText("✍️ 大轩正在输出...");
           updateStreamingAssistant(fullText);
         },
         abortController.signal,
@@ -309,8 +309,8 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
           <button
             onClick={() => setIsOpen(true)}
             className="group relative flex h-14 w-14 items-center justify-center rounded-full border border-blue-300/35 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 text-white shadow-[0_12px_32px_rgba(37,99,235,0.42)] transition-all duration-300 hover:-translate-y-1 hover:scale-105 hover:shadow-[0_16px_38px_rgba(37,99,235,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-[#070c17]"
-            title="召唤建哥 (AI攻略助手)"
-            aria-label="召唤建哥，AI 助手在线"
+            title="召唤大轩 (AI攻略助手)"
+            aria-label="召唤大轩，AI 助手在线"
           >
             <span className="absolute inset-1 rounded-full border border-white/10 transition-transform duration-500 group-hover:rotate-6" />
             <Bot size={27} strokeWidth={1.9} className="relative z-10 transition-transform duration-300 group-hover:scale-110" />
@@ -355,7 +355,7 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
                 <Bot size={18} />
               </div>
               <div>
-                <h3 className="text-white font-medium text-sm font-semibold">建哥 AI 军师</h3>
+                <h3 className="text-white font-medium text-sm font-semibold">大轩 AI 军师</h3>
                 <p className="text-blue-200 text-[10px] opacity-80">{activeTab === "game" ? "游戏攻略助手" : "真实人生顾问"}</p>
               </div>
             </div>

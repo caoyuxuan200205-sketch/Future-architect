@@ -322,11 +322,15 @@ export function PeerVisitModal({
   const currentOptions = activeCategory === "study" ? studyOptions : romanceOptions;
 
   return (
-    <div className="fixed inset-0 z-[220] flex items-center justify-center bg-[#020611]/88 p-3 backdrop-blur-md sm:p-6 animate-in fade-in duration-200">
+    <div
+      className="fixed inset-0 z-[220] flex items-center justify-center bg-[#020611]/88 p-3 backdrop-blur-md sm:p-6 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="peer-office-title"
+        onClick={(e) => e.stopPropagation()}
         className="relative flex h-[92vh] max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-[#c9a84c]/35 bg-[#07101d] shadow-[0_30px_100px_rgba(0,0,0,0.75)]"
       >
         {/* 顶部标题栏 */}

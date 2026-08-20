@@ -227,6 +227,15 @@ const EVENT_NPC_NAMES: Record<string, string> = {
   mentor: "导师",
 };
 
+/** AI 推演等待期间的风味文案（每 5 秒轮换一句） */
+const AI_WAITING_QUIPS = [
+  "游戏作者让我转告：别催了，没 token 了快…",
+  "AI 读完你的选择，当场申请工伤，正在走流程…",
+  "命运编剧在给这个选择加反转…",
+  "你的方案正被三位导师盲审，他们吵起来了，劝架中…",
+  "后台正在用爱发电…",
+];
+
 interface CharacterInfo {
   name: string;
   undergradTier: number;
@@ -5169,8 +5178,8 @@ const GAME_GUIDE_STEPS = [
   },
   {
     eyebrow: "AI 转行军师",
-    title: "遇到问题，随时问建哥 AI",
-    description: "右下角绿色在线头像就是建哥。游戏机制、属性培养、结局路线，以及现实中的转行方向、岗位选择和准备方法，都可以直接问他。",
+    title: "遇到问题，随时问大轩 AI",
+    description: "右下角绿色在线头像就是大轩。游戏机制、属性培养、结局路线，以及现实中的转行方向、岗位选择和准备方法，都可以直接问他。",
     items: [
       { label: "游戏攻略", copy: "询问玩法机制、加点思路、Offer 与结局条件。" },
       { label: "现实转行", copy: "讨论真实岗位、能力准备、求职与转型选择。" },
@@ -5308,6 +5317,18 @@ export function GamePage() {
   // 玩法详情：完整展示开局属性、论文分与导师专属交互机制
   const [detailMentorId, setDetailMentorId] = useState<string | null>(null);
   const [isMentorOfficeOpen, setIsMentorOfficeOpen] = useState(false);
+  const [isMentorUnlocked, setIsMentorUnlocked] = useState(false);
+  const [isMentorFirstMeet, setIsMentorFirstMeet] = useState(false);
+
+  const handleMentorOfficeOpen = useCallback(() => {
+    if (!isMentorUnlocked) {
+      setIsMentorUnlocked(true);
+      setIsMentorFirstMeet(true);
+    } else {
+      setIsMentorFirstMeet(false);
+    }
+    setIsMentorOfficeOpen(true);
+  }, [isMentorUnlocked]);
   const [isPeerModalOpen, setIsPeerModalOpen] = useState(false);
   const [peerFavorability, setPeerFavorability] = useState(70);
   const [isLuYuchenModalOpen, setIsLuYuchenModalOpen] = useState(false);
@@ -5466,6 +5487,8 @@ export function GamePage() {
   const [customEventActionFeedback, setCustomEventActionFeedback] = useState("");
   const [isEvaluatingCustomEventAction, setIsEvaluatingCustomEventAction] = useState(false);
   const [customEventEvaluationStage, setCustomEventEvaluationStage] = useState(0);
+  /** AI 推演等待文案轮换计时（每 5 秒 +1） */
+  const [waitingQuipTick, setWaitingQuipTick] = useState(0);
   const customEventEvaluationAbortRef = useRef<AbortController | null>(null);
 
   // 新增状态
@@ -5713,7 +5736,19 @@ export function GamePage() {
     } else if (data.stats) {
       setFinanceState(createInitialFinance(data.stats.money ?? 38, Boolean(data.character?.isOverseas)));
     }
-    setMentor(MENTORS.find((item) => item.id === data.mentor?.id) ?? data.mentor ?? null);
+    // 导师恢复：不能用 MENTORS.find 直接覆盖——那会丢掉玩家选的随机名(name)/自定义名(customName)，
+    // 导致刷新后回退到默认导师（如放养型变成"钱晓茜"）。这里用最新档案兜底，但保留存档里的名字。
+    const savedMentor = data.mentor as Mentor | null;
+    const baseMentor = savedMentor ? (MENTORS.find((item) => item.id === savedMentor.id) ?? null) : null;
+    if (savedMentor && baseMentor) {
+      setMentor({
+        ...baseMentor,
+        name: typeof savedMentor.name === "string" && savedMentor.name ? savedMentor.name : baseMentor.name,
+        customName: typeof savedMentor.customName === "string" ? savedMentor.customName : undefined,
+      });
+    } else {
+      setMentor(savedMentor ?? baseMentor ?? null);
+    }
     setSemester(data.semester ?? 1);
     setRound(data.round ?? 1);
     setCurrentEvent(EVENTS.find((item) => item.id === data.currentEvent?.id) ?? data.currentEvent ?? null);
@@ -6012,6 +6047,9 @@ export function GamePage() {
     setLastRoundDelta({});
     setSemester(1);
     setRound(1);
+    setIsMentorUnlocked(false);
+    setIsMentorFirstMeet(false);
+    setIsMentorOfficeOpen(false);
     setSeenEventIds(new Set());
     setSeenCampusIds(new Set());
     setActionMemory(createActionMemory());
@@ -6087,6 +6125,9 @@ export function GamePage() {
         finalMentor.name = rolled;
       }
       setMentor(finalMentor);
+      setIsMentorUnlocked(false);
+      setIsMentorFirstMeet(false);
+      setIsMentorOfficeOpen(false);
 
       // —— 社交系统初始化：同步 NPC 显示名 + 通过对话树触发开场白 ——
       const displayName = (finalMentor.customName && finalMentor.customName.trim())
@@ -6381,6 +6422,7 @@ export function GamePage() {
     const controller = new AbortController();
     customEventEvaluationAbortRef.current = controller;
     setIsEvaluatingCustomEventAction(true);
+    setWaitingQuipTick(Math.floor(Math.random() * AI_WAITING_QUIPS.length));
     setCustomEventActionFeedback("");
 
     try {
@@ -6438,6 +6480,13 @@ export function GamePage() {
     semester,
     stats,
   ]);
+
+  // AI 推演等待期间每 5 秒轮换一句风味文案
+  useEffect(() => {
+    if (!isEvaluatingCustomEventAction) return;
+    const timer = window.setInterval(() => setWaitingQuipTick((v) => v + 1), 5000);
+    return () => window.clearInterval(timer);
+  }, [isEvaluatingCustomEventAction]);
   // 看完分支结果后返回地图继续行动；没有分支数据的旧事件沿用原结算方式。
   const acknowledgeEvent = useCallback(() => {
     if (!currentEvent || !stats) return;
@@ -7228,6 +7277,9 @@ export function GamePage() {
     setIsJiangHuaiFirstMeet(false);
     setIsShenQinghuaiUnlocked(false);
     setIsShenQinghuaiFirstMeet(false);
+    setIsMentorUnlocked(false);
+    setIsMentorFirstMeet(false);
+    setIsMentorOfficeOpen(false);
     // 微信社交状态清空
     setSocialState(createEmptySocialState());
     setActiveSocialNpcId("professor");
@@ -8211,7 +8263,7 @@ export function GamePage() {
                             </div>
                             {customEventEvaluationStage >= 3 && (
                               <p className="mt-3 border-t border-white/[0.06] pt-2.5 text-[10px] leading-relaxed text-slate-500">
-                                仍在等待模型生成。复杂选择可能需要更久，你的输入已安全保留，也可以随时取消推演。
+                                {AI_WAITING_QUIPS[waitingQuipTick % AI_WAITING_QUIPS.length]}
                               </p>
                             )}
                           </div>
@@ -8448,7 +8500,7 @@ export function GamePage() {
               }
               onOpenRound={() => setDesktopGameSection("round")}
               actions={ACTIONS}
-              onOpenMentorOffice={() => setIsMentorOfficeOpen(true)}
+              onOpenMentorOffice={handleMentorOfficeOpen}
               onOpenPeerModal={() => setIsPeerModalOpen(true)}
               onOpenLuYuchenModal={() => {
                 if (!isLuYuchenUnlocked) {
@@ -8517,7 +8569,7 @@ export function GamePage() {
               }
               onOpenRound={() => setDesktopGameSection("round")}
               actions={ACTIONS}
-              onOpenMentorOffice={() => setIsMentorOfficeOpen(true)}
+              onOpenMentorOffice={handleMentorOfficeOpen}
               onOpenPeerModal={() => setIsPeerModalOpen(true)}
               onOpenLuYuchenModal={() => {
                 if (!isLuYuchenUnlocked) {
@@ -8586,6 +8638,8 @@ export function GamePage() {
           isOpen={isMentorOfficeOpen}
           onClose={() => setIsMentorOfficeOpen(false)}
           mentor={mentorOfficeMentorProp}
+          isFirstMeet={isMentorFirstMeet}
+          onCompleteFirstMeet={() => setIsMentorFirstMeet(false)}
           favorability={stats?.mentorFavorability ?? 30}
           money={stats?.money ?? 38}
           stats={{

@@ -73,14 +73,14 @@ export const NPC_REGISTRY: Record<string, NPC> = {
     avatar: "/characters/zhang_yifan.jpg",
     personality: "和你同届入学，阳光开朗的建模鬼才，院里公认的清爽校草",
     catchphrases: [
-      "师兄，方案改累了就歇会儿！",
+      "哥哥，方案改累了就歇会儿！",
       "天塌下来有我陪你一起挨训。",
       "要不我们一起熬？",
     ],
     awayText: "（张一帆正在改 Rhino 模型，顺便在喝冰美式。）",
     unlockedByDefault: false,
     unlockHint: "研一上第 2 回合后解锁，或在建筑学院拜访",
-    greeting: "师兄你来啦！方案改累了就歇会儿，我刚点了两杯生椰拿铁！",
+    greeting: "哥哥你来啦！方案改累了就歇会儿，我刚点了两杯生椰拿铁！",
     stageLabels: [
       { min: 0, label: "认识" },
       { min: 31, label: "混熟" },

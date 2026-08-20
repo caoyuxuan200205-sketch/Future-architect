@@ -1224,7 +1224,7 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
       hasPortrait = true;
       moods = ["捧着刚泡好的老白茶翻阅城市设计手册", "在手账上写下一周要去看的三个项目", "和组里学生讨论地方营造的非标准做法"];
     }
-    if (name === "冷冬青") {
+    if (name === "旸葳") {
       avatarImage = "/assets/visuals/npcs/professor_hands_off_yang.jpg";
       hasPortrait = true;
       moods = ["手里捧着一本人类学田野笔记陷入沉思", "在白板上随手画着几个空间的隐喻草图", "和学生讨论一部艺术电影中的空间叙事"];
@@ -1242,7 +1242,7 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
     personalityTag = "实务领军 · 方案总建筑师";
     quote = "图纸上的每一条线，在工地上都是真金白银和工人的汗水。";
     moods = ["正在和甲方项目总监通电话协调方案节点", "手握红铅笔在大幅总图上圈画修改意见", "桌上摆着今晚汇报方案的PPT打印稿"];
-    if (name === "钟建国") {
+    if (name === "崔泰宁") {
       avatarImage = "/assets/visuals/npcs/professor_practice_cui.jpg";
       hasPortrait = true;
       moods = ["在材料样板堆里翻找一块可替代的仿木铝板", "和结构工程师讨论大跨度桁架的节点优化", "桌上摊开明晚市长汇报的总平面终稿"];
@@ -1252,7 +1252,7 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
       hasPortrait = true;
       moods = ["戴着黑框眼镜在数字平板上勾画总图节点", "和来访的甲方项目负责人讨论材料样板替换方案", "翻看昨天工地反馈的结构修改意见"];
     }
-    if (name === "柳岩松") {
+    if (name === "恺宁") {
       avatarImage = "/assets/visuals/npcs/professor_practice_kai.jpg";
       hasPortrait = true;
       moods = ["对着玻璃幕墙节点三维模型陷入冥想", "和 BIM 团队核对机电管线的碰撞点位", "桌上堆着几份刚从工地寄回的施工洽商"];
@@ -1270,17 +1270,17 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
     personalityTag = "国际先锋 · 批判与实验性设计";
     quote = "不要被形式束缚，要理解空间背后的社会逻辑与人的行为。";
     moods = ["正在准备全英文国际学术研讨会的主旨发言", "在平板电脑上绘制实验性空间草图", "刚收到国外访问学者的合作邮件"];
-    if (name === "王永和") {
+    if (name === "张青") {
       avatarImage = "/assets/visuals/npcs/professor_overseas_zhang.jpg";
       hasPortrait = true;
       moods = ["刚结束一场跨越八个时区的联合设计评图", "在白板上勾勒着下一个驻地名古屋的项目时间表", "翻阅来自康奈尔与米兰理工的交换生作品集"];
     }
-    if (name === "庄岩松") {
+    if (name === "庄惟") {
       avatarImage = "/assets/visuals/npcs/professor_overseas_zhuang.jpg";
       hasPortrait = true;
       moods = ["在模型室里排列着十几个 1:50 的参数化结构模型", "屏幕上并行开着 Grasshopper 与 Karamba3D 的实时演算", "和学生讨论下周赴巴塞罗那的学术考察路线"];
     }
-    if (name === "董永辉") {
+    if (name === "彤青") {
       avatarImage = "/assets/visuals/npcs/professor_overseas_tong.jpg";
       hasPortrait = true;
       moods = ["在桌前的航站楼模型前对照刚打印的机场剖面图", "翻看新加坡樟宜机场改造项目的最新邮件反馈", "正在和来访的工程顾问讨论某高铁车站的概念草图"];
@@ -1305,6 +1305,706 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
     personalityTag,
     currentMoods: moods,
   };
+}
+
+/**
+ * 导师初次见面专属剧情（首次进入导师办公室时触发）
+ */
+export function getMentorFirstMeet(profile: MentorOfficeProfile): GiftDialogueLine[] {
+  const mentorName = profile.name || "葛慎康";
+  const officeLoc = profile.officeLocation || "建筑馆 503";
+
+  // 学术大牛派导师初见剧情
+  if (profile.mentorId === "academic") {
+    if (profile.name?.includes("朱薇亚")) {
+      return [
+        {
+          speaker: "narration",
+          content: "中大院 301 的门虚掩着，窗台的常青藤爬到半墙，几幅明代官式建筑拓片在午后阳光里泛着旧纸的暖光。朱薇亚正给一盆兰花浇水，听见声音，放下水壶。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "轻声",
+          content: "朱老师好，我是新来的学生，来向您报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "朱薇亚",
+          action: "温和一笑",
+          tone: "sweet",
+          content: "来了呀。坐。先别急着说\"报到\"两个字——我想先问你：你走进一座明代的殿宇，最先感受到的是什么？是那根柱子，还是柱子之间、被礼制划出来的那个\"空\"？",
+        },
+        {
+          speaker: "mentor",
+          name: "朱薇亚",
+          action: "拿起一幅拓片递给你",
+          tone: "warm",
+          content: "可以说，礼制不是死板的规矩，而是一种分地的方法——它规定了谁站哪里，也就规定了空间如何被秩序化。这幅斗栱，看着是构件，其实是那个时代的人，对\"空\"的一次划分。",
+        },
+        {
+          speaker: "mentor",
+          name: "朱薇亚",
+          action: "语气轻柔却认真",
+          tone: "focus",
+          content: "坦率地说，我教的不是考据，也不是风格。我希望你读每一份文献时都先问一句：当时的人，为什么要把空间分成这样？带着这个问题，再来找我。",
+        },
+        {
+          speaker: "narration",
+          content: "兰花叶上的水珠滚落，砸在青石盆沿，发出极轻的一声。",
+        },
+      ];
+    }
+
+    if (profile.name?.includes("齐廷宝")) {
+      return [
+        {
+          speaker: "narration",
+          content: "前工房 305 的门上挂着一块「请勿打扰」的木牌。你硬着头皮敲门，屋里传来一句低沉的\"进\"。门后，一整套宋式斗栱榫卯实体模型立在桌心，旁边是一把高精度游标卡尺。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "小心翼翼",
+          content: "齐老师，我是新来的学生，想跟您报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "齐廷宝",
+          action: "头也不抬，仍在核验模数",
+          tone: "neutral",
+          content: "先考你一个问题——你说你懂斗栱，那我问你：一朵斗栱，是构件，还是空间？",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "一时语塞",
+          content: "(沉默)",
+        },
+        {
+          speaker: "mentor",
+          name: "齐廷宝",
+          action: "放下卡尺，抬眼",
+          tone: "focus",
+          content: "答不上来不丢人。坦率地说，模数不是拿来背的数字，而是认识空间的一把尺——你连这把尺都不会用，谈什么做设计？做学问要耐得住寂寞，但更重要的是，你要配得上寂寞。",
+        },
+        {
+          speaker: "mentor",
+          name: "齐廷宝",
+          action: "指着桌上的榫卯模型",
+          tone: "focus",
+          content: "回去把这套铺作拆开、再装回去，装三遍。三遍都装不严丝合缝，下周一别来见我。",
+        },
+        {
+          speaker: "narration",
+          content: "他重新埋进那一摞大部头里。你看着那套严丝合缝的榫卯，第一次理解了什么叫\"定海神针\"。",
+        },
+      ];
+    }
+
+    if (profile.name?.includes("童敦桢")) {
+      return [
+        {
+          speaker: "narration",
+          content: "前工房 412 里，阳光透过百叶窗，落在《营造法式》石印本与满桌古建测绘草图上。童敦桢正啜饮一盅铁观音，见你进来，放下茶盏。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "恭敬",
+          content: "童老师好，我来向您报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "童敦桢",
+          action: "语气平缓",
+          tone: "neutral",
+          content: "坐。先回答我一个问题——文献里的\"材分\"，和你在浙西山里亲手摸到的那根柱础，是同一个东西吗？",
+        },
+        {
+          speaker: "mentor",
+          name: "童敦桢",
+          action: "起身，指着一旁的田野测绘相册",
+          tone: "warm",
+          content: "可以说，考据不是查字典，而是用脚去认识一座建筑曾经如何分地。纸上的柱础，和你亲手量过的那根，是两种东西。你的脚踩过它，才有资格在纸上谈论它。",
+        },
+        {
+          speaker: "mentor",
+          name: "童敦桢",
+          action: "语重心长",
+          tone: "focus",
+          content: "坦率地说，我不反对数字工具，但认识\"空\"的功夫，只能在一手材料和现场里磨出来。回去把宋《营造法式》\"材分\"读透，下周带着问题来。",
+        },
+        {
+          speaker: "narration",
+          content: "茶气在阳光里散开。你忽然觉得，这位老先生说的是真的——学问，得用脚走出来。",
+        },
+      ];
+    }
+
+    // 葛慎康（默认）
+    return [
+      {
+        speaker: "narration",
+        content: `你敲开${officeLoc}的门。屋里飘着巴赫无伴奏大提琴，四面书架被德法原版理论书压得吱吱作响，办公桌上摊着一份没写完的《建筑批评学》手稿。${mentorName}背对着门，正盯着窗外的梧桐。`,
+      },
+      {
+        speaker: "player",
+        name: "你",
+        action: "有些拘谨地开口",
+        content: "老师好，我是您这届新带的研究生，来跟您报到。",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "没回头，语气平静",
+        tone: "neutral",
+        content: "你好，先回答我一个问题——你为什么要来读建筑？想清楚了再回答。",
+      },
+      {
+        speaker: "player",
+        name: "你",
+        action: "愣了一下",
+        content: "（剧本留白，等玩家在心里作答）",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "转过身，语气冷峻却笃定",
+        tone: "focus",
+        content: `坦率地说，我不关心你的分数，也不关心你本科画过多少张图。我关心的只有一件事——你对"空间"有没有真正的好奇。可以说，我们是全国最好的建筑学院。如果连我们的学生都只是来混一个学位、混一个饭碗，那这个学科就真的完了。`,
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "走到书桌前，语气缓和",
+        tone: "sweet",
+        content: `我的导师刘先生当年跟我说：研究传统，不是为了复古，而是为了创造性地转化。这句话我送给你。接下来这三年，我不指望你做出什么漂亮的东西——漂亮是最不值钱的。我要你学会一件事：认识"空"，认识空间是怎么被分出来的。`,
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "坐下，翻动书页",
+        tone: "focus",
+        content: "记住，别学那些只做表皮文章的建筑师——像隈研吾那种，狗屁不通。方法才是你唯一能带走的东西。",
+      },
+      {
+        speaker: "narration",
+        content: "他抬起头，目光穿过镜片，落在一份未开的开题报告上。你忽然意识到，这间办公室里，漂亮从不是通行证。",
+      },
+    ];
+  }
+
+  // 自由放养派导师初见剧情
+  if (profile.mentorId === "hands_off") {
+    if (profile.name?.includes("钱晓茜")) {
+      return [
+        {
+          speaker: "narration",
+          content: "钱晓茜手里端着一杯澳白，正对着平板上的文献索引勾勾画画。见你进来，她笑着指了指对面的椅子。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "坐下",
+          content: "钱老师好，我来报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "钱晓茜",
+          action: "语气轻快",
+          tone: "sweet",
+          content: "欢迎呀。先喝咖啡——我这儿没什么上下级，倒是常有跨学科的朋友过来聊天。",
+        },
+        {
+          speaker: "mentor",
+          name: "钱晓茜",
+          action: "认真起来",
+          tone: "focus",
+          content: "我最近在想：建筑生的那套空间思维，能不能拿去跟数据、跟 AI、跟社会学的工具杂交？真正的创新，往往发生在学科的交叉点上。",
+        },
+        {
+          speaker: "mentor",
+          name: "钱晓茜",
+          action: "笑着摊手",
+          tone: "sweet",
+          content: "所以我不会规定你做什么。你去处一个让你兴奋的交叉点，找到了来告诉我。找不到，就多来喝两杯咖啡。",
+        },
+        {
+          speaker: "narration",
+          content: "澳白的奶泡在杯口打着旋。你忽然觉得，读研这件事，或许可以不用那么紧绷。",
+        },
+      ];
+    }
+
+    if (profile.name?.includes("李诸葛")) {
+      return [
+        {
+          speaker: "narration",
+          content: "李诸葛正捧着刚泡好的老白茶，翻一本城市设计手册。见你进来，他起身又拿了个杯子。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "有点意外",
+          content: "李老师，我来报到，没打扰您吧？",
+        },
+        {
+          speaker: "mentor",
+          name: "李诸葛",
+          action: "笑着倒茶",
+          tone: "sweet",
+          content: "打扰什么，我这儿最欢迎学生来喝茶。来，边喝边说——你最近在看什么？不是论文，是那种让你舍不得放下的事。",
+        },
+        {
+          speaker: "mentor",
+          name: "李诸葛",
+          action: "语气像聊天",
+          tone: "warm",
+          content: "我不喜欢\"标准做法\"。地方营造、非标准设计，都靠一个东西：你对这块地方、这群人有没有真感情。没有感情的方案，做出来也是死的。",
+        },
+        {
+          speaker: "mentor",
+          name: "李诸葛",
+          action: "举了举茶杯",
+          tone: "focus",
+          content: "这样，这周你自己去逛一个你平时不会去的地方，回来跟我讲讲\"为什么是它\"。讲不出来也没关系，喝茶。",
+        },
+        {
+          speaker: "narration",
+          content: "茶汤澄澈，热气袅袅。你发现放养型导师的办公室，有时候更像一个客厅。",
+        },
+      ];
+    }
+
+    if (profile.name?.includes("沈剑葳")) {
+      return [
+        {
+          speaker: "narration",
+          content: "中大院 215 室里回荡着极轻微的水滴与白噪音采样。沈剑葳摘下一侧监听耳机，白板上画着一段中大院走廊与屋檐雨声的声波包络。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "轻声开口",
+          content: "沈老师好，我是新来的学生，来找您报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "沈剑葳",
+          action: "示意你安静，指向窗外",
+          tone: "neutral",
+          content: "嘘……先闭上眼睛，听十秒钟。除了蝉鸣和风声，你还听到了什么？",
+        },
+        {
+          speaker: "mentor",
+          name: "沈剑葳",
+          action: "眼神中透着艺术家的光芒",
+          tone: "warm",
+          content: "空间不仅是被\"看\"到的，更是被身体\"听\"到的。一堵砖墙和一扇木窗，对声波的漫反射截然不同。建筑学一直太视觉中心主义了。",
+        },
+        {
+          speaker: "mentor",
+          name: "沈剑葳",
+          action: "递给你一支便携录音笔",
+          tone: "focus",
+          content: "拿去，去校园里采集三种最让你心动的空间声景，下周我们聊聊怎么把声音转化为平面。",
+        },
+        {
+          speaker: "narration",
+          content: "耳边细微的风声仿佛被放大，你第一次发现，原来空间本身一直在呼吸和歌唱。",
+        },
+      ];
+    }
+
+    // 冷冬青（默认）
+    return [
+      {
+        speaker: "narration",
+        content: `中大院 203 室有些幽静，投影仪在白墙上无声定格着《镜子》里的长镜头。${mentorName}合上手里的人类学笔记，静静看向你。`,
+      },
+      {
+        speaker: "player",
+        name: "你",
+        action: "恭敬行礼",
+        content: "冷老师好，我是您的新研究生。",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "声音清冷而深邃",
+        tone: "neutral",
+        content: "坐。如果一栋建筑不能在人的记忆里留下一场梦，那它就只是一堆终将风化的钢筋混凝土，不是吗？",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "语气平缓却带着哲思",
+        tone: "warm",
+        content: "形式会过时，功能会演变，唯有空间对时间的铭刻是永恒的。我希望你不要急着画出漂亮的图纸，先想清楚你想通过空间讲述什么故事。",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "递给你一张泛黄的电影胶片卡",
+        tone: "focus",
+        content: "回去看完这部电影，写一篇关于'空间与记忆'的随笔，随时发我邮箱。",
+      },
+      {
+        speaker: "narration",
+        content: "斑驳的光影在墙面摇曳，你第一次体会到，建筑原来是写给时间的情诗。",
+      },
+    ];
+  }
+
+  // 国际海归派导师初见剧情
+  if (profile.mentorId === "global_scholar" || profile.mentorId === "overseas") {
+    if (profile.name?.includes("常彤")) {
+      return [
+        {
+          speaker: "narration",
+          content: "常彤正用 iPad 比对城市纹理地图与一组新采集的人流热力数据，手边是一杯黑咖啡。见你进来，她放下 iPad。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "轻声",
+          content: "常老师，我来报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "常彤",
+          action: "语气冷静而清晰",
+          tone: "neutral",
+          content: "欢迎。先问你一个我常问自己的问题——你做的判断，是感受出来的，还是数据逼出来的？",
+        },
+        {
+          speaker: "mentor",
+          name: "常彤",
+          action: "指着热力图",
+          tone: "focus",
+          content: "我做的方向，是把城市的\"感觉\"翻译成可以验证的数据。直觉很好，但如果没有数据支撑，直觉就只是运气。",
+        },
+        {
+          speaker: "mentor",
+          name: "常彤",
+          action: "认真道",
+          tone: "focus",
+          content: "所以我希望我的学生，既要会看城市，也要会看数据。回去把 Python 和 GIS 的基础补上，我们下学期会做一组真实的城市研究。",
+        },
+        {
+          speaker: "narration",
+          content: "热力图上，红色的高密度区在城市地图上缓慢流动，像城市的脉搏。",
+        },
+      ];
+    }
+
+    if (profile.name?.includes("庄岩松")) {
+      return [
+        {
+          speaker: "narration",
+          content: "模型室里排着十几个 1:50 的参数化结构模型，庄岩松的屏幕上并行开着 Grasshopper 与 Karamba3D。你进去时，他正盯着一段实时演算。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "好奇地张望",
+          content: "庄老师，我来报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "庄岩松",
+          action: "头也不回，兴致很高",
+          tone: "focus",
+          content: "看到没有——这个曲面，是 2000 根杆件自己\"算\"出来的。数字工具不是让你偷懒，是让你去做手工做不出的空间。",
+        },
+        {
+          speaker: "mentor",
+          name: "庄岩松",
+          action: "转过身，语气热切",
+          tone: "warm",
+          content: "我下周带一组学生去巴塞罗那做学术考察，看高迪、看 Mies。但记住——工具再酷，最终考验的还是你对空间有没有判断。",
+        },
+        {
+          speaker: "mentor",
+          name: "庄岩松",
+          action: "认真道",
+          tone: "focus",
+          content: "回去先把 Grasshopper 基础跑起来，下个月我要看到你的第一个\"会呼吸\"的模型。",
+        },
+        {
+          speaker: "narration",
+          content: "屏幕上的参数在实时跳动，像一片正在生长的森林。",
+        },
+      ];
+    }
+
+    if (profile.name?.includes("王永和")) {
+      return [
+        {
+          speaker: "narration",
+          content: "建筑科研楼 1801 的落地窗极通透。王永和正端着双倍 Espresso 看着窗外长江大桥的轮廓，白板上写满了海外名校联合 Studio 的日程。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "礼貌敲门",
+          content: "王老师好，我是您新带的研究生，来向您报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "王永和",
+          action: "转身，带着温和而敏锐的微笑",
+          tone: "warm",
+          content: "Hi，请坐。别太拘谨——在进入课题前，我先问你一个 simple question：你觉得建筑学是一种技术，还是一种“世界语”（Universal Language）？",
+        },
+        {
+          speaker: "mentor",
+          name: "王永和",
+          action: "语气睿智而开阔",
+          tone: "sweet",
+          content: "可以说，不同地域的建筑是不同的方言，但空间能唤起的情感和身体体验是相通的。我不希望你被某种狭隘的传统符号框住，也不要盲目崇拜参数化炫技。",
+        },
+        {
+          speaker: "mentor",
+          name: "王永和",
+          action: "递给你一份全英文前沿书单",
+          tone: "focus",
+          content: "坦率地说，读研三年，我要你建立的是一套能与全球顶级学者无障碍对话的批判性思维。先把 Tschumi 的文本读透，下周 Studio 见。",
+        },
+        {
+          speaker: "narration",
+          content: "午后阳光穿过通透的落地玻璃，你第一次感受到，建筑的世界原来可以如此辽阔。",
+        },
+      ];
+    }
+
+    // 董永辉（默认）
+    return [
+      {
+        speaker: "narration",
+        content: `建筑科研楼 1805 室弥漫着大尺度项目的宏大气场。${mentorName}正核对一份跨国交通综合体的客流仿真报告，见你敲门，示意你进来。`,
+      },
+      {
+        speaker: "player",
+        name: "你",
+        action: "恭敬开口",
+        content: "董老师好，新学生前来报到！",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "语气沉稳而宏观",
+        tone: "neutral",
+        content: "坐。你见过每天吞吐十万人的航站楼吧？你说，这种超级大空间的“建筑灵魂”，是藏在大跨度屋顶下，还是藏在人流与行李的精确重组里？",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "起手指着墙上的巨幅人流矢量图",
+        tone: "warm",
+        content: "传统建筑学总爱沉溺在小品式的自我感动里。但真正的现代文明，是由机场、高铁站这些巨型机器驱动的。我们要研究的是复杂系统的秩序。",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "语重心长",
+        tone: "focus",
+        content: "跟着我做研究，格局要放大。把这篇流动空间拓扑学论文读完，下周我们讨论课题切入点。",
+      },
+      {
+        speaker: "narration",
+        content: "墙上航站楼复杂的流线如同城市的血脉，让你对“空间尺度”有了颠覆性的认知。",
+      },
+    ];
+  }
+
+  // 产学研实务派导师初见剧情
+  if (profile.mentorId === "practice") {
+    if (profile.name?.includes("钟建国")) {
+      return [
+        {
+          speaker: "narration",
+          content: "院里 18 楼，两张超大画图桌铺满了城市文化中心的总平面图，旁边堆着几十个材料样板。钟建国正握着红铅笔，跟电话那头的甲方\"温柔地\"撕方案。",
+        },
+        {
+          speaker: "mentor",
+          name: "钟建国",
+          action: "挂断电话，抬头",
+          tone: "neutral",
+          content: "来了？会画图吗——我问的不是 CAD，是会用红铅笔圈问题吗？",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "点头",
+          content: "会一点。",
+        },
+        {
+          speaker: "mentor",
+          name: "钟建国",
+          action: "把一支红铅笔拍到你面前",
+          tone: "focus",
+          content: "会一点可不够。图纸上的每一根线，落到工地上都是真金白银和工人的汗。你画错一笔，别人要白干一天。",
+        },
+        {
+          speaker: "mentor",
+          name: "钟建国",
+          action: "语气转热络",
+          tone: "warm",
+          content: "不过别怕，实务这行，都是跑工地跑出来的。下次我去项目现场盯节点，你跟着——让你看看甲方是怎么把方案一点点\"磨\"成现实的。",
+        },
+        {
+          speaker: "narration",
+          content: "那支红铅笔躺在一堆材料样板之间，像一句无声的邀请。",
+        },
+      ];
+    }
+
+    if (profile.name?.includes("程恺")) {
+      return [
+        {
+          speaker: "narration",
+          content: "产学研 1806 室如同一个小型的材料工坊。程恺正用手电筒细致观察一块自密实清水混凝土样块表面的气孔与木纹肌理。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "恭敬开口",
+          content: "程老师好，新学生前来报到。",
+        },
+        {
+          speaker: "mentor",
+          name: "程恺",
+          action: "抬头温和一笑，示意你摸摸样块",
+          tone: "warm",
+          content: "来了呀。伸手摸摸这块混凝土——感受到了吗？这种粗糙却有秩序的触感，是电脑屏幕渲染永远给不了的。",
+        },
+        {
+          speaker: "mentor",
+          name: "程恺",
+          action: "语气坚定而充满匠心",
+          tone: "focus",
+          content: "做工程实务不是让你向商业妥协，而是教你如何在最严苛的造价和工期约束下，把高品质的空间和材质硬生生抠出来。",
+        },
+        {
+          speaker: "mentor",
+          name: "程恺",
+          action: "递给你安全帽",
+          tone: "sweet",
+          content: "这顶帽子你收好。下周美术馆主体结构封顶，跟着我一起上脚手架验筋去！",
+        },
+        {
+          speaker: "narration",
+          content: "手心的混凝土试块冰凉而厚重，你对接下来的实战工地生涯充满了热血与期待。",
+        },
+      ];
+    }
+
+    if (profile.name?.includes("何建民")) {
+      return [
+        {
+          speaker: "narration",
+          content: "1803 室桌上堆满了各专业的协同蓝图。何建民正戴着黑框眼镜对照国家消防规范逐条核算超高层综合体的避难层指标。",
+        },
+        {
+          speaker: "player",
+          name: "你",
+          action: "礼貌问候",
+          content: "何老师好，我是新进组的研究生。",
+        },
+        {
+          speaker: "mentor",
+          name: "何建民",
+          action: "头也不抬，手中红笔飞快圈画",
+          tone: "neutral",
+          content: "坐。我先问你：很多学生自诩‘大设计师’，但连最基本的剪刀梯疏散宽度和喷淋排烟管井都没概念。你觉得没有技术支撑的方案是什么？",
+        },
+        {
+          speaker: "mentor",
+          name: "何建民",
+          action: "抬起头，眼神严谨而深刻",
+          tone: "focus",
+          content: "所有的诗意和流线，都必须长在严丝合缝的技术骨架上。做实务，安全和规范是第一道红线，碰了就要坐牢。",
+        },
+        {
+          speaker: "mentor",
+          name: "何建民",
+          action: "递给你一份商场平面图",
+          tone: "focus",
+          content: "拿去，找出这版方案里隐藏的 3 处消防与柱网硬伤，明天上午交给我。",
+        },
+        {
+          speaker: "narration",
+          content: "红笔批注触目惊心，你瞬间收敛了所有轻浮，真正理解了“工程人”的严谨底线。",
+        },
+      ];
+    }
+
+    // 柳岩松（默认）
+    return [
+      {
+        speaker: "narration",
+        content: `三联大屏幕上正高速渲染着一座高铁枢纽全专业的 BIM 协同模型。${mentorName}正与结构、暖通工程师多方联调接口。`,
+      },
+      {
+        speaker: "player",
+        name: "你",
+        action: "敲门报到",
+        content: "柳老师好，新研究生前来报到！",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "摘下耳机，眼神敏锐干练",
+        tone: "warm",
+        content: "欢迎！如今的大型公建早就不是一个人拿铅笔就能画完的时代了。现代大建筑师的核心壁垒是系统协同、数据逻辑与接口管控。",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "旋转三维节点模型",
+        tone: "focus",
+        content: "我们的模型精确到每一根螺栓和角钢。只要一处管线打架，现场就要停工返工。",
+      },
+      {
+        speaker: "mentor",
+        name: mentorName,
+        action: "给你开通项目服务器权限",
+        tone: "sweet",
+        content: "账号密码发你微信了。下周直接进项目组协助做管综消碰撞，用实战把你的数字化能力拉满！",
+      },
+      {
+        speaker: "narration",
+        content: "屏幕上密如蛛网的三维管线在有序运转，你踏入了现代建筑工程最前沿的数字协同世界。",
+      },
+    ];
+  }
+
+  // 其他导师流派初见占位回退
+  return [
+    {
+      speaker: "narration",
+      content: `你敲响了${officeLoc}的门，${mentorName}放下手头的工作，抬头微笑着看向你。`,
+    },
+    {
+      speaker: "player",
+      name: "你",
+      action: "微笑着开口",
+      content: "老师好，我是您这届新带的研究生，来跟您报到！",
+    },
+    {
+      speaker: "mentor",
+      name: mentorName,
+      action: "温和颔首",
+      tone: "warm",
+      content: "欢迎加入我们课题组。读研三年是探索自我边界的关键时期，希望你珍惜这段时光，踏实做人，扎实做学问。",
+    },
+    {
+      speaker: "narration",
+      content: "阳光洒在办公桌上，开启了你充满无限可能的学术生涯新篇章。",
+    },
+  ];
 }
 
 /** 各导师类型在办公室的概率（0-1）。放养型导师经常不在办公室。 */

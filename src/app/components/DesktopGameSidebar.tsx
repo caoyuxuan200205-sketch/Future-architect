@@ -185,10 +185,10 @@ export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdate
         <div className="mx-1 mb-2 hidden rounded-xl border border-blue-400/15 bg-blue-500/[0.06] p-3 xl:block backdrop-blur-sm">
           <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-blue-200">
             <Bot size={15} className="text-blue-300" />
-            <span>建筑 AI 在线</span>
+            <span>大轩AI 在线解答</span>
             <span className="ml-auto h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
           </div>
-          <p className="text-[11px] leading-relaxed text-slate-400">右下角随时召唤导师指导</p>
+          <p className="text-[11px] leading-relaxed text-slate-400">右下角随时召唤大轩</p>
         </div>
         <button type="button" onClick={onOpenSettings} className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-slate-400 transition-colors hover:bg-white/[0.05] hover:text-slate-200">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center"><Settings size={18} /></span>
@@ -327,6 +327,15 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
               </button>
             );
           })}
+
+          {selectedLocation && !isUrgentNotice && (
+            <button
+              type="button"
+              aria-label="点击关闭地点行动面板"
+              className="absolute inset-0 z-30 cursor-default bg-black/40"
+              onClick={() => setSelectedLocationName(null)}
+            />
+          )}
 
           {selectedLocation && !isUrgentNotice && (
             <div className="absolute bottom-14 left-1/2 z-40 w-[min(720px,calc(100%-2rem))] -translate-x-1/2 rounded-2xl border border-[#c9a84c]/30 bg-[#07101d]/95 p-4 shadow-[0_20px_55px_rgba(0,0,0,0.6)] backdrop-blur-xl">
@@ -810,12 +819,19 @@ export function DesktopComputerPreview({ interviews, activeInterviewId, onSelect
     });
   }, [socialState, socialUnlockContext]);
 
-  // 切换消息 Tab 时自动标记当前 NPC 已读
+  // 自动已读：切换 Tab / 切换 NPC 时标记已读；
+  // 且当会话真正处于打开状态（桌面端右栏常驻 / 移动端已进入对话）时，
+  // 新到的 NPC 消息立即标记已读，避免正在聊天时左侧还冒红点需要再点一次
   useEffect(() => {
-    if (activeTab === "messages" && onSocialMarkRead) {
+    if (activeTab !== "messages" || !onSocialMarkRead) return;
+    const chatVisible =
+      mobileActiveChatId === activeNpcId ||
+      (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches);
+    if (!chatVisible) return;
+    if (socialMessages.some((m) => !m.read && m.from === "npc")) {
       onSocialMarkRead();
     }
-  }, [activeTab, activeNpcId, onSocialMarkRead]);
+  });
 
   const TAB_ITEMS = [
     { id: "career" as const, label: "求职", icon: BriefcaseBusiness, badge: actionableCount || undefined },

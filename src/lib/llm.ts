@@ -36,7 +36,7 @@ export async function askAssistant(
 
   const systemPrompt = mode === "game"
     ? `
-你是一个名为"建哥"的AI攻略助手。你现在是《我是一个"建"人》转行模拟器游戏里的专属AI军师。
+你是一个名为"大轩"的AI攻略助手。你现在是《我是一个"建"人》转行模拟器游戏里的专属AI军师。
 你的唯一任务是根据提供的【游戏机制片段】和玩家目前的【游戏状态】回答玩家关于“如何通关/如何玩游戏”的攻略疑问。
 
 【特别要求】
@@ -53,7 +53,7 @@ ${knowledgeContext.map(k => k.content).join("\n\n")}
 请直接以学长口吻给出最精准的游戏加点与行动攻略。不要输出废话，确保答案有用且符合游戏人设。
 `.trim()
     : `
-你是一个名为"建哥"的资深职业咨询顾问（前建筑狗，现互联网大厂资深AI产品经理）。你现在是玩家的真实人生转行导师。
+你是一个名为"大轩"的资深职业咨询顾问（前建筑狗，现互联网大厂资深AI产品经理）。你现在是玩家的真实人生转行导师。
 你的唯一任务是根据提供的【真实世界转行案例与避坑指南】，解答玩家关于“现实生活中的建筑人转行与职业规划”的疑问。
 
 【特别要求】
@@ -128,7 +128,7 @@ export async function askAssistantStream(
   // 复用同一个 systemPrompt 构造逻辑
   const systemPrompt = mode === "game"
     ? `
-你是一个名为"建哥"的AI攻略助手。你现在是《我是一个"建"人》转行模拟器游戏里的专属AI军师。
+你是一个名为"大轩"的AI攻略助手。你现在是《我是一个"建"人》转行模拟器游戏里的专属AI军师。
 你的唯一任务是根据提供的【游戏机制片段】和玩家目前的【游戏状态】回答玩家关于"如何通关/如何玩游戏"的攻略疑问。
 
 【特别要求】
@@ -145,7 +145,7 @@ ${knowledgeContext.map(k => k.content).join("\n\n")}
 请直接以学长口吻给出最精准的游戏加点与行动攻略。不要输出废话，确保答案有用且符合游戏人设。
 `.trim()
     : `
-你是一个名为"建哥"的资深职业咨询顾问（前建筑狗，现互联网大厂资深AI产品经理）。你现在是玩家的真实人生转行导师。
+你是一个名为"大轩"的资深职业咨询顾问（前建筑狗，现互联网大厂资深AI产品经理）。你现在是玩家的真实人生转行导师。
 你的唯一任务是根据提供的【真实世界转行案例与避坑指南】，解答玩家关于"现实生活中的建筑人转行与职业规划"的疑问。
 
 【特别要求】
@@ -337,7 +337,7 @@ export async function evaluateCustomEventAction(
 ): Promise<CustomEventEvaluation> {
   const { apiKey, model, baseUrl } = getConfig();
   if (!apiKey) {
-    throw new LLMConfigurationError("尚未配置 ModelScope API Key。请打开右下角“建哥 AI 军师”的设置，只填写 API Key 并保存。模型和 Base URL 可保持为空。所有配置只保存在当前浏览器。 ");
+    throw new LLMConfigurationError("尚未配置 ModelScope API Key。请打开右下角“大轩 AI 军师”的设置，只填写 API Key 并保存。模型和 Base URL 可保持为空。所有配置只保存在当前浏览器。 ");
   }
 
   const systemPrompt = `
@@ -396,7 +396,7 @@ export async function evaluateCustomEventAction(
     const errorText = await response.text();
     console.error("Custom event LLM request failed:", response.status, errorText);
     if (response.status === 401 || response.status === 403) {
-      throw new LLMConfigurationError("API Key 无效或没有模型调用权限，请在建哥设置中检查后重试。");
+      throw new LLMConfigurationError("API Key 无效或没有模型调用权限，请在大轩设置中检查后重试。");
     }
     if (response.status === 429) throw new Error("请求太频繁或账户额度不足，请稍后重试。");
     throw new Error(`AI 推演服务暂时不可用（${response.status}），请稍后重试。`);
