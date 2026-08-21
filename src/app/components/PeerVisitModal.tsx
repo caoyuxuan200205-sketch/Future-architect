@@ -231,6 +231,18 @@ export function PeerVisitModal({
     }
   }, [isOpen, isDialoguePlaying, dialogueSequence, dialogueIndex, characterId]);
 
+  // 在阅读当前句时预取接下来最近的一句 NPC 语音，降低国内移动网络下的等待感。
+  useEffect(() => {
+    if (!isOpen || !isDialoguePlaying) return;
+    for (let index = dialogueIndex + 1; index < Math.min(dialogueSequence.length, dialogueIndex + 4); index += 1) {
+      const upcomingTurn = dialogueSequence[index];
+      if (upcomingTurn.speaker === "peer") {
+        voiceManager.preloadVoiceByText(characterId, upcomingTurn.content);
+        break;
+      }
+    }
+  }, [isOpen, isDialoguePlaying, dialogueSequence, dialogueIndex, characterId]);
+
   // 关闭弹窗时停止播放任何残留语音
   useEffect(() => {
     if (!isOpen) {

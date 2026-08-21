@@ -1,5 +1,21 @@
-import React, { Component, type ReactNode } from "react";
-import { GamePage } from "./components/GamePage";
+import React, { Component, lazy, Suspense, type ReactNode } from "react";
+
+const GamePage = lazy(() => import("./components/GamePage").then((module) => ({ default: module.GamePage })));
+
+function GameLoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#050815] px-6 text-slate-100">
+      <div className="w-full max-w-sm text-center">
+        <p className="font-mono text-[11px] tracking-[0.3em] text-[#c9a84c]">SEU ARCHITECTURE CAREER</p>
+        <h1 className="mt-3 font-serif text-2xl font-bold">正在整理你的建筑生涯档案</h1>
+        <div className="mt-6 h-1.5 overflow-hidden rounded-full bg-white/10">
+          <div className="h-full w-2/5 animate-pulse rounded-full bg-gradient-to-r from-[#9b7b2f] to-[#dec678]" />
+        </div>
+        <p className="mt-3 text-xs text-slate-500">首次进入需要片刻，之后访问会更快</p>
+      </div>
+    </div>
+  );
+}
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -83,7 +99,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 export default function App() {
   return (
     <ErrorBoundary>
-      <GamePage />
+      <Suspense fallback={<GameLoadingScreen />}>
+        <GamePage />
+      </Suspense>
     </ErrorBoundary>
   );
 }

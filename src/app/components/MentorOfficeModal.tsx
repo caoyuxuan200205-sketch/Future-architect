@@ -128,7 +128,10 @@ export function MentorOfficeModal({
   const officeBgmRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
     if (isOpen && !officeBgmRef.current) {
-      const audio = new Audio("assets/audio/bgm/mentor_office.mp3");
+      const base = import.meta.env.BASE_URL || "./";
+      const audioUrl = new URL(`${base.endsWith("/") ? base : `${base}/`}assets/audio/bgm/mentor_office.mp3`, window.location.href).href;
+      const audio = new Audio(audioUrl);
+      audio.preload = "auto";
       audio.volume = 0.4;
       audio.loop = true;
       officeBgmRef.current = audio;
@@ -223,6 +226,18 @@ export function MentorOfficeModal({
       }
     } else if (!isDialoguePlaying) {
       voiceManager.stop();
+    }
+  }, [isOpen, isDialoguePlaying, dialogueSequence, dialogueIndex, profile.mentorId]);
+
+  // 对话期间只预取接下来最近的一句导师语音，兼顾流畅度与流量消耗。
+  useEffect(() => {
+    if (!isOpen || !isDialoguePlaying) return;
+    for (let index = dialogueIndex + 1; index < Math.min(dialogueSequence.length, dialogueIndex + 4); index += 1) {
+      const upcomingTurn = dialogueSequence[index];
+      if (upcomingTurn.speaker === "mentor") {
+        voiceManager.preloadVoiceByText(profile.mentorId, upcomingTurn.content);
+        break;
+      }
     }
   }, [isOpen, isDialoguePlaying, dialogueSequence, dialogueIndex, profile.mentorId]);
 

@@ -6,6 +6,8 @@
 class VoiceManager {
   private currentAudio: HTMLAudioElement | null = null;
   private volume: number = 1.0;
+  private readonly audioCache = new Map<string, HTMLAudioElement>();
+  private readonly maxCachedAudio = 16;
 
   /**
    * 静态语音台词映射库：characterId -> { text -> audioUrl }
@@ -621,19 +623,21 @@ class VoiceManager {
     this.voiceMap[characterId][text.trim()] = audioUrl;
   }
 
-  /**
-   * 根据角色 ID 和当前台词文本自动播放对应的语音（支持精准匹配与去除括号动作后的模糊匹配）
-   */
-  public playVoiceByText(characterId?: string, text?: string): boolean {
-    if (!characterId || !text) return false;
+  private normalizeCharacterId(characterId: string): string {
     let normId = characterId;
     if (normId === "global_scholar") normId = "overseas";
     if (normId === "industry") normId = "practice";
     if (normId === "lab_senior") normId = "shen_qinghuai";
     if (normId === "peer") normId = "zhang_yifan";
+    return normId;
+  }
+
+  private findAudioUrl(characterId?: string, text?: string): string | null {
+    if (!characterId || !text) return null;
+    const normId = this.normalizeCharacterId(characterId);
     const cleanText = text.trim();
     const characterVoices = this.voiceMap[normId];
-    if (!characterVoices) return false;
+    if (!characterVoices) return null;
 
     // 1. 精确匹配
     let audioUrl = characterVoices[cleanText];
@@ -654,9 +658,25 @@ class VoiceManager {
       }
     }
 
+    return audioUrl || null;
+  }
+
+  /**
+   * 根据角色 ID 和当前台词文本自动播放对应的语音（支持精准匹配与去除括号动作后的模糊匹配）
+   */
+  public playVoiceByText(characterId?: string, text?: string): boolean {
+    const audioUrl = this.findAudioUrl(characterId, text);
     if (!audioUrl) return false;
 
     this.playAudio(audioUrl);
+    return true;
+  }
+
+  /** 仅预取即将出现的一句台词，避免一次性下载完整语音包。 */
+  public preloadVoiceByText(characterId?: string, text?: string): boolean {
+    const audioUrl = this.findAudioUrl(characterId, text);
+    if (!audioUrl) return false;
+    this.preloadAudio(audioUrl);
     return true;
   }
 
@@ -674,6 +694,42 @@ class VoiceManager {
     return `${cleanBase}${cleanUrl}`;
   }
 
+  private getOrCreateAudio(finalUrl: string): HTMLAudioElement {
+    const cached = this.audioCache.get(finalUrl);
+    if (cached) {
+      // Map 的插入顺序兼作轻量 LRU：最近使用的音频移到末尾。
+      this.audioCache.delete(finalUrl);
+      this.audioCache.set(finalUrl, cached);
+      return cached;
+    }
+
+    const audio = new Audio(finalUrl);
+    audio.preload = "auto";
+    this.audioCache.set(finalUrl, audio);
+
+    while (this.audioCache.size > this.maxCachedAudio) {
+      const oldestUrl = this.audioCache.keys().next().value as string | undefined;
+      if (!oldestUrl) break;
+      const oldestAudio = this.audioCache.get(oldestUrl);
+      if (oldestAudio && oldestAudio !== this.currentAudio) {
+        oldestAudio.pause();
+        oldestAudio.removeAttribute("src");
+        oldestAudio.load();
+      }
+      this.audioCache.delete(oldestUrl);
+    }
+
+    return audio;
+  }
+
+  /** 将单个音频放入浏览器缓存池，供稍后的播放直接复用。 */
+  public preloadAudio(audioUrl: string) {
+    if (!audioUrl || typeof Audio === "undefined") return;
+    const finalUrl = this.resolveAudioUrl(audioUrl);
+    const audio = this.getOrCreateAudio(finalUrl);
+    if (audio.readyState === HTMLMediaElement.HAVE_NOTHING) audio.load();
+  }
+
   /**
    * 直接播放指定路径的音频
    */
@@ -683,7 +739,8 @@ class VoiceManager {
 
     try {
       const finalUrl = this.resolveAudioUrl(audioUrl);
-      const audio = new Audio(finalUrl);
+      const audio = this.getOrCreateAudio(finalUrl);
+      audio.currentTime = 0;
       audio.volume = this.volume;
       this.currentAudio = audio;
 

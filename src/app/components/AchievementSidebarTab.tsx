@@ -384,6 +384,8 @@ export function AchievementSidebarTab({ onClose, newlyUnlockedIds = [] }: Achiev
                         <img
                           src={ach.imageSrc}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
                           className={`relative h-full w-full object-contain transition-all duration-200 ${
                             unlocked
                               ? ""
@@ -552,6 +554,7 @@ export function AchievementSidebarTab({ onClose, newlyUnlockedIds = [] }: Achiev
                     <img
                       src={inspectingAchievement.imageSrc}
                       alt=""
+                      decoding="async"
                       className={`relative h-full w-full object-contain ${
                         records[inspectingAchievement.id]
                           ? ""

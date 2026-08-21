@@ -144,7 +144,13 @@ export function BadgeWallShowcase({
                       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(45deg,transparent_45%,rgba(255,255,255,0.06)_45%,rgba(255,255,255,0.06)_55%,transparent_55%)] bg-[size:8px_8px]" />
                     )}
                     {ach.imageSrc ? (
-                      <img src={ach.imageSrc} alt="" className="relative h-full w-full object-contain" />
+                      <img
+                        src={ach.imageSrc}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        className="relative h-full w-full object-contain"
+                      />
                     ) : (
                       <>
                         <span className="text-4xl drop-shadow sm:text-5xl">{ach.iconEmoji}</span>
