@@ -6487,6 +6487,38 @@ export function GamePage() {
     const timer = window.setInterval(() => setWaitingQuipTick((v) => v + 1), 5000);
     return () => window.clearInterval(timer);
   }, [isEvaluatingCustomEventAction]);
+
+  // ── e62 那艺娜演唱会事件专属 BGM：玩家真正看到事件页时才循环播放，关闭即停 ──
+  // 注意：事件抽中时玩家可能还停在地图页（事件卡隐藏），此时响起会剧透，
+  // 因此必须等玩家点进「本回合」面板（desktopGameSection === "round"）才播放
+  const eventBgmRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const shouldPlay =
+      currentEvent?.id === "e62" &&
+      phase === "event_view" &&
+      desktopGameSection === "round";
+    if (shouldPlay && !eventBgmRef.current) {
+      const audio = new Audio("assets/audio/bgm/e62_nayina.mp3");
+      audio.volume = 0.55;
+      audio.loop = true;
+      eventBgmRef.current = audio;
+      audio.play().catch(() => {
+        // 浏览器自动播放策略受阻时静默容错
+      });
+    } else if (!shouldPlay && eventBgmRef.current) {
+      eventBgmRef.current.pause();
+      eventBgmRef.current = null;
+    }
+  }, [currentEvent, phase, desktopGameSection]);
+  useEffect(
+    () => () => {
+      if (eventBgmRef.current) {
+        eventBgmRef.current.pause();
+        eventBgmRef.current = null;
+      }
+    },
+    [],
+  );
   // 看完分支结果后返回地图继续行动；没有分支数据的旧事件沿用原结算方式。
   const acknowledgeEvent = useCallback(() => {
     if (!currentEvent || !stats) return;
