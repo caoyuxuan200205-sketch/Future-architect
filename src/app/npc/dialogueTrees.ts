@@ -429,7 +429,7 @@ export const DIALOGUE_TREES: Record<string, DialogueTree> = {
   },
 
   // ================================================================
-  // 🎓 Lab Senior（实验室学姐）— 2 棵对话树
+  // 🎓 Lab Senior（专硕学长 · 沈清淮）— 2 棵对话树
   // ================================================================
 
   /** 1. 解锁首聊：八卦 + 实习线索 */
@@ -448,7 +448,7 @@ export const DIALOGUE_TREES: Record<string, DialogueTree> = {
         options: [
           {
             id: "ask_intern",
-            text: "学姐，我想去实习，有没有推荐？",
+            text: "学长，我想去实习，有没有推荐？",
             favorDelta: 2,
             setAnchorFlags: ["senior_intern_hint"],
             nextNodeId: "intern_tip",
@@ -475,7 +475,7 @@ export const DIALOGUE_TREES: Record<string, DialogueTree> = {
         options: [
           {
             id: "thanks",
-            text: "谢谢学姐！我去看看。",
+            text: "谢谢学长！我去看看。",
             favorDelta: 1,
             statEffects: { expression: 1 },
           },
@@ -523,19 +523,19 @@ export const DIALOGUE_TREES: Record<string, DialogueTree> = {
       offer: {
         id: "offer",
         npcMessage:
-          "我跟你说个事——我学长在那家 XX 公司，最近在招人。你要不要我帮你内推？",
+          "我跟你说个事——我朋友在那家 XX 公司，最近在招人。你要不要我帮你内推？",
         tone: "warm",
         options: [
           {
             id: "accept_push",
-            text: "学姐真的太感谢了！",
+            text: "学长真的太感谢了！",
             favorDelta: 2,
             setAnchorFlags: ["senior_inner_push"],
             statEffects: { expression: 2 },
           },
           {
             id: "polite_decline",
-            text: "谢谢学姐，但我想自己试试。",
+            text: "谢谢学长，但我想自己试试。",
             favorDelta: -1,
           },
         ],

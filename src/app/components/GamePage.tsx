@@ -6519,6 +6519,33 @@ export function GamePage() {
     },
     [],
   );
+
+  // ── 电脑终端（求职/微信界面）环境 BGM：打开电脑期间循环播放，返回即停 ──
+  const computerBgmRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    const shouldPlay = desktopGameSection === "computer";
+    if (shouldPlay && !computerBgmRef.current) {
+      const audio = new Audio("assets/audio/bgm/computer_terminal.mp3");
+      audio.volume = 0.4;
+      audio.loop = true;
+      computerBgmRef.current = audio;
+      audio.play().catch(() => {
+        // 浏览器自动播放策略受阻时静默容错
+      });
+    } else if (!shouldPlay && computerBgmRef.current) {
+      computerBgmRef.current.pause();
+      computerBgmRef.current = null;
+    }
+  }, [desktopGameSection]);
+  useEffect(
+    () => () => {
+      if (computerBgmRef.current) {
+        computerBgmRef.current.pause();
+        computerBgmRef.current = null;
+      }
+    },
+    [],
+  );
   // 看完分支结果后返回地图继续行动；没有分支数据的旧事件沿用原结算方式。
   const acknowledgeEvent = useCallback(() => {
     if (!currentEvent || !stats) return;

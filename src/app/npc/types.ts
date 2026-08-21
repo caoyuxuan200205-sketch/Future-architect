@@ -10,7 +10,7 @@ export type ToneTier = "cold" | "neutral" | "polite" | "warm" | "vulnerable";
 export interface NPC {
   id: string;                    // "professor" / "lab_senior" / "peer" / "college_friend"
   name: string;                  // 显示名（沿用已选中的导师名）
-  role: string;                  // "你的导师" / "实验室学姐"
+  role: string;                  // "你的导师" / "专硕学长"
   emoji: string;
   /** 性格关键词，仅用于 UI 提示 */
   personality: string;

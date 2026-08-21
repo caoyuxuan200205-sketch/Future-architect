@@ -26,7 +26,7 @@ const GREETING_COOLDOWN_TEXT: Record<string, string> = {
   professor:
     "（导师没有回复。办公室的门关着，里面没有开灯。）",
   lab_senior:
-    "（学姐把你的对话框关掉了。她在忙，显然没有再聊的意思。）",
+    "（学长把你的对话框关掉了。他正在忙，显然没有再聊的意思。）",
   peer:
     "（张一帆没有回复。他大概在图书馆，没工夫理你。）",
   college_friend:
@@ -41,7 +41,7 @@ const GREETING_STORM_START: Record<string, string> = {
   professor:
     "（导师没有回复。一分钟后，你收到了一条短信：「来我办公室。」）",
   lab_senior:
-    "（学姐终于回复了，但只有三个字：「别发了。」接着她就再没出现过。）",
+    "（学长终于回复了，但只有三个字：「别发了。」接着他就再没出现过。）",
   peer:
     "（张一帆回了一句：「我今天不想说话，你别再发了。」说完直接把对话框关了。）",
   college_friend:
