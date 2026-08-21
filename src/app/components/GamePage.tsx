@@ -8062,19 +8062,35 @@ export function GamePage() {
           {/* ── 校园特招弹窗 (覆盖在最上方) ── */}
           {activeCampusEvent && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center px-6" style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(6px)" }}>
-              <div className="max-w-md w-full rounded-2xl p-7" style={{ background: card, border: `1px solid ${accent}` }}>
-                <p className="text-[12px] tracking-widest uppercase mb-4" style={{ color: accent }}>
-                  特殊机遇 · {activeCampusEvent.companyName}
+              <div className="max-w-md w-full rounded-2xl p-7 shadow-2xl" style={{ background: card, border: `1px solid ${accent}` }}>
+                <p className="text-[12px] tracking-widest uppercase mb-3 flex items-center gap-1.5" style={{ color: accent }}>
+                  <span>✨</span>
+                  <span>特殊机遇 · {activeCampusEvent.companyName}</span>
                 </p>
 
                 {!campusEventResult ? (
                   <>
-                    <h3 className="text-2xl mb-3" style={{ color: textPrimary, fontFamily: "'Noto Serif SC', serif" }}>
+                    <h3 className="text-2xl mb-2.5 font-bold" style={{ color: textPrimary, fontFamily: "'Noto Serif SC', serif" }}>
                       {activeCampusEvent.title}
                     </h3>
-                    <p className="text-[15px] leading-relaxed mb-6" style={{ color: "rgba(200,220,255,0.7)" }}>
+                    <p className="text-[14px] leading-relaxed mb-4" style={{ color: "rgba(200,220,255,0.78)" }}>
                       {activeCampusEvent.description}
                     </p>
+
+                    {/* 机遇奖励与挑战提示 */}
+                    <div className="mb-6 rounded-xl border border-[#c9a84c]/30 bg-[#c9a84c]/[0.08] p-3.5 text-[12px] leading-relaxed backdrop-blur-sm">
+                      <div className="flex items-center gap-1.5 font-semibold text-[#f5d77f] mb-1.5">
+                        <Zap size={14} className="text-amber-300" />
+                        <span>机遇奖励与通关收益</span>
+                      </div>
+                      <p className="text-slate-200">
+                        挑战通过可直接获得 <strong className="text-[#f5d77f]">{activeCampusEvent.companyName} 直通意向</strong>，使终局秋招录取胜率大幅提升（录取率 <span className="font-mono font-bold text-emerald-400">+{Object.values(activeCampusEvent.successBuff)[0]}%</span>），助你锁定名企 Offer！
+                      </p>
+                      <p className="mt-1.5 text-[11px] text-slate-400">
+                        💡 提示：即使挑战未通过也不会扣除任何属性，无任何负面惩罚。
+                      </p>
+                    </div>
+
                     <div className="flex gap-3">
                       <button
                         onClick={() => handleCampusEvent(false)}
@@ -8085,7 +8101,7 @@ export function GamePage() {
                       </button>
                       <button
                         onClick={() => handleCampusEvent(true)}
-                        className="flex-1 py-3 rounded-xl text-[14px] transition-all hover:opacity-90"
+                        className="flex-1 py-3 rounded-xl text-[14px] font-semibold transition-all hover:opacity-90 shadow-[0_4px_16px_rgba(201,168,76,0.25)]"
                         style={{ background: accent, color: "#070d1c" }}
                       >
                         尝试挑战
@@ -8094,15 +8110,26 @@ export function GamePage() {
                   </>
                 ) : (
                   <>
-                    <h3 className="text-2xl mb-3" style={{ color: campusEventResult.success ? accent : "#f87171", fontFamily: "'Noto Serif SC', serif" }}>
-                      {campusEventResult.success ? "挑战成功" : "挑战失败"}
+                    <h3 className="text-2xl mb-3 font-bold" style={{ color: campusEventResult.success ? accent : "#f87171", fontFamily: "'Noto Serif SC', serif" }}>
+                      {campusEventResult.success ? "🎉 挑战成功！" : "挑战暂未通过"}
                     </h3>
-                    <p className="text-[16px] leading-relaxed mb-6" style={{ color: "rgba(220,235,255,0.85)" }}>
+                    <p className="text-[15px] leading-relaxed mb-4" style={{ color: "rgba(220,235,255,0.9)" }}>
                       {campusEventResult.narrative}
                     </p>
+
+                    {campusEventResult.success ? (
+                      <div className="mb-5 rounded-xl border border-emerald-400/35 bg-emerald-500/[0.12] p-3 text-[12px] text-emerald-200">
+                        ✨ 恭喜！已为你激活 <strong>{activeCampusEvent.companyName}</strong> 秋招录取胜率加成（<strong className="font-mono text-emerald-300">+{Object.values(activeCampusEvent.successBuff)[0]}%</strong>），在研三秋招中可直接选定该名企 Offer！
+                      </div>
+                    ) : (
+                      <div className="mb-5 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-[12px] text-slate-400">
+                        本轮交流未打动对方，但个人属性未受任何损失，继续在校园中提升各项能力吧！
+                      </div>
+                    )}
+
                     <button
                       onClick={dismissCampusResult}
-                      className="w-full py-3 rounded-xl text-[15px] transition-all hover:opacity-90"
+                      className="w-full py-3 rounded-xl text-[15px] font-semibold transition-all hover:opacity-90"
                       style={{ background: campusEventResult.success ? accent : "rgba(255,255,255,0.1)", color: campusEventResult.success ? "#070d1c" : textSecondary }}
                     >
                       继续
