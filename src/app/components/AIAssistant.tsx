@@ -132,13 +132,73 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
-    // 2. 加粗 **bold**
+    // 2. 解析 Markdown 表格 (| 列1 | 列2 |)
+    const parseTables = (str: string) => {
+      const lines = str.split("\n");
+      const output: string[] = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i].trim();
+        if (line.startsWith("|") && line.endsWith("|") && line.length > 2) {
+          const tableLines: string[] = [];
+          while (i < lines.length && lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|")) {
+            tableLines.push(lines[i].trim());
+            i++;
+          }
+
+          if (tableLines.length >= 2) {
+            const headerCells = tableLines[0]
+              .split("|")
+              .slice(1, -1)
+              .map((c) => c.trim());
+
+            let dataStartIndex = 1;
+            // 检查第二行是否为分隔线行，如 |:---|:---| 或 |---|---|
+            if (tableLines.length > 1 && /^\|(?:\s*:?-+:?\s*\|)+$/.test(tableLines[1])) {
+              dataStartIndex = 2;
+            }
+
+            let tableHtml = `<div class="my-3 overflow-x-auto rounded-xl border border-[#c9a84c]/25 bg-black/40 shadow-lg scrollbar-thin">` +
+              `<table class="min-w-full text-left text-[12px] border-collapse">` +
+              `<thead class="bg-white/[0.08] text-[#f5d77f] font-semibold border-b border-white/10">` +
+              `<tr>${headerCells.map((h) => `<th class="px-3 py-2 whitespace-nowrap">${h}</th>`).join("")}</tr>` +
+              `</thead>` +
+              `<tbody class="divide-y divide-white/[0.06] text-slate-200">`;
+
+            for (let d = dataStartIndex; d < tableLines.length; d++) {
+              const cells = tableLines[d]
+                .split("|")
+                .slice(1, -1)
+                .map((c) => c.trim());
+              tableHtml += `<tr class="hover:bg-white/[0.04] transition-colors">` +
+                cells.map((c) => `<td class="px-3 py-2 leading-relaxed">${c}</td>`).join("") +
+                `</tr>`;
+            }
+
+            tableHtml += `</tbody></table></div>`;
+            output.push(tableHtml);
+          } else {
+            output.push(...tableLines);
+          }
+        } else {
+          output.push(lines[i]);
+          i++;
+        }
+      }
+
+      return output.join("\n");
+    };
+
+    html = parseTables(html);
+
+    // 3. 加粗 **bold**
     html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
 
-    // 3. 行内代码 `code`
+    // 4. 行内代码 `code`
     html = html.replace(/`(.*?)`/g, "<code class='bg-[#13141a] px-1 py-0.5 rounded text-red-400 font-mono text-[11px]'>$1</code>");
 
-    // 4. 标题 (## 和 ###)
+    // 5. 标题 (## 和 ###)
     html = html.replace(/^(#{1,6})\s+(.*)$/gm, (match, hashes, content) => {
       const level = hashes.length;
       const classes = level === 1 
@@ -149,13 +209,13 @@ export function AIAssistant({ gameContext, tutorialActive = false }: AIAssistant
       return `<div class="${classes}">${content}</div>`;
     });
 
-    // 5. 引用块 > quote
+    // 6. 引用块 > quote
     html = html.replace(/^\>\s+(.*)$/gm, "<blockquote class='border-l-2 border-blue-500 pl-2 text-gray-400 italic my-1'>$1</blockquote>");
 
-    // 6. 无序列表 (支持 •, -, *)
+    // 7. 无序列表 (支持 •, -, *)
     html = html.replace(/^[•\-\*]\s*(.*)$/gm, "<li class='list-disc list-inside ml-2 text-gray-300'>$1</li>");
 
-    // 7. 换行与段落
+    // 8. 换行与段落
     html = html.replace(/\n\n/g, "<div class='h-2'></div>");
     html = html.replace(/\n/g, "<br />");
 
