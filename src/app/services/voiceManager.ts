@@ -661,6 +661,20 @@ class VoiceManager {
   }
 
   /**
+   * 规范化音频路径（兼容 base: './' 与任意子路径/GitHub Pages 部署）
+   */
+  private resolveAudioUrl(url: string): string {
+    if (!url) return url;
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) {
+      return url;
+    }
+    const base = import.meta.env.BASE_URL || "./";
+    const cleanBase = base.endsWith("/") ? base : `${base}/`;
+    const cleanUrl = url.startsWith("/") ? url.slice(1) : url.startsWith("./") ? url.slice(2) : url;
+    return `${cleanBase}${cleanUrl}`;
+  }
+
+  /**
    * 直接播放指定路径的音频
    */
   public playAudio(audioUrl: string) {
@@ -668,7 +682,8 @@ class VoiceManager {
     this.stop();
 
     try {
-      const audio = new Audio(audioUrl);
+      const finalUrl = this.resolveAudioUrl(audioUrl);
+      const audio = new Audio(finalUrl);
       audio.volume = this.volume;
       this.currentAudio = audio;
 
@@ -676,7 +691,7 @@ class VoiceManager {
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
           // 浏览器自动播放策略或缺失文件时的静默容错
-          console.warn("[VoiceManager] 音频播放受阻或失败:", audioUrl, err);
+          console.warn("[VoiceManager] 音频播放受阻或失败:", finalUrl, err);
         });
       }
 
