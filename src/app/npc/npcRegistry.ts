@@ -11,7 +11,7 @@ export const NPC_REGISTRY: Record<string, NPC> = {
     name: "你的导师",       // 运行时会用真实选中的导师名替换展示
     role: "你的导师",
     emoji: "🏛️",
-    avatar: "/assets/visuals/npcs/professor.jpg",
+    avatar: "/assets/visuals/npcs/professor.webp",
     personality: "INTJ · 完美主义 · 话少但每一句都压重量",
     catchphrases: ["你自己再想想。", "不够。", "这个方向有意思——但你做不出来。"],
     awayText: "（对方暂时没有回复。研究生和导师之间，沉默有时也是一种回复。）",
@@ -190,7 +190,7 @@ export const NPC_REGISTRY: Record<string, NPC> = {
     name: "顾小北",
     role: "本科好友",
     emoji: "🌳",
-    avatar: "/assets/visuals/npcs/college_friend.jpg",
+    avatar: "/assets/visuals/npcs/college_friend.webp",
     personality: "不读研、已工作，是你和「社会」之间的对照组",
     catchphrases: [
       "你还在学校里卷啊？",

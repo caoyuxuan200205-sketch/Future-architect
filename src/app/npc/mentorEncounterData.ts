@@ -1167,7 +1167,7 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
 
   // 默认学术派
   let sceneImage = "/assets/visuals/mentors/academic.webp";
-  let avatarImage = "/assets/visuals/npcs/professor_academic_tong.jpg";
+  let avatarImage = "/assets/visuals/npcs/professor_academic_tong.webp";
   let hasPortrait = false;
   let officeLocation = "前工房 412";
   let officeAtmosphere = "阳光透过百叶窗照在《营造法式》石印本与满桌古建测绘草图上，空气中弥漫着清淡的墨香与铁观音茶气。";
@@ -1178,7 +1178,7 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
   if (mentorId === "academic") {
     sceneImage = "/assets/visuals/mentors/academic.webp";
     if (name === "葛慎康") {
-      avatarImage = "/assets/visuals/npcs/professor_academic_ge.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_academic_ge.webp";
       officeLocation = "建筑馆 503";
       officeAtmosphere = "四面书架堆满了德法原版理论著作，黑胶唱片放着巴赫，办公桌上摊开着《建筑批评学》手稿。";
       personalityTag = "犀利深刻 · 批判理论大师";
@@ -1186,7 +1186,7 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
       moods = ["正在拟定下周理论讨论班的思辨书单", "刚驳回了一篇人云亦云的开题报告", "在窗边品尝现磨黑咖啡"];
       hasPortrait = true;
     } else if (name === "朱薇亚") {
-      avatarImage = "/assets/visuals/npcs/professor_academic_zhu.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_academic_zhu.webp";
       officeLocation = "中大院 301";
       officeAtmosphere = "窗台爬满了常青藤，几张明代官式建筑拓片挂在白墙上，气氛宁静而典雅。";
       personalityTag = "细腻温和 · 空间礼制专家";
@@ -1194,7 +1194,7 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
       moods = ["正在为青年学者基金做评审准备", "细心批注着学生的田野考察记录", "在给窗台的兰花浇水"];
       hasPortrait = true;
     } else if (name === "齐廷宝") {
-      avatarImage = "/assets/visuals/npcs/professor_academic_qi.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_academic_qi.webp";
       officeLocation = "前工房 305";
       officeAtmosphere = "门上挂着「请勿打扰」木牌，屋内摆放着一整套宋式斗栱榫卯实体模型与高精度游标卡尺。";
       personalityTag = "严苛求精 · 课题组定海神针";
@@ -1208,85 +1208,85 @@ export function getMentorOfficeProfile(mentor: { id: string; name: string; title
     }
   } else if (mentorId === "hands_off") {
     sceneImage = "/assets/visuals/mentors/hands-off.webp";
-    avatarImage = "/assets/visuals/npcs/professor_hands_off.jpg";
+    avatarImage = "/assets/visuals/npcs/professor_hands_off.webp";
     officeLocation = "中大院 212";
     officeAtmosphere = "门经常敞开着，窗台上摆着几盆多肉植物，桌上只有一台轻薄笔记本和几本跨学科前沿专著。";
     personalityTag = "崇尚自由 · 跨界探索者";
     quote = "学术是自己的事，想清楚你要什么，我只负责在关键时刻拉你一把。";
     moods = ["刚刚挂断一个跨学科创新项目的视频会议", "在阅读最新的AI生成建筑学术论文", "准备收拾东西去参加行业沙龙"];
     if (name === "沈剑葳") {
-      avatarImage = "/assets/visuals/npcs/professor_hands_off_shen.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_hands_off_shen.webp";
       hasPortrait = true;
       moods = ["戴着监听耳机在工位上调整一段声景装置的采样", "约了城市声学实验室的伙伴线上对谈", "桌上摊着半张还没画完的波形剖面图"];
     }
     if (name === "李诸葛") {
-      avatarImage = "/assets/visuals/npcs/professor_hands_off_li.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_hands_off_li.webp";
       hasPortrait = true;
       moods = ["捧着刚泡好的老白茶翻阅城市设计手册", "在手账上写下一周要去看的三个项目", "和组里学生讨论地方营造的非标准做法"];
     }
     if (name === "旸葳") {
-      avatarImage = "/assets/visuals/npcs/professor_hands_off_yang.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_hands_off_yang.webp";
       hasPortrait = true;
       moods = ["手里捧着一本人类学田野笔记陷入沉思", "在白板上随手画着几个空间的隐喻草图", "和学生讨论一部艺术电影中的空间叙事"];
     }
     if (name === "钱晓茜") {
-      avatarImage = "/assets/visuals/npcs/professor_hands_off_qian.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_hands_off_qian.webp";
       hasPortrait = true;
       moods = ["手里端着一杯刚买的澳白，正对照平板上的文献索引勾画批注", "在工位上煮手冲，顺便跟来访的学生聊最近的项目节奏", "翻完一本跨学科的新书，准备写邮件约作者线上对谈"];
     }
   } else if (mentorId === "practice") {
     sceneImage = "/assets/visuals/mentors/practice.webp";
-    avatarImage = "/assets/visuals/npcs/professor_practice.jpg";
+    avatarImage = "/assets/visuals/npcs/professor_practice.webp";
     officeLocation = "院里 18 楼 / 产学研工作室";
     officeAtmosphere = "两张超大号画图桌上铺满了城市文化中心的总平面图与节点施工图，旁边堆放着几十个材料样板。";
     personalityTag = "实务领军 · 方案总建筑师";
     quote = "图纸上的每一条线，在工地上都是真金白银和工人的汗水。";
     moods = ["正在和甲方项目总监通电话协调方案节点", "手握红铅笔在大幅总图上圈画修改意见", "桌上摆着今晚汇报方案的PPT打印稿"];
     if (name === "崔泰宁") {
-      avatarImage = "/assets/visuals/npcs/professor_practice_cui.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_practice_cui.webp";
       hasPortrait = true;
       moods = ["在材料样板堆里翻找一块可替代的仿木铝板", "和结构工程师讨论大跨度桁架的节点优化", "桌上摊开明晚市长汇报的总平面终稿"];
     }
     if (name === "何建民") {
-      avatarImage = "/assets/visuals/npcs/professor_practice_he.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_practice_he.webp";
       hasPortrait = true;
       moods = ["戴着黑框眼镜在数字平板上勾画总图节点", "和来访的甲方项目负责人讨论材料样板替换方案", "翻看昨天工地反馈的结构修改意见"];
     }
     if (name === "恺宁") {
-      avatarImage = "/assets/visuals/npcs/professor_practice_kai.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_practice_kai.webp";
       hasPortrait = true;
       moods = ["对着玻璃幕墙节点三维模型陷入冥想", "和 BIM 团队核对机电管线的碰撞点位", "桌上堆着几份刚从工地寄回的施工洽商"];
     }
     if (name === "程恺") {
-      avatarImage = "/assets/visuals/npcs/professor_practice_cheng.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_practice_cheng.webp";
       hasPortrait = true;
       moods = ["在模型桌前对照实体节点剖面与刚打印的平面图", "正和院里几个青年建筑师讨论近期公建项目的策略", "桌上摊着今早送到的玻璃幕墙样品册"];
     }
   } else if (mentorId === "global_scholar" || mentorId === "overseas") {
     sceneImage = "/assets/visuals/mentors/global-scholar.webp";
-    avatarImage = "/assets/visuals/npcs/professor_overseas.jpg";
+    avatarImage = "/assets/visuals/npcs/professor_overseas.webp";
     officeLocation = "建筑科研楼 1801";
     officeAtmosphere = "极简主义黑白灰空间，墙上挂着威尼斯双年展海报与包豪斯手稿复印件，阳光通透。";
     personalityTag = "国际先锋 · 批判与实验性设计";
     quote = "不要被形式束缚，要理解空间背后的社会逻辑与人的行为。";
     moods = ["正在准备全英文国际学术研讨会的主旨发言", "在平板电脑上绘制实验性空间草图", "刚收到国外访问学者的合作邮件"];
     if (name === "张青") {
-      avatarImage = "/assets/visuals/npcs/professor_overseas_zhang.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_overseas_zhang.webp";
       hasPortrait = true;
       moods = ["刚结束一场跨越八个时区的联合设计评图", "在白板上勾勒着下一个驻地名古屋的项目时间表", "翻阅来自康奈尔与米兰理工的交换生作品集"];
     }
     if (name === "庄惟") {
-      avatarImage = "/assets/visuals/npcs/professor_overseas_zhuang.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_overseas_zhuang.webp";
       hasPortrait = true;
       moods = ["在模型室里排列着十几个 1:50 的参数化结构模型", "屏幕上并行开着 Grasshopper 与 Karamba3D 的实时演算", "和学生讨论下周赴巴塞罗那的学术考察路线"];
     }
     if (name === "彤青") {
-      avatarImage = "/assets/visuals/npcs/professor_overseas_tong.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_overseas_tong.webp";
       hasPortrait = true;
       moods = ["在桌前的航站楼模型前对照刚打印的机场剖面图", "翻看新加坡樟宜机场改造项目的最新邮件反馈", "正在和来访的工程顾问讨论某高铁车站的概念草图"];
     }
     if (name === "常彤") {
-      avatarImage = "/assets/visuals/npcs/professor_overseas_chang.jpg";
+      avatarImage = "/assets/visuals/npcs/professor_overseas_chang.webp";
       hasPortrait = true;
       moods = ["正用 iPad 比对城市纹理地图与一组新采集的人流热力数据", "在书架前整理一份要发给海外合作者的研究备忘", "端着黑咖啡翻看刚被同行评议退回的论文草稿"];
     }

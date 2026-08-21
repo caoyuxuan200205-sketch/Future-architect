@@ -68,57 +68,57 @@ const GROWTH_ITEMS = [
 ] as const;
 
 const SCHOOL_LOGOS: Record<string, string> = {
-  "AA 建筑联盟学院": "/assets/visuals/schools/architectural-association-school-of-architecture.jpg",
-  "AA建筑联盟学院": "/assets/visuals/schools/architectural-association-school-of-architecture.jpg",
-  "北京大学": "/assets/visuals/schools/peking-university.jpg",
-  "北京工业大学": "/assets/visuals/schools/beijing-university-of-technology.png",
-  "北京建筑大学": "/assets/visuals/schools/beijing-university-of-civil-engineering-and-architecture.jpg",
-  "大连理工大学": "/assets/visuals/schools/dalian-university-of-technology.jpg",
-  "东南大学": "/assets/visuals/schools/southeast-university.jpeg",
-  "哥伦比亚大学": "/assets/visuals/schools/columbia-university.jpeg",
-  "哈佛大学": "/assets/visuals/schools/harvard-university.png",
-  "哈尔滨工业大学": "/assets/visuals/schools/harbin-institute-of-technology.png",
-  "合肥工业大学": "/assets/visuals/schools/hefei-university-of-technology.jpg",
-  "湖南大学": "/assets/visuals/schools/hunan-university.png",
-  "华南理工大学": "/assets/visuals/schools/south-china-university-of-technology.png",
+  "AA 建筑联盟学院": "/assets/visuals/schools/architectural-association-school-of-architecture.webp",
+  "AA建筑联盟学院": "/assets/visuals/schools/architectural-association-school-of-architecture.webp",
+  "北京大学": "/assets/visuals/schools/peking-university.webp",
+  "北京工业大学": "/assets/visuals/schools/beijing-university-of-technology.webp",
+  "北京建筑大学": "/assets/visuals/schools/beijing-university-of-civil-engineering-and-architecture.webp",
+  "大连理工大学": "/assets/visuals/schools/dalian-university-of-technology.webp",
+  "东南大学": "/assets/visuals/schools/southeast-university.webp",
+  "哥伦比亚大学": "/assets/visuals/schools/columbia-university.webp",
+  "哈佛大学": "/assets/visuals/schools/harvard-university.webp",
+  "哈尔滨工业大学": "/assets/visuals/schools/harbin-institute-of-technology.webp",
+  "合肥工业大学": "/assets/visuals/schools/hefei-university-of-technology.webp",
+  "湖南大学": "/assets/visuals/schools/hunan-university.webp",
+  "华南理工大学": "/assets/visuals/schools/south-china-university-of-technology.webp",
   "华中科技大学": "/assets/visuals/schools/huazhong-university-of-science-and-technology.webp",
-  "加泰罗尼亚理工大学": "/assets/visuals/schools/polytechnic-university-of-catalonia.jpg",
-  "东京大学": "/assets/visuals/schools/university-of-tokyo.png",
-  "剑桥大学": "/assets/visuals/schools/university-of-cambridge.png",
-  "昆明理工大学": "/assets/visuals/schools/kunming-university-of-science-and-technology.jpeg",
-  "麻省理工大学": "/assets/visuals/schools/massachusetts-institute-of-technology.png",
-  "米兰理工大学": "/assets/visuals/schools/politecnico-di-milano.png",
-  "南京大学": "/assets/visuals/schools/nanjing-university.jpg",
-  "南京工业大学": "/assets/visuals/schools/nanjing-tech-university.jpeg",
-  "牛津大学": "/assets/visuals/schools/university-of-oxford.jpeg",
-  "清华大学": "/assets/visuals/schools/tsinghua-university.png",
-  "瑞典皇家理工学院": "/assets/visuals/schools/kth-royal-institute-of-technology.png",
-  "青岛理工大学": "/assets/visuals/schools/qingdao-university-of-technology.png",
-  "上海交通大学": "/assets/visuals/schools/shanghai-jiao-tong-university.jpg",
-  "深圳大学": "/assets/visuals/schools/shenzhen-university.jpg",
-  "苏州大学": "/assets/visuals/schools/soochow-university.jpg",
-  "苏黎世联邦理工": "/assets/visuals/schools/eth-zurich.png",
-  "苏黎世联邦理工大学": "/assets/visuals/schools/eth-zurich.png",
-  "天津大学": "/assets/visuals/schools/tianjin-university.jpeg",
-  "西安建筑科技大学": "/assets/visuals/schools/xian-university-of-architecture-and-technology.jpg",
-  "香港大学": "/assets/visuals/schools/university-of-hong-kong.png",
-  "香港中文大学": "/assets/visuals/schools/chinese-university-of-hong-kong.jpg",
-  "浙江大学": "/assets/visuals/schools/zhejiang-university.png",
-  "浙江工业大学": "/assets/visuals/schools/zhejiang-university-of-technology.jpg",
-  "郑州大学": "/assets/visuals/schools/zhengzhou-university.jpeg",
-  "中央美术学院": "/assets/visuals/schools/central-academy-of-fine-arts.png",
-  "重庆大学": "/assets/visuals/schools/chongqing-university.png",
-  "安徽建筑大学": "/assets/visuals/schools/anhui-jianzhu-university.png",
+  "加泰罗尼亚理工大学": "/assets/visuals/schools/polytechnic-university-of-catalonia.webp",
+  "东京大学": "/assets/visuals/schools/university-of-tokyo.webp",
+  "剑桥大学": "/assets/visuals/schools/university-of-cambridge.webp",
+  "昆明理工大学": "/assets/visuals/schools/kunming-university-of-science-and-technology.webp",
+  "麻省理工大学": "/assets/visuals/schools/massachusetts-institute-of-technology.webp",
+  "米兰理工大学": "/assets/visuals/schools/politecnico-di-milano.webp",
+  "南京大学": "/assets/visuals/schools/nanjing-university.webp",
+  "南京工业大学": "/assets/visuals/schools/nanjing-tech-university.webp",
+  "牛津大学": "/assets/visuals/schools/university-of-oxford.webp",
+  "清华大学": "/assets/visuals/schools/tsinghua-university.webp",
+  "瑞典皇家理工学院": "/assets/visuals/schools/kth-royal-institute-of-technology.webp",
+  "青岛理工大学": "/assets/visuals/schools/qingdao-university-of-technology.webp",
+  "上海交通大学": "/assets/visuals/schools/shanghai-jiao-tong-university.webp",
+  "深圳大学": "/assets/visuals/schools/shenzhen-university.webp",
+  "苏州大学": "/assets/visuals/schools/soochow-university.webp",
+  "苏黎世联邦理工": "/assets/visuals/schools/eth-zurich.webp",
+  "苏黎世联邦理工大学": "/assets/visuals/schools/eth-zurich.webp",
+  "天津大学": "/assets/visuals/schools/tianjin-university.webp",
+  "西安建筑科技大学": "/assets/visuals/schools/xian-university-of-architecture-and-technology.webp",
+  "香港大学": "/assets/visuals/schools/university-of-hong-kong.webp",
+  "香港中文大学": "/assets/visuals/schools/chinese-university-of-hong-kong.webp",
+  "浙江大学": "/assets/visuals/schools/zhejiang-university.webp",
+  "浙江工业大学": "/assets/visuals/schools/zhejiang-university-of-technology.webp",
+  "郑州大学": "/assets/visuals/schools/zhengzhou-university.webp",
+  "中央美术学院": "/assets/visuals/schools/central-academy-of-fine-arts.webp",
+  "重庆大学": "/assets/visuals/schools/chongqing-university.webp",
+  "安徽建筑大学": "/assets/visuals/schools/anhui-jianzhu-university.webp",
   "代尔夫特理工大学": "/assets/visuals/schools/delft-university-of-technology.webp",
-  "河北工业大学": "/assets/visuals/schools/hebei-university-of-technology.jpg",
-  "华侨大学": "/assets/visuals/schools/huaqiao-university.png",
-  "墨尔本大学": "/assets/visuals/schools/university-of-melbourne.jpeg",
-  "沈阳建筑大学": "/assets/visuals/schools/shenyang-jianzhu-university.jpg",
-  "同济大学": "/assets/visuals/schools/tongji-university.jpg",
+  "河北工业大学": "/assets/visuals/schools/hebei-university-of-technology.webp",
+  "华侨大学": "/assets/visuals/schools/huaqiao-university.webp",
+  "墨尔本大学": "/assets/visuals/schools/university-of-melbourne.webp",
+  "沈阳建筑大学": "/assets/visuals/schools/shenyang-jianzhu-university.webp",
+  "同济大学": "/assets/visuals/schools/tongji-university.webp",
   "UCL Bartlett": "/assets/visuals/schools/ucl-bartlett.webp",
-  "西南交通大学": "/assets/visuals/schools/southwest-jiaotong-university.jpg",
-  "新加坡国立大学": "/assets/visuals/schools/national-university-of-singapore.png",
-  "烟台大学": "/assets/visuals/schools/yantai-university.png",
+  "西南交通大学": "/assets/visuals/schools/southwest-jiaotong-university.webp",
+  "新加坡国立大学": "/assets/visuals/schools/national-university-of-singapore.webp",
+  "烟台大学": "/assets/visuals/schools/yantai-university.webp",
 };
 
 export function DesktopGameSidebar({ active, onChange, statusAlert, resumeUpdated, computerBadge = 0, achievementBadge = 0, achievementAlert = false, roundAlert = false, schoolName, schoolTier, onOpenSettings, tutorialActive = false }: DesktopGameSidebarProps) {
@@ -265,7 +265,7 @@ export function DesktopMapPreview({ semesterLabel, semester, round, canChooseAct
 
       <div className="overflow-hidden rounded-3xl border border-[#c9a84c]/25 bg-[#07101d] shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
         <div className="relative aspect-[16/9] min-h-[430px] w-full overflow-hidden">
-          <img src="/assets/visuals/maps/career-campus-map.png" alt="校园职业探索地图" className="absolute inset-0 h-full w-full object-cover" />
+          <img src="/assets/visuals/maps/career-campus-map.webp" alt="校园职业探索地图" className="absolute inset-0 h-full w-full object-cover" />
           <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(4,9,18,0.18),rgba(4,9,18,0.05)_52%,rgba(4,9,18,0.48))]" />
           <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_80px_rgba(3,7,15,0.58)]" />
 
@@ -848,7 +848,7 @@ export function DesktopComputerPreview({ interviews, activeInterviewId, onSelect
         <button type="button" onClick={onClose} className="flex items-center gap-2 rounded-full border border-white/10 bg-black/25 px-3 py-1.5 text-[12px] text-slate-400 hover:bg-white/5 hover:text-white"><X size={13} /><span className="lg:hidden">返回</span><span className="hidden lg:inline">返回本回合</span></button>
       </header>
 
-      <img src="/assets/visuals/backgrounds/personal-terminal-background.png" alt="夜间建筑工作室中的个人电脑" className="pointer-events-none absolute inset-0 hidden h-full w-full scale-[1.28] object-cover lg:block lg:translate-y-[3%]" />
+      <img src="/assets/visuals/backgrounds/personal-terminal-background.webp" alt="夜间建筑工作室中的个人电脑" className="pointer-events-none absolute inset-0 hidden h-full w-full scale-[1.28] object-cover lg:block lg:translate-y-[3%]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_51%_38%,transparent_0%,rgba(3,7,14,0.1)_45%,rgba(3,7,14,0.55)_100%)]" />
 
       <div className="absolute bottom-4 left-3 right-3 top-24 overflow-hidden rounded-2xl border border-blue-300/15 bg-[#06101c]/98 text-slate-200 shadow-2xl lg:bottom-auto lg:left-[10.4%] lg:right-auto lg:top-[12.9%] lg:h-[58%] lg:w-[80%] lg:rounded-[1.4%]">

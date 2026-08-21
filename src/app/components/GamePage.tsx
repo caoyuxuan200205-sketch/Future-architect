@@ -1665,124 +1665,124 @@ const COMPANY_OFFER_META: Record<
 };
 
 const COMPANY_LOGOS: Record<string, string> = {
-  tencent: "/assets/visuals/companies/tencent.png",
-  bytedance: "/assets/visuals/companies/bytedance.jpeg",
+  tencent: "/assets/visuals/companies/tencent.webp",
+  bytedance: "/assets/visuals/companies/bytedance.webp",
   alibaba: "/assets/visuals/companies/alibaba.webp",
-  jd: "/assets/visuals/companies/jd.png",
-  baidu: "/assets/visuals/companies/baidu.jpg",
+  jd: "/assets/visuals/companies/jd.webp",
+  baidu: "/assets/visuals/companies/baidu.webp",
   kuaishou: "/assets/visuals/companies/kuaishou.webp",
   google: "/assets/visuals/companies/google.webp",
   microsoft: "/assets/visuals/companies/microsoft.webp",
-  meta: "/assets/visuals/companies/meta.png",
+  meta: "/assets/visuals/companies/meta.webp",
   mckinsey: "/assets/visuals/companies/mckinsey.webp",
   bcg: "/assets/visuals/companies/bcg.webp",
-  bain: "/assets/visuals/companies/bain.png",
-  deloitte: "/assets/visuals/companies/deloitte.jpg",
+  bain: "/assets/visuals/companies/bain.webp",
+  deloitte: "/assets/visuals/companies/deloitte.webp",
   tesla: "/assets/visuals/companies/tesla.webp",
   li: "/assets/visuals/companies/li.webp",
-  xpeng: "/assets/visuals/companies/xpeng.png",
-  byd: "/assets/visuals/companies/byd.jpg",
-  netease: "/assets/visuals/companies/netease.jpg",
-  beike: "/assets/visuals/companies/beike.png",
-  iflytek: "/assets/visuals/companies/iflytek.jpg",
+  xpeng: "/assets/visuals/companies/xpeng.webp",
+  byd: "/assets/visuals/companies/byd.webp",
+  netease: "/assets/visuals/companies/netease.webp",
+  beike: "/assets/visuals/companies/beike.webp",
+  iflytek: "/assets/visuals/companies/iflytek.webp",
   xiaohongshu: "/assets/visuals/companies/xiaohongshu.webp",
-  bilibili: "/assets/visuals/companies/bilibili.jpg",
+  bilibili: "/assets/visuals/companies/bilibili.webp",
   dewu: "/assets/visuals/companies/dewu.webp",
-  ctrip: "/assets/visuals/companies/ctrip.jpg",
-  didi: "/assets/visuals/companies/didi.jpg",
-  iqiyi: "/assets/visuals/companies/iqiyi.jpg",
-  keep: "/assets/visuals/companies/keep.jpg",
+  ctrip: "/assets/visuals/companies/ctrip.webp",
+  didi: "/assets/visuals/companies/didi.webp",
+  iqiyi: "/assets/visuals/companies/iqiyi.webp",
+  keep: "/assets/visuals/companies/keep.webp",
   soul: "/assets/visuals/companies/soul.webp",
   boss: "/assets/visuals/companies/boss.webp",
-  fanka: "/assets/visuals/companies/fanka.jpg",
-  mixue: "/assets/visuals/companies/mixue.jpeg",
-  chayan: "/assets/visuals/companies/chayan.png",
-  zuoyebang: "/assets/visuals/companies/zuoyebang.jpg",
-  yuanfudao: "/assets/visuals/companies/yuanfudao.png",
-  cadg: "/assets/visuals/companies/cadg.jpg",
-  vanke: "/assets/visuals/companies/vanke.jpg",
-  longfor: "/assets/visuals/companies/longfor.jpg",
-  cushman: "/assets/visuals/companies/cushman.jpg",
-  cbre: "/assets/visuals/companies/cbre.jpeg",
-  jll: "/assets/visuals/companies/jll.jpg",
+  fanka: "/assets/visuals/companies/fanka.webp",
+  mixue: "/assets/visuals/companies/mixue.webp",
+  chayan: "/assets/visuals/companies/chayan.webp",
+  zuoyebang: "/assets/visuals/companies/zuoyebang.webp",
+  yuanfudao: "/assets/visuals/companies/yuanfudao.webp",
+  cadg: "/assets/visuals/companies/cadg.webp",
+  vanke: "/assets/visuals/companies/vanke.webp",
+  longfor: "/assets/visuals/companies/longfor.webp",
+  cushman: "/assets/visuals/companies/cushman.webp",
+  cbre: "/assets/visuals/companies/cbre.webp",
+  jll: "/assets/visuals/companies/jll.webp",
   amazon: "/assets/visuals/companies/amazon.webp",
-  apple: "/assets/visuals/companies/apple.png",
-  nio: "/assets/visuals/companies/nio.png",
-  cicc: "/assets/visuals/companies/cicc.jpg",
-  citic: "/assets/visuals/companies/citic.png",
-  goldman: "/assets/visuals/companies/goldman-sachs.png",
+  apple: "/assets/visuals/companies/apple.webp",
+  nio: "/assets/visuals/companies/nio.webp",
+  cicc: "/assets/visuals/companies/cicc.webp",
+  citic: "/assets/visuals/companies/citic.webp",
+  goldman: "/assets/visuals/companies/goldman-sachs.webp",
   morgan: "/assets/visuals/companies/morgan-stanley.webp",
   moji: "/assets/visuals/companies/moji.webp",
-  ecadi: "/assets/visuals/companies/ecadi.png",
-  seu_design: "/assets/visuals/companies/seu-design.png",
-  gad: "/assets/visuals/companies/gad.png",
-  meituan: "/assets/visuals/companies/meituan.png",
-  pdd: "/assets/visuals/companies/pdd.jpg",
-  antgroup: "/assets/visuals/companies/antgroup.png",
+  ecadi: "/assets/visuals/companies/ecadi.webp",
+  seu_design: "/assets/visuals/companies/seu-design.webp",
+  gad: "/assets/visuals/companies/gad.webp",
+  meituan: "/assets/visuals/companies/meituan.webp",
+  pdd: "/assets/visuals/companies/pdd.webp",
+  antgroup: "/assets/visuals/companies/antgroup.webp",
 };
 const COMPANY_ENDING_BACKGROUNDS: Record<string, string> = {
-  tencent: "/assets/visuals/endings/tencent.png",
-  bytedance: "/assets/visuals/endings/bytedance.png",
-  alibaba: "/assets/visuals/endings/alibaba.png",
-  jd: "/assets/visuals/endings/jd.png",
-  baidu: "/assets/visuals/endings/baidu.png",
-  kuaishou: "/assets/visuals/endings/kuaishou.png",
-  google: "/assets/visuals/endings/google.png",
-  microsoft: "/assets/visuals/endings/microsoft.png",
-  amazon: "/assets/visuals/endings/amazon.png",
-  meta: "/assets/visuals/endings/meta.png",
-  apple: "/assets/visuals/endings/apple.png",
-  mckinsey: "/assets/visuals/endings/mckinsey.png",
-  bcg: "/assets/visuals/endings/bcg.png",
-  bain: "/assets/visuals/endings/bain.png",
-  deloitte: "/assets/visuals/endings/deloitte.png",
-  tesla: "/assets/visuals/endings/tesla.png",
-  nio: "/assets/visuals/endings/nio.png",
-  li: "/assets/visuals/endings/li.png",
-  xpeng: "/assets/visuals/endings/xpeng.png",
-  byd: "/assets/visuals/endings/byd.png",
-  citic: "/assets/visuals/endings/citic.png",
-  cicc: "/assets/visuals/endings/cicc.png",
-  goldman: "/assets/visuals/endings/goldman.png",
-  morgan: "/assets/visuals/endings/morgan.png",
-  netease: "/assets/visuals/endings/netease.png",
-  beike: "/assets/visuals/endings/beike.png",
-  iflytek: "/assets/visuals/endings/iflytek.png",
-  xiaohongshu: "/assets/visuals/endings/xiaohongshu.png",
-  bilibili: "/assets/visuals/endings/bilibili.png",
-  dewu: "/assets/visuals/endings/dewu.png",
-  ctrip: "/assets/visuals/endings/ctrip.png",
-  didi: "/assets/visuals/endings/didi.png",
-  iqiyi: "/assets/visuals/endings/iqiyi.png",
-  keep: "/assets/visuals/endings/keep.png",
-  soul: "/assets/visuals/endings/soul.png",
-  boss: "/assets/visuals/endings/boss.png",
-  moji: "/assets/visuals/endings/moji.png",
-  fanka: "/assets/visuals/endings/fanka.png",
-  mixue: "/assets/visuals/endings/mixue.png",
-  chayan: "/assets/visuals/endings/chayan.png",
-  zuoyebang: "/assets/visuals/endings/zuoyebang.png",
-  yuanfudao: "/assets/visuals/endings/yuanfudao.png",
-  cadg: "/assets/visuals/endings/cadg.png",
-  ecadi: "/assets/visuals/endings/ecadi.png",
-  vanke: "/assets/visuals/endings/vanke.png",
-  longfor: "/assets/visuals/endings/longfor.png",
-  seu_design: "/assets/visuals/endings/seu-design.png",
-  gad: "/assets/visuals/endings/gad.png",
-  cushman: "/assets/visuals/endings/cushman.png",
-  cbre: "/assets/visuals/endings/cbre.png",
-  jll: "/assets/visuals/endings/jll.png",
-  meituan: "/assets/visuals/endings/meituan.png",
-  pdd: "/assets/visuals/endings/pdd.png",
-  antgroup: "/assets/visuals/endings/antgroup.png",
+  tencent: "/assets/visuals/endings/tencent.webp",
+  bytedance: "/assets/visuals/endings/bytedance.webp",
+  alibaba: "/assets/visuals/endings/alibaba.webp",
+  jd: "/assets/visuals/endings/jd.webp",
+  baidu: "/assets/visuals/endings/baidu.webp",
+  kuaishou: "/assets/visuals/endings/kuaishou.webp",
+  google: "/assets/visuals/endings/google.webp",
+  microsoft: "/assets/visuals/endings/microsoft.webp",
+  amazon: "/assets/visuals/endings/amazon.webp",
+  meta: "/assets/visuals/endings/meta.webp",
+  apple: "/assets/visuals/endings/apple.webp",
+  mckinsey: "/assets/visuals/endings/mckinsey.webp",
+  bcg: "/assets/visuals/endings/bcg.webp",
+  bain: "/assets/visuals/endings/bain.webp",
+  deloitte: "/assets/visuals/endings/deloitte.webp",
+  tesla: "/assets/visuals/endings/tesla.webp",
+  nio: "/assets/visuals/endings/nio.webp",
+  li: "/assets/visuals/endings/li.webp",
+  xpeng: "/assets/visuals/endings/xpeng.webp",
+  byd: "/assets/visuals/endings/byd.webp",
+  citic: "/assets/visuals/endings/citic.webp",
+  cicc: "/assets/visuals/endings/cicc.webp",
+  goldman: "/assets/visuals/endings/goldman.webp",
+  morgan: "/assets/visuals/endings/morgan.webp",
+  netease: "/assets/visuals/endings/netease.webp",
+  beike: "/assets/visuals/endings/beike.webp",
+  iflytek: "/assets/visuals/endings/iflytek.webp",
+  xiaohongshu: "/assets/visuals/endings/xiaohongshu.webp",
+  bilibili: "/assets/visuals/endings/bilibili.webp",
+  dewu: "/assets/visuals/endings/dewu.webp",
+  ctrip: "/assets/visuals/endings/ctrip.webp",
+  didi: "/assets/visuals/endings/didi.webp",
+  iqiyi: "/assets/visuals/endings/iqiyi.webp",
+  keep: "/assets/visuals/endings/keep.webp",
+  soul: "/assets/visuals/endings/soul.webp",
+  boss: "/assets/visuals/endings/boss.webp",
+  moji: "/assets/visuals/endings/moji.webp",
+  fanka: "/assets/visuals/endings/fanka.webp",
+  mixue: "/assets/visuals/endings/mixue.webp",
+  chayan: "/assets/visuals/endings/chayan.webp",
+  zuoyebang: "/assets/visuals/endings/zuoyebang.webp",
+  yuanfudao: "/assets/visuals/endings/yuanfudao.webp",
+  cadg: "/assets/visuals/endings/cadg.webp",
+  ecadi: "/assets/visuals/endings/ecadi.webp",
+  vanke: "/assets/visuals/endings/vanke.webp",
+  longfor: "/assets/visuals/endings/longfor.webp",
+  seu_design: "/assets/visuals/endings/seu-design.webp",
+  gad: "/assets/visuals/endings/gad.webp",
+  cushman: "/assets/visuals/endings/cushman.webp",
+  cbre: "/assets/visuals/endings/cbre.webp",
+  jll: "/assets/visuals/endings/jll.webp",
+  meituan: "/assets/visuals/endings/meituan.webp",
+  pdd: "/assets/visuals/endings/pdd.webp",
+  antgroup: "/assets/visuals/endings/antgroup.webp",
 };
 const ENDING_BACKGROUNDS: Record<string, string> = {
-  expelled: "/assets/visuals/endings/expelled.png",
-  self_doubt_quit: "/assets/visuals/endings/self-doubt-quit.png",
-  age_anxiety_pivot: "/assets/visuals/endings/age-anxiety-pivot.png",
-  stress_breakdown: "/assets/visuals/endings/stress-breakdown.png",
-  delayed_graduation: "/assets/visuals/endings/delayed-graduation.png",
-  failed: "/assets/visuals/endings/failed.png",
+  expelled: "/assets/visuals/endings/expelled.webp",
+  self_doubt_quit: "/assets/visuals/endings/self-doubt-quit.webp",
+  age_anxiety_pivot: "/assets/visuals/endings/age-anxiety-pivot.webp",
+  stress_breakdown: "/assets/visuals/endings/stress-breakdown.webp",
+  delayed_graduation: "/assets/visuals/endings/delayed-graduation.webp",
+  failed: "/assets/visuals/endings/failed.webp",
 };
 const OFFER_CATEGORY_ACCENTS: Record<string, string> = {
   "互联网大厂": "#5b8cff",
@@ -3404,60 +3404,60 @@ function mentorDisplayName(m: Mentor | null): string | null {
 }
 
 function mentorAvatar(m: Mentor | null): string {
-  if (!m) return "/assets/visuals/npcs/professor_academic.jpg";
+  if (!m) return "/assets/visuals/npcs/professor_academic.webp";
   const actualName = (m.customName && m.customName.trim()) ? m.customName.trim() : m.name;
   switch (actualName) {
     // 传统学术型 (academic)
     case "齐廷宝":
-      return "/assets/visuals/npcs/professor_academic.jpg";
+      return "/assets/visuals/npcs/professor_academic.webp";
     case "童敦桢":
-      return "/assets/visuals/npcs/professor_academic_tong.jpg"; // 海浪画
+      return "/assets/visuals/npcs/professor_academic_tong.webp"; // 海浪画
     case "葛慎康":
-      return "/assets/visuals/npcs/professor_academic_ge.jpg"; // 茶杯与线装书
+      return "/assets/visuals/npcs/professor_academic_ge.webp"; // 茶杯与线装书
     case "朱薇亚":
-      return "/assets/visuals/npcs/professor_academic_zhu.jpg"; // 青花瓷瓶白梅
+      return "/assets/visuals/npcs/professor_academic_zhu.webp"; // 青花瓷瓶白梅
 
     // 放养自由型 (hands_off)
     case "钱晓茜":
-      return "/assets/visuals/npcs/professor_hands_off.jpg";
+      return "/assets/visuals/npcs/professor_hands_off.webp";
     case "沈剑葳":
-      return "/assets/visuals/npcs/professor_hands_off_shen.jpg"; // 红发卡通
+      return "/assets/visuals/npcs/professor_hands_off_shen.webp"; // 红发卡通
     case "李诸葛":
-      return "/assets/visuals/npcs/professor_hands_off_li.jpg"; // 图纸上睡觉的猫
+      return "/assets/visuals/npcs/professor_hands_off_li.webp"; // 图纸上睡觉的猫
     case "旸葳":
-      return "/assets/visuals/npcs/professor_hands_off_yang.jpg"; // 水彩朝阳山脉
+      return "/assets/visuals/npcs/professor_hands_off_yang.webp"; // 水彩朝阳山脉
 
     // 实践工程型 (practice)
     case "程恺":
-      return "/assets/visuals/npcs/professor_practice.jpg";
+      return "/assets/visuals/npcs/professor_practice.webp";
     case "何建民":
-      return "/assets/visuals/npcs/professor_practice_he.jpg"; // 鲸鱼雕塑
+      return "/assets/visuals/npcs/professor_practice_he.webp"; // 鲸鱼雕塑
     case "崔泰宁":
-      return "/assets/visuals/npcs/professor_practice_cui.jpg"; // 混凝土高楼与蓝天
+      return "/assets/visuals/npcs/professor_practice_cui.webp"; // 混凝土高楼与蓝天
     case "恺宁":
-      return "/assets/visuals/npcs/professor_practice_kai.jpg"; // 蓝图、比例尺与眼镜
+      return "/assets/visuals/npcs/professor_practice_kai.webp"; // 蓝图、比例尺与眼镜
 
     // 海归前沿型 (overseas)
     case "常彤":
-      return "/assets/visuals/npcs/professor_overseas.jpg";
+      return "/assets/visuals/npcs/professor_overseas.webp";
     case "张青":
-      return "/assets/visuals/npcs/professor_overseas_zhang.jpg"; // 城市夜景
+      return "/assets/visuals/npcs/professor_overseas_zhang.webp"; // 城市夜景
     case "庄惟":
-      return "/assets/visuals/npcs/professor_overseas_zhuang.jpg"; // 极简包豪斯几何海报
+      return "/assets/visuals/npcs/professor_overseas_zhuang.webp"; // 极简包豪斯几何海报
     case "彤青":
-      return "/assets/visuals/npcs/professor_overseas_tong.jpg"; // 跨海大桥鸟瞰
+      return "/assets/visuals/npcs/professor_overseas_tong.webp"; // 跨海大桥鸟瞰
 
     default:
       switch (m.id) {
         case "hands_off":
-          return "/assets/visuals/npcs/professor_hands_off.jpg";
+          return "/assets/visuals/npcs/professor_hands_off.webp";
         case "practice":
-          return "/assets/visuals/npcs/professor_practice.jpg";
+          return "/assets/visuals/npcs/professor_practice.webp";
         case "overseas":
-          return "/assets/visuals/npcs/professor_overseas.jpg";
+          return "/assets/visuals/npcs/professor_overseas.webp";
         case "academic":
         default:
-          return "/assets/visuals/npcs/professor_academic.jpg";
+          return "/assets/visuals/npcs/professor_academic.webp";
       }
   }
 }
@@ -7742,7 +7742,7 @@ export function GamePage() {
         style={{
           ...pageStyle,
           backgroundImage:
-            'linear-gradient(rgba(5, 8, 20, 0.74), rgba(5, 8, 20, 0.82)), url("./assets/visuals/backgrounds/game-dashboard-background.png")',
+            'linear-gradient(rgba(5, 8, 20, 0.74), rgba(5, 8, 20, 0.82)), url("./assets/visuals/backgrounds/game-dashboard-background.webp")',
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
@@ -9335,7 +9335,7 @@ export function GamePage() {
     const offerPageStyle: CSSProperties = {
       ...pageStyle,
       backgroundImage:
-        'linear-gradient(rgba(5, 8, 20, 0.74), rgba(5, 8, 20, 0.82)), url("/assets/visuals/backgrounds/game-dashboard-background.png")',
+        'linear-gradient(rgba(5, 8, 20, 0.74), rgba(5, 8, 20, 0.82)), url("/assets/visuals/backgrounds/game-dashboard-background.webp")',
       backgroundSize: "cover",
       backgroundPosition: "center",
       backgroundRepeat: "no-repeat",
@@ -9943,7 +9943,7 @@ export function GamePage() {
                 <p className="mt-2 text-[13px] leading-relaxed" style={{ color: textSecondary }}>进入《我是一个“建”人》，看看三年后的你会走向哪一种结局。</p>
               </div>
               <div className="shrink-0 rounded-xl bg-white p-2">
-                <img src="/assets/visuals/share/game-qr.png" alt="游戏二维码" className="h-28 w-28" />
+                <img src="/assets/visuals/share/game-qr.webp" alt="游戏二维码" className="h-28 w-28" />
               </div>
             </div>
           )}
