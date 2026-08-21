@@ -9230,7 +9230,27 @@ export function GamePage() {
             setDesktopGameSection("achievements");
           }}
         />
-        <AIAssistant gameContext={{ character, stats, mentor, semester, phase, ending }} tutorialActive={showTutorial && tutorialStep === 3} />
+        <AIAssistant
+          gameContext={{
+            character,
+            stats,
+            mentor,
+            semester,
+            round,
+            totalRound,
+            phase,
+            pastInternships,
+            npcFavorabilities: {
+              zhang_yifan: peerFavorability,
+              lu_yuchen: luYuchenFavorability,
+              bai_xu: baiXuFavorability,
+              jiang_huai: jiangHuaiFavorability,
+              shen_qinghuai: shenQinghuaiFavorability,
+            },
+            ending,
+          }}
+          tutorialActive={showTutorial && tutorialStep === 3}
+        />
       </div>
     );
   }
