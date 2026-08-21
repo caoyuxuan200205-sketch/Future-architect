@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   GraduationCap,
   Sparkles,
@@ -123,6 +123,32 @@ export function MentorOfficeModal({
   const [cashAmount, setCashAmount] = useState<number>(1000);
   // 已生成的送钱选项（点击"确认送出"后生成，走正常的拒收/收下流程）
   const [cashGiftOption, setCashGiftOption] = useState<OfficeDialogueOption | null>(null);
+
+  // ===== 导师办公室环境 BGM：弹窗打开期间循环播放，关闭即停 =====
+  const officeBgmRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (isOpen && !officeBgmRef.current) {
+      const audio = new Audio("assets/audio/bgm/mentor_office.mp3");
+      audio.volume = 0.4;
+      audio.loop = true;
+      officeBgmRef.current = audio;
+      audio.play().catch(() => {
+        // 浏览器自动播放策略受阻时静默容错
+      });
+    } else if (!isOpen && officeBgmRef.current) {
+      officeBgmRef.current.pause();
+      officeBgmRef.current = null;
+    }
+  }, [isOpen]);
+  useEffect(
+    () => () => {
+      if (officeBgmRef.current) {
+        officeBgmRef.current.pause();
+        officeBgmRef.current = null;
+      }
+    },
+    [],
+  );
 
   const isDialoguePlaying = dialogueSequence.length > 0 && !dialogueComplete;
 
