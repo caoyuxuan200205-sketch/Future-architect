@@ -189,6 +189,17 @@ class Tracker {
     this.gameId = uuid();
   }
 
+  /** 排行榜成绩提交复用埋点体系中的稳定匿名 ID 与单局 ID。 */
+  getIdentifiers(): { anonymousId: string; gameId: string } {
+    return { anonymousId: this.anonymousId, gameId: this.gameId };
+  }
+
+  restoreGameId(gameId: unknown): void {
+    if (typeof gameId === "string" && /^[a-zA-Z0-9-]{16,64}$/.test(gameId)) {
+      this.gameId = gameId;
+    }
+  }
+
   /**
    * 主动 flush（如页面切换前）
    */

@@ -16,6 +16,7 @@ import { AchievementSidebarTab } from "./AchievementSidebarTab";
 import { BadgeWallShowcase } from "./BadgeWallShowcase";
 import { AchievementToast } from "./AchievementToast";
 import {
+  ACHIEVEMENTS,
   evaluateNewAchievements,
   type Achievement,
   type AchievementCheckContext,
@@ -39,6 +40,14 @@ import {
 } from "../economy/finance";
 import { getInitialThesisScore } from "../thesis/thesisScore";
 import { calculateThesisGrade as calcThesisGrade } from "../thesis/thesisScore";
+import {
+  calculateCompanyDifficulty,
+  calculateFinalScore,
+  FINAL_SCORE_SEASON_ID,
+  FINAL_SCORE_VERSION,
+  type FinalScoreResult,
+  type ScoreOffer,
+} from "../scoring/finalScore";
 import {
   CASH_GIFT_REJECTION_RATES,
   GIFT_REJECTION_RATES,
@@ -306,6 +315,25 @@ interface GameResultDistribution {
 interface GameResultDistributionRow {
   ending_title: string | null;
   offer_name: string | null;
+}
+
+interface PlayerRankingSummary {
+  rank: number;
+  totalPlayers: number;
+  percentile: number;
+  routeRank: number | null;
+  routePlayers: number | null;
+}
+
+interface LeaderboardRow {
+  rank: number;
+  displayName: string;
+  score: number;
+  boardScore: number;
+  endingTitle: string | null;
+  offerName: string | null;
+  routeId: string | null;
+  isEstimated?: boolean;
 }
 
 // ================================================================
@@ -1665,6 +1693,39 @@ const COMPANY_OFFER_META: Record<
   zuoyebang: { salary: "17k·14（月）", perks: "教育赛道 · 技术成长 · 远程灵活", level: "小厂" },
   yuanfudao: { salary: "17k·14（月）", perks: "在线教育 · 学习氛围 · 成长空间", level: "小厂" },
 };
+
+const SCORE_OFFERS: ScoreOffer[] = COMPANIES.flatMap((company) => {
+  const meta = COMPANY_OFFER_META[company.id];
+  return meta ? [{
+    id: company.id,
+    name: company.name,
+    category: company.category,
+    salary: meta.salary,
+    thresholds: company.thresholds as Record<string, number>,
+  }] : [];
+});
+
+function getInternshipScoreValue(internship: InternshipOption): number {
+  const company = internship.companyId ? COMPANIES.find((item) => item.id === internship.companyId) : null;
+  if (!company) return 8;
+  const difficulty = calculateCompanyDifficulty(company.thresholds as Record<string, number>);
+  if (difficulty >= 0.9) return 22;
+  if (difficulty >= 0.6) return 18;
+  if (difficulty >= 0.3) return 13;
+  return 8;
+}
+
+function getOfferRouteId(offerId: string | null): string | null {
+  if (!offerId) return null;
+  const level = COMPANY_OFFER_META[offerId]?.level;
+  if (level === "大厂" || level === "中厂" || level === "小厂") return "internet";
+  if (level === "外企") return "foreign";
+  if (level === "咨询") return "consulting";
+  if (level === "投行") return "investment_banking";
+  if (level === "车企") return "automotive";
+  if (level === "传统") return "architecture";
+  return null;
+}
 
 const COMPANY_LOGOS: Record<string, string> = {
   tencent: "/assets/visuals/companies/tencent.webp",
@@ -5337,6 +5398,8 @@ export function GamePage() {
   const [phase, setPhase] = useState<GamePhase>("intro");
   const [character, setCharacter] = useState<CharacterInfo | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  /** 导师加成与初始论文分应用后的快照，用于三年成长评分。 */
+  const [initialStats, setInitialStats] = useState<Stats | null>(null);
   const [mentor, setMentor] = useState<Mentor | null>(null);
   const [semester, setSemester] = useState(1);
   const [round, setRound] = useState(1);
@@ -5571,11 +5634,19 @@ export function GamePage() {
 
   // Supabase 统计状态
   const [globalEndingStats, setGlobalEndingStats] = useState<{ total: number; sameEndingCount: number } | null>(null);
+  const [playerRanking, setPlayerRanking] = useState<PlayerRankingSummary | null>(null);
+  const [rankingPending, setRankingPending] = useState(false);
   const [globalDistribution, setGlobalDistribution] = useState<GameResultDistribution | null>(null);
   const [isDistributionOpen, setIsDistributionOpen] = useState(false);
   const [distributionLoading, setDistributionLoading] = useState(false);
   const [distributionError, setDistributionError] = useState("");
   const [expandedOfferLevels, setExpandedOfferLevels] = useState<Set<string>>(new Set(["大厂"]));
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [leaderboardBoard, setLeaderboardBoard] = useState<"overall" | "route" | "growth">("overall");
+  const [leaderboardRows, setLeaderboardRows] = useState<LeaderboardRow[]>([]);
+  const [leaderboardTotal, setLeaderboardTotal] = useState(0);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
   const [hasSubmittedResult, setHasSubmittedResult] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [localSaveUpdatedAt, setLocalSaveUpdatedAt] = useState<string | null>(null);
@@ -5591,6 +5662,30 @@ export function GamePage() {
   const [chosenEventBranchesRecord, setChosenEventBranchesRecord] = useState<Record<string, string>>({});
   const [executedNpcOptionIds, setExecutedNpcOptionIds] = useState<string[]>([]);
   const [usedFreeActionFlag, setUsedFreeActionFlag] = useState(false);
+
+  const turnsCompleted = Math.min(24, Math.max(1, (semester - 1) * 4 + round));
+  const finalScore = useMemo<FinalScoreResult | null>(() => {
+    if (!stats || !ending) return null;
+    const selectedScoreOffer = selectedOfferId
+      ? SCORE_OFFERS.find((offer) => offer.id === selectedOfferId) ?? null
+      : null;
+    const achievementById = new Map(ACHIEVEMENTS.map((item) => [item.id, item]));
+    const earlyEndingIds = new Set(["expelled", "self_doubt_quit", "age_anxiety_pivot", "stress_breakdown"]);
+
+    return calculateFinalScore({
+      finalStats: stats,
+      initialStats: initialStats ?? stats,
+      selectedOffer: selectedScoreOffer,
+      allOffers: SCORE_OFFERS,
+      internships: pastInternships.map((item) => ({ id: item.id, scoreValue: getInternshipScoreValue(item) })),
+      achievements: currentRunUnlockedAchievements.flatMap((id) => {
+        const achievement = achievementById.get(id);
+        return achievement ? [{ id, tier: achievement.tier }] : [];
+      }),
+      turnsCompleted,
+      isEarlyEnding: earlyEndingIds.has(ending.id),
+    });
+  }, [stats, initialStats, ending, selectedOfferId, pastInternships, currentRunUnlockedAchievements, turnsCompleted]);
 
   const checkAndUnlockAchievements = useCallback((override?: Partial<AchievementCheckContext>) => {
     if (!stats) return;
@@ -5742,9 +5837,10 @@ export function GamePage() {
   const STORAGE_KEY = "archGameSave_v1";
 
   const buildGameState = useCallback(() => ({
-    version: 2,
+    version: 3,
     savedAt: new Date().toISOString(),
-    phase, character, stats, mentor, semester, round,
+    trackingIds: tracker.getIdentifiers(),
+    phase, character, stats, initialStats, mentor, semester, round,
     currentEvent, activeCampusEvent, campusEventResult,
     seenEventIds: Array.from(seenEventIds),
     seenCampusIds: Array.from(seenCampusIds),
@@ -5758,8 +5854,10 @@ export function GamePage() {
     financeState,
     lastRoundDelta,
     currentRunUnlockedAchievements,
+    playerRanking,
+    hasSubmittedResult,
   }), [
-    phase, character, stats, mentor, semester, round,
+    phase, character, stats, initialStats, mentor, semester, round,
     currentEvent, activeCampusEvent, campusEventResult,
     seenEventIds, seenCampusIds,
     chosenAction, actionDelta, eventDelta, selectedEventBranch, ending,
@@ -5772,10 +5870,14 @@ export function GamePage() {
     financeState,
     lastRoundDelta,
     currentRunUnlockedAchievements,
+    playerRanking,
+    hasSubmittedResult,
   ]);
 
   const restoreGameState = useCallback((data: Record<string, any>) => {
     if (!data.phase || data.phase === "intro") return false;
+
+    tracker.restoreGameId(data.trackingIds?.gameId);
 
     setPhase(data.phase as GamePhase);
     if (data.character) {
@@ -5790,6 +5892,7 @@ export function GamePage() {
     }
     const restoredStats = normalizeStats(data.stats);
     setStats(restoredStats);
+    setInitialStats(normalizeStats(data.initialStats) ?? restoredStats);
     if (restoredStats) roundStartStatsRef.current = restoredStats;
     setLastRoundDelta(data.lastRoundDelta ?? {});
     if (data.financeState) {
@@ -5853,7 +5956,8 @@ export function GamePage() {
     );
     setAchievementToastQueue([]);
     setAchievementAlert(false);
-    setHasSubmittedResult(data.phase === "ending");
+    setPlayerRanking(data.playerRanking ?? null);
+    setHasSubmittedResult(Boolean(data.hasSubmittedResult));
     setDesktopGameSection("map");
     return true;
   }, []);
@@ -5966,93 +6070,94 @@ export function GamePage() {
 
   // 监听结局状态，提交数据并获取统计
   useEffect(() => {
-    if (phase === "ending" && ending && !hasSubmittedResult) {
-      setHasSubmittedResult(true);
+    if (phase === "ending" && ending && stats && finalScore && !hasSubmittedResult) {
+      // 正常结局会在同一轮补发结局类成就，稍等一次状态合并后再固化成绩。
+      const timer = window.setTimeout(() => {
+        setHasSubmittedResult(true);
+        setRankingPending(true);
       const submitAndFetch = async () => {
         try {
-          console.log("Supabase: 开始提交数据...", { endingTitle: ending.title });
-          
-          // 0. 尝试获取用户地理位置 (不弹窗，基于IP)
-          let locationData = { city: null, region: null, country: null };
-          try {
-            // 使用 ipapi.co 获取城市级定位
-            const res = await fetch('https://ipapi.co/json/');
-            if (res.ok) {
-              const data = await res.json();
-              locationData = {
-                city: data.city || null,
-                region: data.region || null,
-                country: data.country_name || null
-              };
-              console.log("位置获取成功:", locationData);
-            }
-          } catch (e) {
-            console.warn('获取地理位置失败 (可能是网络拦截):', e);
-          }
-
-          // 1. 提交当前结果 (包含详细的玩家画像和游戏数据)
+          const { anonymousId, gameId } = tracker.getIdentifiers();
+          const selectedCompany = selectedOfferId ? COMPANIES.find((company) => company.id === selectedOfferId) ?? null : null;
           const payload = {
-             ending_title: ending.title,
-             offer_name: selectedOfferId ? (receivedOffers?.find(c => c.id === selectedOfferId)?.name || null) : null,
-             
-             // 玩家画像 - 详细学历
-             character_tier: character ? TIER_LABELS[character.undergradTier] : null,
-             undergrad_school: character?.undergradSchool || null, // 本科具体学校
-             master_school: character?.masterSchool || null,       // 研究生具体学校 (新增)
-             is_overseas: character?.isOverseas || false,
-             mentor_name: mentor?.name || null,
-
-             // 玩家画像 - 地理位置 (新增)
-             city: locationData.city,
-             region: locationData.region,
-             country: locationData.country,
-
-             // 游戏数据
-             final_stats: stats,
-             internship_count: pastInternships.length
+            anonymous_id: anonymousId,
+            game_id: gameId,
+            player_display_name: character?.name ?? null,
+            ending_id: ending.id,
+            ending_title: ending.title,
+            offer_id: selectedOfferId,
+            offer_name: selectedCompany?.name ?? null,
+            route_id: getOfferRouteId(selectedOfferId),
+            mentor_id: mentor?.id ?? null,
+            mentor_name: mentor?.name ?? null,
+            character_tier: character ? TIER_LABELS[character.undergradTier] : null,
+            undergrad_school: character?.undergradSchool ?? null,
+            master_school: character?.masterSchool ?? null,
+            is_overseas: character?.isOverseas ?? false,
+            initial_stats: initialStats ?? stats,
+            final_stats: stats,
+            turns_completed: turnsCompleted,
+            internship_ids: pastInternships.map((item) => item.id),
+            achievement_ids: currentRunUnlockedAchievements,
+            client_score_total: finalScore.preciseTotal,
+            score_version: FINAL_SCORE_VERSION,
+            season_id: FINAL_SCORE_SEASON_ID,
           };
 
-          const { data: insertData, error: insertError } = await supabase.from('game_results').insert(payload).select();
-          
-          if (insertError) {
-             console.error('Supabase: 提交失败', insertError);
+          const { data: scoreData, error: scoreError } = await supabase.rpc("submit_game_result_v1", { p_result: payload });
+          if (!scoreError && scoreData && typeof scoreData === "object") {
+            const result = scoreData as Record<string, any>;
+            const currentPlayer = result.currentPlayer as Record<string, any> | undefined;
+            if (currentPlayer) {
+              setPlayerRanking({
+                rank: Number(currentPlayer.rank ?? 0),
+                totalPlayers: Number(currentPlayer.totalPlayers ?? result.totalPlayers ?? 0),
+                percentile: Number(currentPlayer.percentile ?? 0),
+                routeRank: currentPlayer.routeRank == null ? null : Number(currentPlayer.routeRank),
+                routePlayers: currentPlayer.routePlayers == null ? null : Number(currentPlayer.routePlayers),
+              });
+            }
           } else {
-             console.log('Supabase: 提交成功', insertData);
+            // 数据库脚本尚未安装时继续保留原有结局分布采集，不信任客户端分数参与排名。
+            console.warn("排行榜 RPC 暂不可用，已降级为基础结局统计。", scoreError?.message);
+            const legacyPayload = {
+              ending_title: ending.title,
+              offer_name: selectedCompany?.name ?? null,
+              character_tier: character ? TIER_LABELS[character.undergradTier] : null,
+              undergrad_school: character?.undergradSchool ?? null,
+              master_school: character?.masterSchool ?? null,
+              is_overseas: character?.isOverseas ?? false,
+              mentor_name: mentor?.name ?? null,
+              final_stats: stats,
+              internship_count: pastInternships.length,
+            };
+            await supabase.from("game_results").insert(legacyPayload);
           }
 
-          // 2. 获取统计数据
-          console.log("Supabase: 开始获取统计...");
-          
-          // 获取总游玩次数
           const { count: totalCount, error: countError } = await supabase
             .from('game_results')
             .select('*', { count: 'exact', head: true });
-
-          if (countError) console.error("Supabase: 获取总数失败", countError);
-
-          // 获取达成同结局的次数
           const { count: sameEndingCount, error: sameEndingError } = await supabase
             .from('game_results')
             .select('*', { count: 'exact', head: true })
             .eq('ending_title', ending.title);
-
-          if (sameEndingError) console.error("Supabase: 获取同结局失败", sameEndingError);
-
           if (!countError && !sameEndingError) {
-            console.log("Supabase: 统计获取成功", { total: totalCount, same: sameEndingCount });
             setGlobalEndingStats({
               total: totalCount || 0,
               sameEndingCount: sameEndingCount || 0
             });
           }
-
         } catch (err) {
           console.error('Supabase: 未知错误', err);
+        } finally {
+          setRankingPending(false);
         }
       };
       submitAndFetch();
+      }, 250);
+      return () => window.clearTimeout(timer);
     }
-  }, [phase, ending, hasSubmittedResult, selectedOfferId, receivedOffers, character, mentor, stats, pastInternships]);
+  }, [phase, ending, stats, finalScore, hasSubmittedResult, selectedOfferId, character, mentor, initialStats, turnsCompleted, pastInternships, currentRunUnlockedAchievements]);
 
   const loadGlobalDistribution = useCallback(async () => {
     if (distributionLoading || globalDistribution) return;
@@ -6091,6 +6196,45 @@ export function GamePage() {
     }
   }, [distributionLoading, globalDistribution]);
 
+  const loadLeaderboard = useCallback(async (board: "overall" | "route" | "growth") => {
+    setLeaderboardLoading(true);
+    setLeaderboardError("");
+    try {
+      const routeId = board === "route" ? getOfferRouteId(selectedOfferId) : null;
+      if (board === "route" && !routeId) {
+        setLeaderboardRows([]);
+        setLeaderboardTotal(0);
+        setLeaderboardError("本局没有可用于路线榜的 Offer 路线");
+        return;
+      }
+      const { data, error } = await supabase.rpc("get_leaderboard", {
+        p_season_id: FINAL_SCORE_SEASON_ID,
+        p_score_version: FINAL_SCORE_VERSION,
+        p_board_type: board === "growth" ? "growth" : "overall",
+        p_route_id: routeId,
+        p_mentor_id: null,
+        p_limit: 50,
+        p_offset: 0,
+      });
+      if (error) throw error;
+      const result = data && typeof data === "object" ? data as Record<string, unknown> : {};
+      setLeaderboardTotal(Number(result.totalPlayers ?? 0));
+      setLeaderboardRows(Array.isArray(result.rows) ? result.rows as LeaderboardRow[] : []);
+    } catch (error) {
+      console.error("Supabase: 排行榜读取失败", error);
+      setLeaderboardRows([]);
+      setLeaderboardTotal(0);
+      setLeaderboardError("排行榜服务暂不可用，请先安装数据库评分脚本或稍后重试");
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  }, [selectedOfferId]);
+
+  useEffect(() => {
+    if (!isLeaderboardOpen || phase !== "ending") return;
+    void loadLeaderboard(leaderboardBoard);
+  }, [isLeaderboardOpen, leaderboardBoard, phase, loadLeaderboard]);
+
   // 开始游戏：姓名固定，学校与属性仍可重新生成
   const startGame = useCallback(() => {
     const normalizedName = playerNameInput.trim().replace(/\s+/g, " ");
@@ -6110,6 +6254,8 @@ export function GamePage() {
     setPlayerNameError("");
     setCharacter(c);
     setStats(s);
+    setInitialStats(null);
+    setPlayerRanking(null);
     roundStartStatsRef.current = s;
     setLastRoundDelta({});
     setSemester(1);
@@ -6241,6 +6387,7 @@ export function GamePage() {
       // 注入导师类型决定的初始论文分（学术35 / 海归25 / 实践15 / 放养0）
       const finalStats = { ...newStats, thesisScore: getInitialThesisScore(m.id) };
       setStats(finalStats);
+      setInitialStats(finalStats);
       setFinanceState(createInitialFinance(finalStats.money ?? 38, character?.isOverseas ?? false));
       maybeShowEvent(finalStats, 1, new Set());
       setShowTutorial(true);
@@ -7331,6 +7478,7 @@ export function GamePage() {
     setPhase("intro");
     setCharacter(null);
     setStats(null);
+    setInitialStats(null);
     setEnding(null);
     setSelectedOfferId(null);
     setSelectedInternshipId(null);
@@ -7363,11 +7511,19 @@ export function GamePage() {
     setActiveCampusEvent(null);
     setCampusEventResult(null);
     setGlobalEndingStats(null);
+    setPlayerRanking(null);
+    setRankingPending(false);
     setGlobalDistribution(null);
     setIsDistributionOpen(false);
     setDistributionLoading(false);
     setDistributionError("");
     setExpandedOfferLevels(new Set(["大厂"]));
+    setIsLeaderboardOpen(false);
+    setLeaderboardBoard("overall");
+    setLeaderboardRows([]);
+    setLeaderboardTotal(0);
+    setLeaderboardLoading(false);
+    setLeaderboardError("");
     setHasSubmittedResult(false);
     setTutorialStep(0);
     setPlayerNameInput("");
@@ -9541,7 +9697,7 @@ export function GamePage() {
     } : pageStyle;
     const shareName = character?.name?.trim() || "未命名同学";
     const shareNameSlotWidth = Math.min(280, Math.max(90, Array.from(shareName).length * 9 + 20));
-    const shareText = `${shareName}在《我是一个“建”人》中达成结局「${finalEnding.title}」${selectedCompany ? `，即将入职${selectedCompany.name}` : ""}。`;
+    const shareText = `${shareName}在《我是一个“建”人》中达成结局「${finalEnding.title}」${selectedCompany ? `，即将入职${selectedCompany.name}` : ""}${finalScore ? `，综合得分 ${finalScore.total}/1000（${finalScore.grade}）` : ""}。`;
     const endingCountMap = new Map(globalDistribution?.endings.map((item) => [item.title, item.count]) ?? []);
     const knownEndingTitles = new Set(ENDINGS.map((item) => item.title));
     const endingDistributionRows = [
@@ -9821,6 +9977,70 @@ export function GamePage() {
                </div>
             )}
           </div>
+
+          {finalScore && (
+            <section
+              className="mb-8 overflow-hidden rounded-2xl"
+              style={{ background: "linear-gradient(145deg, rgba(201,168,76,0.12), rgba(5,8,20,0.9))", border: "1px solid rgba(201,168,76,0.32)", boxShadow: "0 20px 60px rgba(0,0,0,0.24)" }}
+            >
+              <div className="grid gap-6 p-6 sm:grid-cols-[0.85fr_1.15fr] sm:p-7">
+                <div className="flex flex-col justify-between">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.24em] text-[#c9a84c]">FINAL SCORE · 综合评分</p>
+                    <div className="mt-4 flex items-end gap-3">
+                      <span className="text-6xl font-semibold leading-none text-white">{finalScore.total}</span>
+                      <span className="pb-1 text-[14px] text-slate-500">/ 1000</span>
+                    </div>
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#c9a84c]/25 bg-[#c9a84c]/10 px-3 py-1.5">
+                      <span className="text-[15px] font-bold text-[#f0d67d]">{finalScore.grade}</span>
+                      <span className="text-[12px] text-slate-300">· {finalScore.title}</span>
+                    </div>
+                  </div>
+                  <div className="mt-6 text-[12px] leading-6 text-slate-400">
+                    {playerRanking ? (
+                      <>
+                        <p>全服排名 <span className="font-semibold text-slate-100">第 {playerRanking.rank.toLocaleString()} / {playerRanking.totalPlayers.toLocaleString()}</span></p>
+                        <p>超过 <span className="font-semibold text-[#dec678]">{playerRanking.percentile.toFixed(1)}%</span> 的玩家</p>
+                        {playerRanking.routeRank && <p>路线排名 <span className="text-slate-200">第 {playerRanking.routeRank.toLocaleString()}</span></p>}
+                      </>
+                    ) : rankingPending ? (
+                      <p className="flex items-center gap-2"><RefreshCw size={12} className="animate-spin" />正在核验成绩与计算排名…</p>
+                    ) : (
+                      <p>本地评分已完成；全服排名将在排行榜服务连接后显示。</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {([
+                    ["职业结果", finalScore.breakdown.career, 320, "Offer价值与岗位匹配"],
+                    ["能力成长", finalScore.breakdown.ability, 260, "最终能力与三年成长"],
+                    ["毕业论文", finalScore.breakdown.thesis, 180, "论文分段评价"],
+                    ["生存状态", finalScore.breakdown.survival, 140, "身心、导师与资源"],
+                    ["生涯经历", finalScore.breakdown.experience, 100, "实习、成就与完成度"],
+                  ] as const).map(([label, value, max, description]) => (
+                    <div key={label} className="rounded-xl border border-white/[0.06] bg-black/15 px-3.5 py-3">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <div className="min-w-0"><span className="text-[13px] font-medium text-slate-200">{label}</span><span className="ml-2 hidden text-[10px] text-slate-600 sm:inline">{description}</span></div>
+                        <span className="shrink-0 font-mono text-[13px] text-[#e3cb7e]">{Math.round(value)} / {max}</span>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                        <div className="h-full rounded-full bg-gradient-to-r from-[#8f742e] to-[#e0c66e]" style={{ width: `${Math.min(100, value / max * 100)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                  {finalScore.breakdown.earlyEndingMultiplier < 1 && (
+                    <p className="rounded-lg border border-amber-400/15 bg-amber-400/[0.06] px-3 py-2 text-[11px] text-amber-200/75">
+                      提前结局折算：基础 {Math.round(finalScore.breakdown.rawTotal)} 分 × {finalScore.breakdown.earlyEndingMultiplier.toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="border-t border-white/[0.06] px-6 py-3 text-[9px] uppercase tracking-[0.18em] text-slate-600">
+                SCORE V{finalScore.scoreVersion} · {finalScore.seasonId}
+              </div>
+            </section>
+          )}
 
           {/* ── 荣誉徽章墙 · 中大院发疯勋章展柜 ── */}
           <BadgeWallShowcase
@@ -10143,6 +10363,59 @@ export function GamePage() {
                       )}
                     </div>
                     <p className="text-[10px] leading-relaxed text-slate-600">占比按已提交的通关记录计算；公司“类内占比”以该类别全部 Offer 为分母，“全服占比”以全部通关次数为分母。</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section
+            data-export-hidden="true"
+            className="mb-8 overflow-hidden rounded-2xl"
+            style={{ background: "rgba(5,10,24,0.92)", border: `1px solid ${border}`, backdropFilter: "blur(14px)" }}
+          >
+            <button
+              type="button"
+              onClick={() => setIsLeaderboardOpen((open) => !open)}
+              aria-expanded={isLeaderboardOpen}
+              className="flex w-full items-center gap-4 p-5 text-left outline-none transition-colors hover:bg-white/[0.035]"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#c9a84c]/20 bg-[#c9a84c]/10 text-[#dec678]">🏆</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-semibold text-slate-100">全服排行榜</span>
+                <span className="mt-1 block text-[11px] text-slate-500">每位玩家每赛季仅保留最高分 · 服务端重算</span>
+              </span>
+              <ChevronDown size={18} className={`text-slate-500 transition-transform ${isLeaderboardOpen ? "rotate-180" : ""}`} />
+            </button>
+            {isLeaderboardOpen && (
+              <div className="border-t border-white/10 p-5">
+                <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl bg-white/[0.025] p-1.5">
+                  {([
+                    ["overall", "综合总榜"],
+                    ["route", selectedOfferId ? `${COMPANY_OFFER_META[selectedOfferId]?.level ?? "当前"}路线` : "路线榜"],
+                    ["growth", "逆袭榜"],
+                  ] as const).map(([id, label]) => (
+                    <button key={id} type="button" onClick={() => setLeaderboardBoard(id)} disabled={id === "route" && !selectedOfferId} className={`rounded-lg px-2 py-2 text-[11px] transition ${leaderboardBoard === id ? "bg-[#c9a84c]/15 text-[#e2ca7a]" : "text-slate-500 hover:text-slate-300 disabled:opacity-35"}`}>{label}</button>
+                  ))}
+                </div>
+                {leaderboardLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-slate-400"><RefreshCw size={15} className="animate-spin" />正在计算榜单…</div>
+                ) : leaderboardError ? (
+                  <div className="rounded-xl border border-amber-400/15 bg-amber-400/[0.05] p-4 text-center text-[12px] text-amber-100/70">{leaderboardError}</div>
+                ) : leaderboardRows.length === 0 ? (
+                  <p className="py-8 text-center text-[13px] text-slate-500">本赛季还没有有效成绩</p>
+                ) : (
+                  <div>
+                    <div className="mb-2 flex justify-between px-3 text-[10px] uppercase tracking-[0.15em] text-slate-600"><span>{leaderboardTotal.toLocaleString()} 位有效玩家</span><span>{leaderboardBoard === "growth" ? "成长分" : "综合分"}</span></div>
+                    <div className="max-h-[520px] space-y-1.5 overflow-y-auto pr-1">
+                      {leaderboardRows.map((row) => (
+                        <div key={`${row.rank}-${row.displayName}`} className="grid grid-cols-[42px_1fr_auto] items-center gap-3 rounded-xl border border-white/[0.055] bg-white/[0.022] px-3 py-3">
+                          <span className={`font-mono text-[13px] ${row.rank <= 3 ? "font-bold text-[#dec678]" : "text-slate-600"}`}>#{row.rank}</span>
+                          <span className="min-w-0"><span className="flex items-center gap-2 truncate text-[13px] text-slate-200">{row.displayName}{row.isEstimated && <span className="shrink-0 rounded bg-slate-500/10 px-1.5 py-0.5 text-[8px] text-slate-500">历史估算</span>}</span><span className="mt-0.5 block truncate text-[10px] text-slate-600">{row.offerName || row.endingTitle || "未公开去向"}</span></span>
+                          <span className="font-mono text-[14px] font-semibold text-slate-100">{Math.round(leaderboardBoard === "growth" ? row.boardScore : row.score)}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
