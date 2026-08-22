@@ -24,6 +24,7 @@ export type AssetPreloadState = {
   currentUrl: string;
   message: string;
   isAutoPaused: boolean;
+  isFullBundleCached: boolean;
 };
 
 type NetworkInformationLike = {
@@ -43,6 +44,7 @@ const INITIAL_STATE: AssetPreloadState = {
   currentUrl: "",
   message: "等待后台预热",
   isAutoPaused: false,
+  isFullBundleCached: false,
 };
 
 function normalizeMentorId(mentorId: string): string {
@@ -75,6 +77,7 @@ class AssetPreloader {
   private listeners = new Set<(state: AssetPreloadState) => void>();
   private manifestPromise: Promise<AssetManifest> | null = null;
   private manifestVersion = "";
+  private manifestEntries = new Map<string, AssetEntry>();
   private completedUrls = new Set<string>();
   private targetEntries = new Map<string, AssetEntry>();
   private queuedUrls = new Set<string>();
@@ -163,7 +166,10 @@ class AssetPreloader {
           throw new Error("资源清单格式无效");
         }
         this.manifestVersion = manifest.version;
-        this.restoreProgress(manifest.version);
+        this.manifestEntries = new Map(
+          [...manifest.groups.visuals, ...manifest.groups.audio].map((entry) => [entry.url, entry]),
+        );
+        await this.restoreProgress(manifest);
         return manifest;
       });
     return this.manifestPromise;
@@ -172,6 +178,22 @@ class AssetPreloader {
   private enqueue(entries: AssetEntry[], mode: Exclude<AssetPreloadMode, "none">, force: boolean): void {
     for (const entry of entries) this.targetEntries.set(entry.url, entry);
     this.refreshProgress();
+
+    const nextMode: AssetPreloadMode = this.state.mode === "all" || mode === "all"
+      ? "all"
+      : this.state.mode === "route" || mode === "route"
+        ? "route"
+        : mode;
+    const missingEntries = entries.filter((entry) => (
+      !this.completedUrls.has(entry.url) && !this.queuedUrls.has(entry.url)
+    ));
+
+    // 已经存在于持久缓存时直接判定完成，不能再被弱网提醒覆盖。
+    if (missingEntries.length === 0 && this.queue.length === 0 && this.activeWorkers === 0) {
+      this.paused = false;
+      this.updateState({ status: "complete", mode: nextMode, message: this.getCompletionMessage(nextMode), isAutoPaused: false });
+      return;
+    }
 
     if (!force && !autoDownloadAllowed()) {
       this.paused = true;
@@ -184,17 +206,10 @@ class AssetPreloader {
       return;
     }
 
-    for (const entry of entries) {
-      if (this.completedUrls.has(entry.url) || this.queuedUrls.has(entry.url)) continue;
+    for (const entry of missingEntries) {
       this.queue.push(entry);
       this.queuedUrls.add(entry.url);
     }
-
-    const nextMode: AssetPreloadMode = this.state.mode === "all" || mode === "all"
-      ? "all"
-      : this.state.mode === "route" || mode === "route"
-        ? "route"
-        : mode;
     this.paused = false;
 
     if (this.queue.length === 0 && this.activeWorkers === 0) {
@@ -277,22 +292,47 @@ class AssetPreloader {
       completedFiles: completed.length,
       totalBytes: targets.reduce((sum, entry) => sum + entry.size, 0),
       completedBytes: completed.reduce((sum, entry) => sum + entry.size, 0),
+      isFullBundleCached: this.manifestEntries.size > 0
+        && Array.from(this.manifestEntries.keys()).every((url) => this.completedUrls.has(url)),
     });
   }
 
-  private restoreProgress(version: string): void {
+  private async restoreProgress(manifest: AssetManifest): Promise<void> {
+    const manifestUrls = new Set(
+      [...manifest.groups.visuals, ...manifest.groups.audio].map((entry) => entry.url),
+    );
+    let recordedUrls = new Set<string>();
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { version?: string; urls?: string[] };
-      if (saved.version !== version || !Array.isArray(saved.urls)) {
-        localStorage.removeItem(STORAGE_KEY);
-        return;
+      if (raw) {
+        const saved = JSON.parse(raw) as { version?: string; urls?: string[] };
+        if (saved.version === manifest.version && Array.isArray(saved.urls)) {
+          recordedUrls = new Set(saved.urls.filter((url) => manifestUrls.has(url)));
+        }
       }
-      this.completedUrls = new Set(saved.urls);
     } catch {
       localStorage.removeItem(STORAGE_KEY);
     }
+
+    // Cache Storage 才是资源是否真实存在的依据；同时可修复本地进度记录丢失。
+    if (typeof window !== "undefined" && "caches" in window) {
+      try {
+        const cache = await caches.open(ASSET_CACHE);
+        const cachedRequests = await cache.keys();
+        const cachedAssetUrls = new Set(cachedRequests.map((request) => {
+          const pathname = new URL(request.url).pathname;
+          const assetsIndex = pathname.indexOf("/assets/");
+          return assetsIndex >= 0 ? pathname.slice(assetsIndex) : pathname;
+        }));
+        this.completedUrls = new Set(Array.from(manifestUrls).filter((url) => cachedAssetUrls.has(url)));
+      } catch {
+        this.completedUrls = recordedUrls;
+      }
+    } else {
+      this.completedUrls = recordedUrls;
+    }
+
+    this.persistProgress();
   }
 
   private persistProgress(): void {

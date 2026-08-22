@@ -44,7 +44,9 @@ export function ResourcePreloadStatus() {
 export function ResourcePreloadPanel() {
   const state = useAssetPreloadState();
   const progress = useProgress(state);
-  const isCompleteBundle = state.status === "complete" && state.mode === "all";
+  const isCompleteBundle = state.isFullBundleCached;
+  const isFullBundleInProgress = state.mode === "all"
+    && (state.status === "downloading" || (state.status === "paused" && !state.isAutoPaused));
 
   return (
     <section className="mt-5 rounded-xl border border-white/10 bg-black/15 p-4">
@@ -55,7 +57,7 @@ export function ResourcePreloadPanel() {
             <h3 className="text-[12px] font-semibold text-slate-200">游戏资源预载</h3>
           </div>
           <p className="mt-1.5 text-[10px] leading-4 text-slate-500">
-            游戏会自动准备画面和当前导师路线；完整下载约 51 MB，完成后重复游玩更流畅。
+            进入游戏即在后台下载约 51 MB 完整资源包；不会阻塞操作，完成后重复游玩更流畅。
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -69,7 +71,7 @@ export function ResourcePreloadPanel() {
               <Play size={11} />继续
             </button>
           )}
-          {!isCompleteBundle && (
+          {!isCompleteBundle && !isFullBundleInProgress && (
             <button type="button" onClick={() => assetPreloader.downloadAll()} className="flex items-center gap-1 rounded-lg bg-[#c9a84c] px-3 py-2 text-[10px] font-semibold text-[#07101d] transition hover:bg-[#dec678]">
               <Download size={11} />{state.isAutoPaused ? "仍然下载" : "下载完整包"}
             </button>

@@ -5289,27 +5289,10 @@ export function GamePage() {
   const [semester, setSemester] = useState(1);
   const [round, setRound] = useState(1);
 
-  // 首屏可交互后再后台准备全部画面；不会阻塞玩家输入姓名或进入下一页。
+  // 进入开局页即在后台下载完整资源包；不会阻塞玩家输入姓名或进入下一页。
   useEffect(() => {
-    const timer = window.setTimeout(() => assetPreloader.warmVisuals(), 1200);
-    return () => window.clearTimeout(timer);
+    assetPreloader.downloadAll();
   }, []);
-
-  // 选定导师后优先准备该导师、常驻同伴和 BGM；高速网络空闲后再补齐其余资源。
-  useEffect(() => {
-    if (!mentor?.id) return;
-    assetPreloader.warmMentorRoute(mentor.id);
-    const timer = window.setTimeout(() => {
-      const run = () => assetPreloader.warmRemaining();
-      if ("requestIdleCallback" in window) {
-        (window as Window & { requestIdleCallback: (callback: () => void, options?: { timeout: number }) => number })
-          .requestIdleCallback(run, { timeout: 8000 });
-      } else {
-        run();
-      }
-    }, 30000);
-    return () => window.clearTimeout(timer);
-  }, [mentor?.id]);
   const [currentEvent, setCurrentEvent] = useState<GameEvent | null>(null);
   const [activeCampusEvent, setActiveCampusEvent] = useState<CampusEvent | null>(null);
   const [campusEventResult, setCampusEventResult] = useState<{ success: boolean; narrative: string } | null>(null);
