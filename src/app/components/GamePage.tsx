@@ -969,7 +969,7 @@ const EVENTS: GameEvent[] = [
   },
   {
     id: "e79", title: "导师竟是爸爸前妻",
-    description: "入学第一天，你在导师见面会上看到了她的名字——王晓燕。你的大脑短路了整整五秒。你妈当年的那场婚外情，你爸那段你以为烂在家里的历史，原来在建筑学院等着你。她也认出你了——你长得太像你爸了。",
+    description: "入学第一天，你在导师见面会上看到了她的名字——{{mentorName}}。你的大脑短路了整整五秒。你妈当年的那场婚外情，你爸那段你以为烂在家里的历史，原来在建筑学院等着你。她也认出你了——你长得太像你爸了。{{mentorGenderTwist}}",
     effects: { stress: -8, selfDoubt: 6, mentorFavorability: -5 },
     condition: ({ semester }) => semester === 1,
     type: "negative",
@@ -3317,11 +3317,14 @@ interface MentorProfile {
   personality: string;                       // 性格标签描述
 }
 
+type MentorGender = "male" | "female";
+
 interface Mentor {
   id: string;
   name: string;          // 默认重组名（真实学者名重组，如"齐廷宝"=齐康×杨廷宝）
   namePool: string[];    // 候选重组名池，每局随机命中其一
   customName?: string;   // 玩家自定义名（可选，填了就用这个）
+  gender: MentorGender;  // 随本局实际抽中的导师姓名确定
   title: string;
   description: string;
   bonuses: Partial<Record<StatKey, EffectValue>>;
@@ -3330,6 +3333,25 @@ interface Mentor {
   profile: MentorProfile;
   /** 按名字索引的专属简历，优先级高于 profile（namePool 中其他名字的差异化简历） */
   profileByName?: Record<string, MentorProfile>;
+}
+
+const FEMALE_MENTOR_NAMES = new Set(["钱晓茜", "朱薇亚"]);
+
+function getMentorGender(name: string): MentorGender {
+  return FEMALE_MENTOR_NAMES.has(name) ? "female" : "male";
+}
+
+function resolveMentorName(mentor: Mentor | null): string {
+  return mentor?.customName?.trim() || mentor?.name?.trim() || "导师";
+}
+
+function personalizeMentorText(text: string, mentor: Mentor | null): string {
+  const genderTwist = mentor?.gender === "male"
+    ? "而她现在已经变成男的了，具体的你也不太清楚……"
+    : "";
+  return text
+    .replaceAll("{{mentorName}}", resolveMentorName(mentor))
+    .replaceAll("{{mentorGenderTwist}}", genderTwist);
 }
 
 interface MentorGameplayDetail {
@@ -3473,6 +3495,7 @@ const MENTORS: Mentor[] = [
     //   齐廷宝 = 齐康×杨廷宝 / 童敦桢 = 童寯×刘敦桢 / 葛慎康 = 葛明×齐康 / 朱薇亚 = 朱光亚×陈薇
     name: "齐廷宝",
     namePool: ["齐廷宝", "童敦桢", "葛慎康", "朱薇亚"],
+    gender: "male",
     title: "国家级重点课题负责人",
     description: "专注学术深度与专业度，对图纸质量要求极高。能显著提升你的建筑底蕴，但由于其严苛性格，初始好感度较低且学术压力巨大。",
     emoji: "🏛️",
@@ -3672,6 +3695,7 @@ const MENTORS: Mentor[] = [
     //   钱晓茜 = 钱锋×汪晓茜 / 沈剑葳 = 沈旸×张剑葳 / 李诸葛 = 李海清×诸葛净 / 旸葳 = 沈旸×张剑葳
     name: "钱晓茜",
     namePool: ["钱晓茜", "沈剑葳", "李诸葛", "旸葳"],
+    gender: "female",
     title: "自由主义学术推崇者",
     description: "很少管学生，给了你极大的自我探索空间。适合发展人脉与逻辑思维，环境宽松，压力极小，但也需要你更自律地维持专业输出。",
     emoji: "🪁",
@@ -3864,6 +3888,7 @@ const MENTORS: Mentor[] = [
     //   程恺 = 程泰宁×崔恺 / 何建民 = 何镜堂×孟建民 / 崔泰宁 = 崔恺×程泰宁 / 恺宁 = 崔恺×程泰宁
     name: "程恺",
     namePool: ["程恺", "何建民", "崔泰宁", "恺宁"],
+    gender: "male",
     title: "大型院总建筑师/合伙人",
     description: "手头有大量落地的公建项目，极其关注就业与实务能力。能帮你积累丰厚的行业资源与执行力，有效缓解转行的不确定感。",
     emoji: "🏗️",
@@ -4059,6 +4084,7 @@ const MENTORS: Mentor[] = [
     //   常彤 = 常青×张彤 / 张青 = 张彤×常青 / 庄惟 = 庄惟敏×常青 / 彤青 = 张彤×常青
     name: "常彤",
     namePool: ["常彤", "张青", "庄惟", "彤青"],
+    gender: "male",
     title: "普林斯顿/AA 优秀归国博士",
     description: "带有鲜明的国际视野，关注叙事表达与跨学科研究。能极大提升你的英语水平与表达逻辑，并利用其海外背景缓解你的年龄焦虑。",
     emoji: "✈️",
@@ -4353,18 +4379,44 @@ function MentorResumeModal({
   onSelectMentor,
   rolledMentorNames,
   inCharacterCreation = false,
+  playerMasterSchool,
 }: {
   mentorId: string | null;
   onClose: () => void;
   onSelectMentor?: (m: Mentor) => void;
   rolledMentorNames: Record<string, string>;
   inCharacterCreation?: boolean;
+  /** 玩家所选研究生院校：导师现任职单位与最近一条履历跟随它 */
+  playerMasterSchool?: string;
 }) {
   if (!mentorId) return null;
   const m = MENTORS.find((x) => x.id === mentorId);
   if (!m) return null;
   const displayName = rolledMentorNames[m.id] ?? m.name;
   const p = m.profileByName?.[displayName] ?? m.profile;
+  // 导师现任职单位跟随玩家研究生院校；教育背景和早年工作履历保持原样。
+  const school = playerMasterSchool?.trim() ? playerMasterSchool.trim() : "东南大学";
+  const withCurrentSchool = (text: string) => text
+    .replaceAll("东南大学建筑学院", school)
+    .replaceAll("东南大学", school)
+    .replaceAll("东大", school);
+  const stripPersonalInfoNotes = (text: string) => text
+    .replace(/\s*[（(][^）)]*[）)]/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  const personalInfo = p.personalInfo.map((it) =>
+    ({ ...it, value: it.label === "所在单位" ? school : stripPersonalInfoNotes(it.value) }),
+  );
+  const experience = p.experience.map((e, i) => {
+    if (i !== p.experience.length - 1) return e;
+    const currentDescription = withCurrentSchool(e.desc);
+    return {
+      ...e,
+      desc: currentDescription.includes(school)
+        ? currentDescription
+        : `${school} · ${currentDescription}`,
+    };
+  });
   const textPrimary = "#f1f3fb";
   const textSecondary = "rgba(198,207,234,0.68)";
   const accent = "#c9a84c";
@@ -4415,7 +4467,7 @@ function MentorResumeModal({
           {/* 个人信息 */}
           <ResumeSection title="个人信息">
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-              {p.personalInfo.map((it) => (
+              {personalInfo.map((it) => (
                 <div key={it.label} className="flex items-baseline gap-2 text-[12px]">
                   <span className="shrink-0" style={{ color: textSecondary }}>{it.label}</span>
                   <span className="text-right" style={{ color: textPrimary }}>{it.value}</span>
@@ -4439,7 +4491,7 @@ function MentorResumeModal({
           {/* 工作经历 */}
           <ResumeSection title="工作经历">
             <div className="space-y-2">
-              {p.experience.map((e, i) => (
+              {experience.map((e, i) => (
                 <div key={i} className="flex items-start gap-3 text-[12px]">
                   <span className="shrink-0 font-mono text-[11px]" style={{ color: accent, minWidth: "92px" }}>{e.period}</span>
                   <span style={{ color: textPrimary }}>{e.desc}</span>
@@ -5750,10 +5802,16 @@ export function GamePage() {
     const savedMentor = data.mentor as Mentor | null;
     const baseMentor = savedMentor ? (MENTORS.find((item) => item.id === savedMentor.id) ?? null) : null;
     if (savedMentor && baseMentor) {
+      const restoredMentorName = typeof savedMentor.name === "string" && savedMentor.name
+        ? savedMentor.name
+        : baseMentor.name;
       setMentor({
         ...baseMentor,
-        name: typeof savedMentor.name === "string" && savedMentor.name ? savedMentor.name : baseMentor.name,
+        name: restoredMentorName,
         customName: typeof savedMentor.customName === "string" ? savedMentor.customName : undefined,
+        gender: savedMentor.gender === "female" || savedMentor.gender === "male"
+          ? savedMentor.gender
+          : getMentorGender(restoredMentorName),
       });
     } else {
       setMentor(savedMentor ?? baseMentor ?? null);
@@ -6130,9 +6188,11 @@ export function GamePage() {
       }
       // 把随机命中的名字落到 mentor.name，保证存档/显示一致
       const rolled = rolledMentorNames[m.id];
+      const profileName = rolled || m.name;
       if (rolled && !finalMentor.customName) {
         finalMentor.name = rolled;
       }
+      finalMentor.gender = getMentorGender(profileName);
       setMentor(finalMentor);
       setIsMentorUnlocked(false);
       setIsMentorFirstMeet(false);
@@ -6438,8 +6498,8 @@ export function GamePage() {
       const evaluation = await evaluateCustomEventAction({
         event: {
           id: currentEvent.id,
-          title: currentEvent.title,
-          description: currentEvent.description,
+          title: personalizeMentorText(currentEvent.title, mentor),
+          description: personalizeMentorText(currentEvent.description, mentor),
           type: currentEvent.type,
         },
         action,
@@ -6485,6 +6545,7 @@ export function GamePage() {
     currentEvent,
     customEventAction,
     isEvaluatingCustomEventAction,
+    mentor,
     selectedEventBranch,
     semester,
     stats,
@@ -7389,7 +7450,14 @@ export function GamePage() {
 
   // 确保从最新的 EVENTS 数组中获取当前事件对象（包含 type 属性）
   // 解决 React 状态中可能存储了旧版事件对象导致 type 丢失的问题
-  const displayEvent = currentEvent ? EVENTS.find(e => e.id === currentEvent.id) || currentEvent : null;
+  const displayEventSource = currentEvent ? EVENTS.find(e => e.id === currentEvent.id) || currentEvent : null;
+  const displayEvent = displayEventSource
+    ? {
+        ...displayEventSource,
+        title: personalizeMentorText(displayEventSource.title, mentor),
+        description: personalizeMentorText(displayEventSource.description, mentor),
+      }
+    : null;
   const displayEventBranches = displayEvent ? EVENT_BRANCHES[displayEvent.id] ?? [] : [];
 
   // 样式变量（偏建筑学术风·玻璃质感）
@@ -7731,6 +7799,7 @@ export function GamePage() {
           }}
           rolledMentorNames={rolledMentorNames}
           inCharacterCreation={true}
+          playerMasterSchool={character.masterSchool}
         />
         <MentorDetailModal
           mentorId={detailMentorId}
@@ -8727,6 +8796,7 @@ export function GamePage() {
           }}
           rolledMentorNames={rolledMentorNames}
           inCharacterCreation={!mentor}
+          playerMasterSchool={character.masterSchool}
         />
 
         {/* 导师办公室沉浸式面谈（带导师人物立绘与学术请教对话系统） */}

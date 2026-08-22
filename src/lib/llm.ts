@@ -343,6 +343,51 @@ function sanitizeCustomEventEffects(value: unknown): Partial<Record<CustomEventS
   return effects;
 }
 
+async function readStreamedChatContent(response: Response): Promise<string> {
+  if (!response.body) throw new Error("AI 推演服务没有返回可读取的内容，请重新推演。");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
+  let fullText = "";
+
+  const consumeLine = (line: string): boolean => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) return false;
+
+    const payload = trimmed.slice(5).trim();
+    if (!payload) return false;
+    if (payload === "[DONE]") return true;
+
+    try {
+      const data = JSON.parse(payload);
+      const delta = data?.choices?.[0]?.delta?.content;
+      if (typeof delta === "string") fullText += delta;
+    } catch {
+      // SSE 数据可能跨 chunk，未完成的部分会继续保留在 buffer 中。
+    }
+
+    return false;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (consumeLine(line)) return fullText;
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer) consumeLine(buffer);
+  return fullText;
+}
+
 export async function evaluateCustomEventAction(
   input: CustomEventEvaluationInput
 ): Promise<CustomEventEvaluation> {
@@ -400,6 +445,7 @@ export async function evaluateCustomEventAction(
       ],
       temperature: 0.35,
       max_tokens: 1000,
+      stream: true,
     }),
   });
 
@@ -413,9 +459,8 @@ export async function evaluateCustomEventAction(
     throw new Error(`AI 推演服务暂时不可用（${response.status}），请稍后重试。`);
   }
 
-  const responseData = await response.json();
-  const rawContent = responseData?.choices?.[0]?.message?.content;
-  if (typeof rawContent !== "string") throw new Error("模型返回格式异常，请重新推演。");
+  const rawContent = await readStreamedChatContent(response);
+  if (!rawContent.trim()) throw new Error("模型返回格式异常，请重新推演。");
 
   let parsed: Record<string, unknown>;
   try {
