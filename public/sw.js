@@ -17,6 +17,14 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || !url.pathname.includes(ASSET_PATH_MARKER)) return;
 
+  // 清单决定资源版本，必须优先读取网络；离线时才回退到上次缓存。
+  if (url.pathname.endsWith("/assets/asset-manifest.json")) {
+    event.respondWith(
+      fetch(request).catch(async () => (await caches.match(request)) || Response.error()),
+    );
+    return;
+  }
+
   const cachePromise = caches.open(ASSET_CACHE);
   const cachedResponsePromise = cachePromise.then((cache) => cache.match(request));
   const updatePromise = cachePromise.then((cache) =>

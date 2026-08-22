@@ -4,6 +4,8 @@ import { supabase } from "../../lib/supabase";
 import { evaluateCustomEventAction } from "../../lib/llm";
 import { AIAssistant } from "./AIAssistant";
 import { tracker } from "../services/tracker";
+import { assetPreloader } from "../services/assetPreloader";
+import { ResourcePreloadPanel, ResourcePreloadStatus } from "./ResourcePreloadPanel";
 import { StatusAnalysisPanel } from "./StatusAnalysisPanel";
 import { DetailedStatsPanel } from "./DetailedStatsPanel";
 import { ActionBadgeIcon } from "./ActionIcon";
@@ -5057,7 +5059,7 @@ function LocalSaveSettings({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-[#c9a84c]/25 bg-[#080e1b] shadow-[0_28px_90px_rgba(0,0,0,0.65)]">
+      <div className="max-h-[calc(100vh-3rem)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[#c9a84c]/25 bg-[#080e1b] shadow-[0_28px_90px_rgba(0,0,0,0.65)]">
         <header className="flex items-center gap-3 border-b border-white/10 px-5 py-4 sm:px-6">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#c9a84c]/10 text-[#dec678]">
             <Settings size={18} />
@@ -5125,6 +5127,8 @@ function LocalSaveSettings({
               );
             })}
           </div>
+
+          <ResourcePreloadPanel />
 
           {feedback && <p className="mt-4 text-center text-[11px] text-emerald-300" aria-live="polite">{feedback}</p>}
 
@@ -5284,6 +5288,28 @@ export function GamePage() {
   const [mentor, setMentor] = useState<Mentor | null>(null);
   const [semester, setSemester] = useState(1);
   const [round, setRound] = useState(1);
+
+  // 首屏可交互后再后台准备全部画面；不会阻塞玩家输入姓名或进入下一页。
+  useEffect(() => {
+    const timer = window.setTimeout(() => assetPreloader.warmVisuals(), 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  // 选定导师后优先准备该导师、常驻同伴和 BGM；高速网络空闲后再补齐其余资源。
+  useEffect(() => {
+    if (!mentor?.id) return;
+    assetPreloader.warmMentorRoute(mentor.id);
+    const timer = window.setTimeout(() => {
+      const run = () => assetPreloader.warmRemaining();
+      if ("requestIdleCallback" in window) {
+        (window as Window & { requestIdleCallback: (callback: () => void, options?: { timeout: number }) => number })
+          .requestIdleCallback(run, { timeout: 8000 });
+      } else {
+        run();
+      }
+    }, 30000);
+    return () => window.clearTimeout(timer);
+  }, [mentor?.id]);
   const [currentEvent, setCurrentEvent] = useState<GameEvent | null>(null);
   const [activeCampusEvent, setActiveCampusEvent] = useState<CampusEvent | null>(null);
   const [campusEventResult, setCampusEventResult] = useState<{ success: boolean; narrative: string } | null>(null);
@@ -7499,6 +7525,7 @@ export function GamePage() {
           <button type="button" onClick={() => { setLocalSaveFeedback(""); setLocalSaveSlots(readLocalSaveSlotSummaries()); setIsSettingsOpen(true); }} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.025] py-2.5 text-[12px] text-slate-400 transition hover:border-[#c9a84c]/25 hover:text-[#dec678]">
             <FolderOpen size={14} />查看三个存档格
           </button>
+          <ResourcePreloadStatus />
           <div className="mt-3 flex flex-col items-center gap-1 text-[11px]" style={{ color: "rgba(180,200,240,0.3)" }}>
              <p>手机与电脑端均可完整体验，游戏进度会自动保存在本机。</p>
              <p>本游戏纯属虚构，如有雷同，那可真是太巧了。</p>

@@ -4,7 +4,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "prebuild": "node scripts/generate-asset-manifest.mjs",
     "build": "vite build",
+    "assets:manifest": "node scripts/generate-asset-manifest.mjs",
     "dev": "vite"
   },
   "dependencies": {
